@@ -1,0 +1,17 @@
+#![no_main]
+use libfuzzer_sys::fuzz_target;
+use sqisign_verify::{AnySignature, Level1, PublicKey};
+
+const PK_BYTES: &[u8] = include_bytes!("l1_pk.bin");
+
+fuzz_target!(|data: &[u8]| {
+    let pk = match PublicKey::<Level1>::from_bytes(PK_BYTES) {
+        Ok(pk) => pk,
+        Err(_) => return,
+    };
+    let sig = match AnySignature::<Level1>::from_bytes(data) {
+        Ok(sig) => sig,
+        Err(_) => return,
+    };
+    let _ = sig.verify(&pk, b"fuzz message");
+});

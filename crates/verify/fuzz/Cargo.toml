@@ -1,0 +1,146 @@
+[package]
+name = "sqisign-verify-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.sqisign-verify]
+path = ".."
+
+[[bin]]
+name = "fuzz_signature_from_bytes"
+path = "fuzz_targets/fuzz_signature_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pubkey_from_bytes"
+path = "fuzz_targets/fuzz_pubkey_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_verify"
+path = "fuzz_targets/fuzz_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_compressed_from_bytes"
+path = "fuzz_targets/fuzz_compressed_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_expanded_from_bytes"
+path = "fuzz_targets/fuzz_expanded_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_any_signature"
+path = "fuzz_targets/fuzz_any_signature.rs"
+test = false
+doc = false
+bench = false
+
+# Level 3 targets
+
+[[bin]]
+name = "fuzz_verify_l3"
+path = "fuzz_targets/fuzz_verify_l3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_signature_from_bytes_l3"
+path = "fuzz_targets/fuzz_signature_from_bytes_l3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pubkey_from_bytes_l3"
+path = "fuzz_targets/fuzz_pubkey_from_bytes_l3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_compressed_from_bytes_l3"
+path = "fuzz_targets/fuzz_compressed_from_bytes_l3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_expanded_from_bytes_l3"
+path = "fuzz_targets/fuzz_expanded_from_bytes_l3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_any_signature_l3"
+path = "fuzz_targets/fuzz_any_signature_l3.rs"
+test = false
+doc = false
+bench = false
+
+# Level 5 targets
+
+[[bin]]
+name = "fuzz_verify_l5"
+path = "fuzz_targets/fuzz_verify_l5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_signature_from_bytes_l5"
+path = "fuzz_targets/fuzz_signature_from_bytes_l5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pubkey_from_bytes_l5"
+path = "fuzz_targets/fuzz_pubkey_from_bytes_l5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_compressed_from_bytes_l5"
+path = "fuzz_targets/fuzz_compressed_from_bytes_l5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_expanded_from_bytes_l5"
+path = "fuzz_targets/fuzz_expanded_from_bytes_l5.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_any_signature_l5"
+path = "fuzz_targets/fuzz_any_signature_l5.rs"
+test = false
+doc = false
+bench = false

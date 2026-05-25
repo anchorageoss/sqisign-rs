@@ -1,0 +1,9 @@
+[package]
+name = "sqisign-alloc-audit"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dev-dependencies]
+sqisign-rs = { path = "../sqisign-rs", default-features = false }
+rand = "0.8"

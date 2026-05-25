@@ -1,0 +1,1276 @@
+//!
+//! Contains curves, torsion bases, and endomorphism action matrices
+//! for the standard and alternate starting curves.
+//!
+//! Fp elements are stored as Montgomery-form limb arrays.
+//! Auto-generated from SageMath precomputation. DO NOT EDIT.
+
+use num_bigint::BigInt;
+use std::sync::LazyLock;
+
+type Ibz = BigInt;
+
+fn ibz(s: &str) -> Ibz {
+    s.parse::<Ibz>()
+        .expect("invariant: precomputed constant must parse")
+}
+
+/// Number of 64-bit limbs per `Fp` element (5 for Level 1).
+pub const NWORDS_FIELD: usize = 5;
+/// Number of curves with precomputed endomorphism data (= `NUM_EXTREMAL_ORDERS`).
+pub const NUM_CURVES_WITH_ENDOMORPHISMS: usize = 7;
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_0_CURVE_A_RE: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_0_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_0_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_0_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_0_CURVE_A24_X_RE: [u64; 5] = [0xc, 0x0, 0x0, 0x0, 0x400000000000];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_0_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_0_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_0_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_P_X_RE: [u64; 5] = [
+    0x5bcab12000c08,
+    0x452654b56d052,
+    0x26f81b5190a0a,
+    0x36cfd66a361eb,
+    0x12726610d11b,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_P_X_IM: [u64; 5] = [
+    0x6b96065c83efc,
+    0x29da1d4a82cd9,
+    0x190797ab98bdf,
+    0x6841aa6eeee05,
+    0x1377c5431166,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_Q_X_RE: [u64; 5] = [
+    0x21dd55b97832f,
+    0x210f2d30b26ad,
+    0x680bcfcf6396,
+    0x27b318ec126a7,
+    0x4ffba5956012,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_Q_X_IM: [u64; 5] = [
+    0x74590149117e3,
+    0x4982edefcc606,
+    0x2ae3db0cc6884,
+    0x7d0384872f5ec,
+    0x4fbb0fcb5a52,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_PMQ_X_RE: [u64; 5] = [
+    0xf6001dafb71a,
+    0x75cb70989457f,
+    0x5f2ab120f726c,
+    0x7d12027e55817,
+    0x6482fe24949,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x63a39af1d2179,
+    0x1c2884b0237f3,
+    0x675979f836736,
+    0x11de56ef443d1,
+    0x462333fa18b7,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_0_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_0_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("358148485862516530295777212166085464807446066917001814010108736316374275803")
+    }),
+    LazyLock::new(|| {
+        ibz("154232568911797650634232736925059697497509532296810210911386094633617161594")
+    }),
+    LazyLock::new(|| {
+        ibz("37475475934861355003334106447043810791830859938399588542807915684018275407")
+    }),
+    LazyLock::new(|| {
+        ibz("94164362720749858077546948024101675244389810683156639269022451214536386853")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("221979649278043101980070707534958990363475663563794105533931524840471136959")
+    }),
+    LazyLock::new(|| {
+        ibz("184000564433938503418691060633051709799452733850275760258117031023757198976")
+    }),
+    LazyLock::new(|| {
+        ibz("357758278016473727810954542510081097590769929621950087883633524421848744567")
+    }),
+    LazyLock::new(|| {
+        ibz("230333199305223286393253452655228149688360214036364347745199662690439525697")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+    LazyLock::new(|| {
+        ibz("363244465857298442160283031127982833933564004355935276981313190146961943930")
+    }),
+    LazyLock::new(|| {
+        ibz("127945372731651964330579430733659369347414942522909236838913863255810979620")
+    }),
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("358148485862516530295777212166085464807446066917001814010108736316374275803")
+    }),
+    LazyLock::new(|| {
+        ibz("154232568911797650634232736925059697497509532296810210911386094633617161594")
+    }),
+    LazyLock::new(|| {
+        ibz("37475475934861355003334106447043810791830859938399588542807915684018275407")
+    }),
+    LazyLock::new(|| {
+        ibz("94164362720749858077546948024101675244389810683156639269022451214536386853")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("63907643278646621951261879755428657559542926440318733132454536812967375053")
+    }),
+    LazyLock::new(|| {
+        ibz("395272990964501271213123978874149273674399071873622212224317156594142511613")
+    }),
+    LazyLock::new(|| {
+        ibz("197616876975667541407144324478562454191300394780174838213220720052933509987")
+    }),
+    LazyLock::new(|| {
+        ibz("388405205304619766422062280434758482492292951159839720146676650717943287603")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_0_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+    LazyLock::new(|| {
+        ibz("181622232928649221080141515563991416966782002177967638490656595073480971965")
+    }),
+    LazyLock::new(|| {
+        ibz("63972686365825982165289715366829684673707471261454618419456931627905489810")
+    }),
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_1_CURVE_A_RE: [u64; 5] = [
+    0x177f3bd3d98cf,
+    0x568291dbf7092,
+    0x755dcb3de2190,
+    0x423388f314fe4,
+    0x2a6f0241fb7,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_1_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_1_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_1_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_1_CURVE_A24_X_RE: [u64; 5] = [
+    0x45dfcef4f6640,
+    0x15a0a476fdc24,
+    0x1d5772cf78864,
+    0x708ce23cc53f9,
+    0x2ca9bc0907ed,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_1_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_1_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_1_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_P_X_RE: [u64; 5] = [
+    0x5f6259b797b43,
+    0x157f63b3af2f9,
+    0x7a3f4ea01dfa8,
+    0x1dbb73e23680a,
+    0x18914dc770b9,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_P_X_IM: [u64; 5] = [
+    0x8cb6e0ced492,
+    0x5f20ac237154,
+    0x7d25b71e8f3dd,
+    0x4bf5fc15b1e6e,
+    0x1dc3d80fa781,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_Q_X_RE: [u64; 5] = [
+    0x567ae7b4d67f3,
+    0x5ccb6e9fa4f37,
+    0x176489cb8f4ea,
+    0x6a1c3c481062b,
+    0x2c142d4feffe,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_Q_X_IM: [u64; 5] = [
+    0x4c1bfcd30a39f,
+    0x21b126ab96a61,
+    0x60add76bd4a7,
+    0x4a6a3d02240a9,
+    0x1f52f1a6e758,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x23fad1a2013b,
+    0x5e4194af99678,
+    0x34468fab3bf1b,
+    0x76e4e3f5b18c0,
+    0x432503da9000,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x34c912d2b3900,
+    0x14d40850dcbe,
+    0x672a3eab48ffe,
+    0x2b790affecf8c,
+    0x2ba92928eab,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_1_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_1_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("264912510083758236188201365008820888343574413949013117923963260292608880403")
+    }),
+    LazyLock::new(|| {
+        ibz("413221448870346769499261453134522901162393756409832130476640363197385370478")
+    }),
+    LazyLock::new(|| {
+        ibz("387551684309337131370778423983237180094095137349250855477341919613121218559")
+    }),
+    LazyLock::new(|| {
+        ibz("187400338499508152185122795181366251708261463651145335355167927238301782253")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+    LazyLock::new(|| {
+        ibz("363244465857298442160283031127982833933564004355935276981313190146961943930")
+    }),
+    LazyLock::new(|| {
+        ibz("127945372731651964330579430733659369347414942522909236838913863255810979620")
+    }),
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("291055844757339877172689946093118299809583904171311339716519286597295312249")
+    }),
+    LazyLock::new(|| {
+        ibz("446168173797646162235261455685521103985278869668169020525426197032071096180")
+    }),
+    LazyLock::new(|| {
+        ibz("56741431526419723908627891823339124264453358913260594799918698240779731257")
+    }),
+    LazyLock::new(|| {
+        ibz("161257003825926511200634214097068840242251973428847113562611900933615350407")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("264912510083758236188201365008820888343574413949013117923963260292608880403")
+    }),
+    LazyLock::new(|| {
+        ibz("413221448870346769499261453134522901162393756409832130476640363197385370478")
+    }),
+    LazyLock::new(|| {
+        ibz("387551684309337131370778423983237180094095137349250855477341919613121218559")
+    }),
+    LazyLock::new(|| {
+        ibz("187400338499508152185122795181366251708261463651145335355167927238301782253")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+    LazyLock::new(|| {
+        ibz("181622232928649221080141515563991416966782002177967638490656595073480971965")
+    }),
+    LazyLock::new(|| {
+        ibz("63972686365825982165289715366829684673707471261454618419456931627905489810")
+    }),
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_1_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("42616951390968474738883557910588972858582638737786023148657516122622423081")
+    }),
+    LazyLock::new(|| {
+        ibz("87167897223923338401064831782937607728078664194198001650947654122713559961")
+    }),
+    LazyLock::new(|| {
+        ibz("394931304144904851444874381368139517624432879923725788691047272161962678855")
+    }),
+    LazyLock::new(|| {
+        ibz("409695897192297913634440602279598167193253238862372430130473671408288239575")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_2_CURVE_A_RE: [u64; 5] = [
+    0x4d12b0e68b79f,
+    0x337935267f3a8,
+    0x380bf65840877,
+    0x4bcc119304135,
+    0x35da6e9613a8,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_2_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_2_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_2_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_2_CURVE_A24_X_RE: [u64; 5] = [
+    0x1344ac39a2df4,
+    0x6cde4d499fcea,
+    0x2e02fd961021d,
+    0x12f30464c104d,
+    0x39769ba584ea,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_2_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_2_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_2_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_P_X_RE: [u64; 5] = [
+    0x11012b71d2d54,
+    0x76efaa195f3a3,
+    0x6a89621403297,
+    0xf05f07417877,
+    0x58bafba5332,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_P_X_IM: [u64; 5] = [
+    0x3f3eaf5646a2d,
+    0x6a0f369773854,
+    0x15a15657d2442,
+    0x667ba47d7dbf8,
+    0x2d784590c43,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_Q_X_RE: [u64; 5] = [
+    0x3f45882691098,
+    0x6a82534f3934f,
+    0x6c6ead870b0ee,
+    0x5669ed2bbb8da,
+    0x2b9a1f281940,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_Q_X_IM: [u64; 5] = [
+    0x41be7c586d896,
+    0x22c68cb09ca5e,
+    0x3c045adbe77b,
+    0x506845058c043,
+    0x2d2b7e8d71db,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x42b9c93c44402,
+    0x461426db46e24,
+    0x6d7aab066dc8c,
+    0xbf26f540d0b8,
+    0x4f6e2764cc0c,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x72f03d7912cd,
+    0x43aa6e7af9e21,
+    0x679aa18a05871,
+    0x14c0756affa95,
+    0x2abcbd62f832,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_2_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_2_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("199091348775269914839333451548821644804900038258534981328908992693581144049")
+    }),
+    LazyLock::new(|| {
+        ibz("39205498241250144476697260274634627887019240995464545722574720346313724390")
+    }),
+    LazyLock::new(|| {
+        ibz("302554609727475164986938021256869139727178048452792348173316019754019058717")
+    }),
+    LazyLock::new(|| {
+        ibz("253221499807996473533990708641365495246935839341623471950222194837329518607")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+    LazyLock::new(|| {
+        ibz("363244465857298442160283031127982833933564004355935276981313190146961943930")
+    }),
+    LazyLock::new(|| {
+        ibz("127945372731651964330579430733659369347414942522909236838913863255810979620")
+    }),
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("343822489694331232409173704051987719825203887366326656473129651816584118211")
+    }),
+    LazyLock::new(|| {
+        ibz("135563816621140785999115618480942945446673444325123857545210374478868005016")
+    }),
+    LazyLock::new(|| {
+        ibz("310978738513390606388260683558405558265141513593225268865046265371296624939")
+    }),
+    LazyLock::new(|| {
+        ibz("108490358888935155964150456138199420226631990233831796806001535714326544445")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("199091348775269914839333451548821644804900038258534981328908992693581144049")
+    }),
+    LazyLock::new(|| {
+        ibz("39205498241250144476697260274634627887019240995464545722574720346313724390")
+    }),
+    LazyLock::new(|| {
+        ibz("302554609727475164986938021256869139727178048452792348173316019754019058717")
+    }),
+    LazyLock::new(|| {
+        ibz("253221499807996473533990708641365495246935839341623471950222194837329518607")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+    LazyLock::new(|| {
+        ibz("181622232928649221080141515563991416966782002177967638490656595073480971965")
+    }),
+    LazyLock::new(|| {
+        ibz("63972686365825982165289715366829684673707471261454618419456931627905489810")
+    }),
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_2_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("82498182206849916654847054131116720693364826169440103980130730735834651947")
+    }),
+    LazyLock::new(|| {
+        ibz("219243860143599197890127831971581263128408051948135067836001797327427238735")
+    }),
+    LazyLock::new(|| {
+        ibz("270491337581849461885118938547241876472264679014243607761228403687603965981")
+    }),
+    LazyLock::new(|| {
+        ibz("369814666376416471718477106059070419358471051430718349299000456795076010709")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_3_CURVE_A_RE: [u64; 5] = [
+    0xc17103986f53,
+    0x6268ee5a8a215,
+    0x11304cb0efe57,
+    0x3846c2af6c518,
+    0x2f57c43f40f7,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_3_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_3_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_3_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_3_CURVE_A24_X_RE: [u64; 5] = [
+    0x2305c40e61be1,
+    0x789a3b96a2885,
+    0x44c132c3bf95,
+    0x6e11b0abdb146,
+    0x37d5f10fd03d,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_3_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_3_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_3_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_P_X_RE: [u64; 5] = [
+    0x5b79ca4d5d6e0,
+    0x39395e18e3349,
+    0x75887ba6eb031,
+    0x7d3b20412639b,
+    0x13cf1bccb9dd,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_P_X_IM: [u64; 5] = [
+    0x76561c962386e,
+    0x6f0884ce0b2e6,
+    0x20dd8220aacb5,
+    0x19375e2d543a7,
+    0x4da1583c8553,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_Q_X_RE: [u64; 5] = [
+    0x4854b149c6d0c,
+    0x7904efa1d89aa,
+    0x343394a9e5c0f,
+    0x68d9d640ad69d,
+    0x2d711f0af96f,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_Q_X_IM: [u64; 5] = [
+    0x3bcab7a6e1d94,
+    0x6c35a91df0293,
+    0x1b51f6ef1b777,
+    0x6e9f0bb3d284,
+    0x464e4d547390,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x376c342849596,
+    0x657b69dced4b6,
+    0x44b159aeb5eca,
+    0x54b8abf1bdbfe,
+    0x202393a746e4,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x260478ad25e9b,
+    0x21652ecc55014,
+    0x728048f1594da,
+    0x6b5eb728d6d3,
+    0x3f305db59a7f,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_3_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_3_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("348925526538677498519108658711405182726649674709929524843544167268209537599")
+    }),
+    LazyLock::new(|| {
+        ibz("112700745172465786703207964152480834816470778992686463115062598563788278222")
+    }),
+    LazyLock::new(|| {
+        ibz("368112177203489593849587320448076286866370811165006343241419843992495276491")
+    }),
+    LazyLock::new(|| {
+        ibz("103387322044588889854215501478781957325186202890228928435587020262701125057")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+    LazyLock::new(|| {
+        ibz("89068382725967946213041129062204306118271873244223176297817997383948718726")
+    }),
+    LazyLock::new(|| {
+        ibz("324367475851614424042744729456527770704420935077249216440217324275099683036")
+    }),
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("6777335046738362513007741611742479533087091467263933298591680218695103331")
+    }),
+    LazyLock::new(|| {
+        ibz("52597007428389949151279516608593668222715810174473568157692743384263093684")
+    }),
+    LazyLock::new(|| {
+        ibz("393483978571665450985887681381614974080441353546888334427748525195662780531")
+    }),
+    LazyLock::new(|| {
+        ibz("445535513536528025860316418578444660518748786132894519980539507312215559325")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("348925526538677498519108658711405182726649674709929524843544167268209537599")
+    }),
+    LazyLock::new(|| {
+        ibz("112700745172465786703207964152480834816470778992686463115062598563788278222")
+    }),
+    LazyLock::new(|| {
+        ibz("368112177203489593849587320448076286866370811165006343241419843992495276491")
+    }),
+    LazyLock::new(|| {
+        ibz("103387322044588889854215501478781957325186202890228928435587020262701125057")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+    LazyLock::new(|| {
+        ibz("270690615654617167293182644626195723085053875422190814788474592457429690691")
+    }),
+    LazyLock::new(|| {
+        ibz("388340162217440406208034444823357455378128406338703834859674255903005172846")
+    }),
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_3_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("449601380745891083708374595552039701953790303248533824900820330482714987099")
+    }),
+    LazyLock::new(|| {
+        ibz("9909303689081946954732319260787088836765866479939276648783565675820807491")
+    }),
+    LazyLock::new(|| {
+        ibz("2064288446820921414207518422263118761417921085492754434096027997996609157")
+    }),
+    LazyLock::new(|| {
+        ibz("2711467837375304664949564638147438098045574351624628378310857048195675557")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_4_CURVE_A_RE: [u64; 5] = [
+    0x14612b0c4c481,
+    0x7219e19939ca1,
+    0x2bc69d2a0a8bd,
+    0x5f4b0bcbad964,
+    0x25664a8d484e,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_4_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_4_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_4_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_4_CURVE_A24_X_RE: [u64; 5] = [
+    0x25184ac31312d,
+    0x3c8678664e728,
+    0xaf1a74a82a2f,
+    0x57d2c2f2eb659,
+    0xd5992a35213,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_4_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_4_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_4_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_P_X_RE: [u64; 5] = [
+    0x58c095baf6ada,
+    0x741ce646cd96,
+    0x5007b4e8336a8,
+    0x5010ebbfe93f9,
+    0x1b2013c1eb92,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_P_X_IM: [u64; 5] = [
+    0x75c0724e94e91,
+    0x77664d380f258,
+    0xfb261c9ef941,
+    0x749554a3cd77c,
+    0x1b77c23de11f,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_Q_X_RE: [u64; 5] = [
+    0x71850cee2e1ca,
+    0x1826b78a3cc19,
+    0xddebf5154aa,
+    0x696aeeba62d78,
+    0x8953ba03b47,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_Q_X_IM: [u64; 5] = [
+    0x2dc44634da928,
+    0x4ea539513e1b6,
+    0x5728c1bb241c3,
+    0x3686f2152057e,
+    0x2f6351277b8b,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x4c38023ba1341,
+    0xee167e7a402b,
+    0x7cbae09cd7aee,
+    0x442bf312e4537,
+    0x658d9f7ab76,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x370f1db4d5016,
+    0x4e773feecb28a,
+    0x427c305ffbe2,
+    0x687ab9f2e04cb,
+    0x1feaa39f031c,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_4_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_4_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("415822056106817261710381208026053021447915869569799829495386124083208032269")
+    }),
+    LazyLock::new(|| {
+        ibz("150086271371273196247850222271751238545235188346371247466938663918245540478")
+    }),
+    LazyLock::new(|| {
+        ibz("200066861367645052233938476896613948681104109246260257608179404174994496425")
+    }),
+    LazyLock::new(|| {
+        ibz("36490792476449126662942952164134118603920008030358623783745063447702630387")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+    LazyLock::new(|| {
+        ibz("363244465857298442160283031127982833933564004355935276981313190146961943930")
+    }),
+    LazyLock::new(|| {
+        ibz("127945372731651964330579430733659369347414942522909236838913863255810979620")
+    }),
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("48231841489946847228349053592550258405356014225760687367204190765352756247")
+    }),
+    LazyLock::new(|| {
+        ibz("439079345438561379066368244496874758346867385057757809850521969344901751272")
+    }),
+    LazyLock::new(|| {
+        ibz("348359112219837806475762092633737329372345841646850376418629782100454488319")
+    }),
+    LazyLock::new(|| {
+        ibz("404081007093319541144975106597636881646479863374397765911926996765557906409")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("415822056106817261710381208026053021447915869569799829495386124083208032269")
+    }),
+    LazyLock::new(|| {
+        ibz("150086271371273196247850222271751238545235188346371247466938663918245540478")
+    }),
+    LazyLock::new(|| {
+        ibz("200066861367645052233938476896613948681104109246260257608179404174994496425")
+    }),
+    LazyLock::new(|| {
+        ibz("36490792476449126662942952164134118603920008030358623783745063447702630387")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+    LazyLock::new(|| {
+        ibz("181622232928649221080141515563991416966782002177967638490656595073480971965")
+    }),
+    LazyLock::new(|| {
+        ibz("63972686365825982165289715366829684673707471261454618419456931627905489810")
+    }),
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_4_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("112308850857187564516937394871622177673909184639035505279055191822052827376")
+    }),
+    LazyLock::new(|| {
+        ibz("34937471453645069975806221205568120903224842330773833479273705276008221713")
+    }),
+    LazyLock::new(|| {
+        ibz("406165356832451217300103213914076572426704879946860395543407771637372496086")
+    }),
+    LazyLock::new(|| {
+        ibz("340003997726078823856386765318564962377926692961122948000075995708857835280")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_5_CURVE_A_RE: [u64; 5] = [
+    0x27e67b1ad4c35,
+    0x4c9b9707ea7be,
+    0x54e830f39a013,
+    0x2661741eb0d4,
+    0x40d297b19c53,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_5_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_5_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_5_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_5_CURVE_A24_X_RE: [u64; 5] = [
+    0x49f99ec6b531a,
+    0x7326e5c1fa9ef,
+    0x153a0c3ce6804,
+    0x609985d07ac35,
+    0x1434a5ec6714,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_5_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_5_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_5_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_P_X_RE: [u64; 5] = [
+    0x6292649ab6ec5,
+    0x514c3aa63eaa8,
+    0x42b95b0dce14a,
+    0x5617e6b3d022,
+    0x262a0b6ad948,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_P_X_IM: [u64; 5] = [
+    0x296936f8959c,
+    0x7829b486d8303,
+    0x51e4d11693064,
+    0x3559dbc9d0dae,
+    0x282ba45c8a46,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_Q_X_RE: [u64; 5] = [
+    0xbd0e9751b3df,
+    0x29bd7a6842bbd,
+    0x61480930054f6,
+    0x7c90f1cdb870a,
+    0x10fc8988a92c,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_Q_X_IM: [u64; 5] = [
+    0x6ee415f437e26,
+    0x2244aa9d1a613,
+    0x437f0b45ef3a9,
+    0x749d8893337b5,
+    0xe5a6eeb752b,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x85579e1b8722,
+    0x632525e90080b,
+    0x35539378e8d10,
+    0x47389416f49d3,
+    0x11c1e7bbb047,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x367f0f2e5527c,
+    0x763bfb94f5016,
+    0x70df1a057bfdc,
+    0x42460f20b8757,
+    0x4a07f8d23dd8,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_5_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_5_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("111884126274948978731884943913568130139373785147280625489640377766101723083")
+    }),
+    LazyLock::new(|| {
+        ibz("305697844085204170751676857382112303364058009537288507429989634874917006718")
+    }),
+    LazyLock::new(|| {
+        ibz("60767635553987133049261465209283161602816331209301516761298999252346460375")
+    }),
+    LazyLock::new(|| {
+        ibz("340428722308317409641439216276619009912462092452877827789490809764808939573")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+    LazyLock::new(|| {
+        ibz("89068382725967946213041129062204306118271873244223176297817997383948718726")
+    }),
+    LazyLock::new(|| {
+        ibz("324367475851614424042744729456527770704420935077249216440217324275099683036")
+    }),
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("88555715985482002498303730445248927383627582935304037110121992560128267487")
+    }),
+    LazyLock::new(|| {
+        ibz("26658581896395986396735563762820589657792020525148732960929308133010497676")
+    }),
+    LazyLock::new(|| {
+        ibz("246926882707222272201098345734554322940639774374378892075468755620344230367")
+    }),
+    LazyLock::new(|| {
+        ibz("363757132597784385875020429744938212668208294664854416169009194970782395169")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("111884126274948978731884943913568130139373785147280625489640377766101723083")
+    }),
+    LazyLock::new(|| {
+        ibz("305697844085204170751676857382112303364058009537288507429989634874917006718")
+    }),
+    LazyLock::new(|| {
+        ibz("60767635553987133049261465209283161602816331209301516761298999252346460375")
+    }),
+    LazyLock::new(|| {
+        ibz("340428722308317409641439216276619009912462092452877827789490809764808939573")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+    LazyLock::new(|| {
+        ibz("270690615654617167293182644626195723085053875422190814788474592457429690691")
+    }),
+    LazyLock::new(|| {
+        ibz("388340162217440406208034444823357455378128406338703834859674255903005172846")
+    }),
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_5_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("117047205625182851055410143363541956886757682647070005786500705310766257735")
+    }),
+    LazyLock::new(|| {
+        ibz("433990938593743841745894037231222240302655149620174555148941194888224860415")
+    }),
+    LazyLock::new(|| {
+        ibz("263572372726349912547361731035398435049948461679921375276763497273310721849")
+    }),
+    LazyLock::new(|| {
+        ibz("335265642958083537317914016826645183165078194953088447492630482220144404921")
+    }),
+];
+
+/// Curve coefficient A, real part
+pub const ENDOMORPHISM_6_CURVE_A_RE: [u64; 5] = [
+    0x1fd635b4f2c83,
+    0x3ddd0240b9934,
+    0x53881afe8d4a1,
+    0x723f462627973,
+    0x147962843332,
+];
+/// Curve coefficient A, imaginary part
+pub const ENDOMORPHISM_6_CURVE_A_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve coefficient C, real part
+pub const ENDOMORPHISM_6_CURVE_C_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve coefficient C, imaginary part
+pub const ENDOMORPHISM_6_CURVE_C_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, x-coordinate, real part
+pub const ENDOMORPHISM_6_CURVE_A24_X_RE: [u64; 5] = [
+    0x7f58d6d3cb2d,
+    0x2f7740902e64d,
+    0x74e206bfa3528,
+    0x5c8fd18989e5c,
+    0x311e58a10ccc,
+];
+/// Curve A24 point, x-coordinate, imaginary part
+pub const ENDOMORPHISM_6_CURVE_A24_X_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Curve A24 point, z-coordinate, real part
+pub const ENDOMORPHISM_6_CURVE_A24_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Curve A24 point, z-coordinate, imaginary part
+pub const ENDOMORPHISM_6_CURVE_A24_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// Basis P, x-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_P_X_RE: [u64; 5] = [
+    0x472a0432a50a5,
+    0x2584ec65ccf85,
+    0x5a5586ba27eff,
+    0x248f2f0f9bd37,
+    0x42892709fd53,
+];
+/// Basis P, x-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_P_X_IM: [u64; 5] = [
+    0x3727bdaab80d,
+    0x229e05a5546f4,
+    0x4bad4d3212000,
+    0x79e6087aee2df,
+    0x42f9bfaf2bc8,
+];
+/// Basis P, z-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_P_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P, z-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_P_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis Q, x-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_Q_X_RE: [u64; 5] = [
+    0x140e00d2ad002,
+    0x3235e1c701b8d,
+    0x272d7237bc84d,
+    0x44426d7ad2303,
+    0x459a7fa89b08,
+];
+/// Basis Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_Q_X_IM: [u64; 5] = [
+    0x4246142cac789,
+    0x1a160f97cc85d,
+    0x43707cb72dff1,
+    0x30e5aa57a2936,
+    0x2c228ad830fe,
+];
+/// Basis Q, z-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_Q_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_Q_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+/// Basis P-Q, x-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_PMQ_X_RE: [u64; 5] = [
+    0x519b1a003883d,
+    0x356e25ed579a9,
+    0x6b2a143d80555,
+    0x1039d06c01ead,
+    0xa3c331e0448,
+];
+/// Basis P-Q, x-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_PMQ_X_IM: [u64; 5] = [
+    0x45ddc052cdef3,
+    0x20a40813439ef,
+    0x52630baf0e697,
+    0x4b49649819137,
+    0x14d0e0cfb056,
+];
+/// Basis P-Q, z-coordinate, real part
+pub const ENDOMORPHISM_6_BASIS_PMQ_Z_RE: [u64; 5] = [0x19, 0x0, 0x0, 0x0, 0x300000000000];
+/// Basis P-Q, z-coordinate, imaginary part
+pub const ENDOMORPHISM_6_BASIS_PMQ_Z_IM: [u64; 5] = [0x0, 0x0, 0x0, 0x0, 0x0];
+
+/// ACTION_I matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_I: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("54701425115421875338743964467451202663506279853528419049938754315177324919")
+    }),
+    LazyLock::new(|| {
+        ibz("284399851527656803366888375417875381813358092075266440663157410608607097450")
+    }),
+    LazyLock::new(|| {
+        ibz("40036149792112035741896576582980753910611539609725936911426086939440784491")
+    }),
+    LazyLock::new(|| {
+        ibz("397611423467844513034580195722735937388329597746630034229192433215733337737")
+    }),
+];
+/// ACTION_J matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_J: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("120739053919350208174578475007687197268056947282522715167201284074069173019")
+    }),
+    LazyLock::new(|| {
+        ibz("363244465857298442160283031127982833933564004355935276981313190146961943930")
+    }),
+    LazyLock::new(|| {
+        ibz("127945372731651964330579430733659369347414942522909236838913863255810979620")
+    }),
+    LazyLock::new(|| {
+        ibz("331573794663916180198745685182499942783778930317635738111929903456841489637")
+    }),
+];
+/// ACTION_K matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_K: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("15754148901716278227397864580095565742289890241082202033163550299269503349")
+    }),
+    LazyLock::new(|| {
+        ibz("402193652269805464868175381777381119353469868230926229804950473744102256264")
+    }),
+    LazyLock::new(|| {
+        ibz("361179573524553485343827184242021033073517201308850103271773980352629174925")
+    }),
+    LazyLock::new(|| {
+        ibz("436558699681550110145926295610091574309545987359076251245967637231641159307")
+    }),
+];
+/// ACTION_GEN2 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_GEN2: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("54701425115421875338743964467451202663506279853528419049938754315177324919")
+    }),
+    LazyLock::new(|| {
+        ibz("284399851527656803366888375417875381813358092075266440663157410608607097450")
+    }),
+    LazyLock::new(|| {
+        ibz("40036149792112035741896576582980753910611539609725936911426086939440784491")
+    }),
+    LazyLock::new(|| {
+        ibz("397611423467844513034580195722735937388329597746630034229192433215733337737")
+    }),
+];
+/// ACTION_GEN3 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_GEN3: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("60369526959675104087289237503843598634028473641261357583600642037034586510")
+    }),
+    LazyLock::new(|| {
+        ibz("181622232928649221080141515563991416966782002177967638490656595073480971965")
+    }),
+    LazyLock::new(|| {
+        ibz("63972686365825982165289715366829684673707471261454618419456931627905489810")
+    }),
+    LazyLock::new(|| {
+        ibz("391943321623591284286034922686343541417807403958897095695530545493876076147")
+    }),
+];
+/// ACTION_GEN4 matrix (row-major: `[0][0], [0][1], [1][0], [1][1]`)
+pub static ENDOMORPHISM_6_ACTION_GEN4: [LazyLock<Ibz>; 4] = [
+    LazyLock::new(|| {
+        ibz("107559445749048736592688199643646398825618378795336109797314228974284539040")
+    }),
+    LazyLock::new(|| {
+        ibz("385114023122672100767363758917625464536462888793963376203194106167200456235")
+    }),
+    LazyLock::new(|| {
+        ibz("346732098507457663152705677572510993422081822529949218580850405389386066594")
+    }),
+    LazyLock::new(|| {
+        ibz("344753402834217651780635960546540741226217498804822343481816958556626123616")
+    }),
+];

@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "bench-bigint"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+num-bigint = { version = "0.4", features = ["rand"] }
+num-traits = "0.2"
+num-integer = "0.1"
+crypto-bigint = { version = "0.6", default-features = false }
+rand = "0.8"
