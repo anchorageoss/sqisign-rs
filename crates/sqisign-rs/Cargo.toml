@@ -2,6 +2,7 @@
 name = "sqisign-rs"
 description = "SQIsign post-quantum signatures: keygen, sign, verify in pure Rust"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -10,7 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-sqisign-verify = { version = "0.1.0", path = "../verify" }
+sqisign-verify = { version = "0.2.0", path = "../verify" }
 num-bigint = { workspace = true }
 num-traits = { workspace = true }
 num-integer = { workspace = true }
