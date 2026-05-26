@@ -9,16 +9,20 @@
 //!
 //! # Verify a signature
 //!
+//! Pass raw signature bytes directly; the format (standard, expanded, or
+//! compressed) is auto-detected from the byte length:
+//!
 //! ```
 //! use hex_literal::hex;
-//! use sqisign_verify::{Level1, PublicKey, Signature};
+//! use sqisign_verify::PublicKey;
 //!
-//! let pk = hex!(
+//! # fn main() -> Result<(), sqisign_verify::Error> {
+//! let pk_bytes = hex!(
 //!     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
 //!     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
 //!     "0B"
 //! );
-//! let sig = hex!(
+//! let sig_bytes = hex!(
 //!     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
 //!     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
 //!     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
@@ -30,9 +34,40 @@
 //!     "C8"
 //! );
 //!
-//! let pk = PublicKey::<Level1>::from_bytes(&pk).unwrap();
-//! let sig = Signature::<Level1>::from_bytes(&sig).unwrap();
-//! sig.verify(&pk, &msg).unwrap();
+//! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+//! pk.verify_bytes(&msg, &sig_bytes)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Or use the [`Verifier`] trait with typed signatures:
+//!
+//! ```
+//! use hex_literal::hex;
+//! use sqisign_verify::{PublicKey, Signature, Verifier};
+//!
+//! # fn main() -> Result<(), sqisign_verify::Error> {
+//! # let pk_bytes = hex!(
+//! #     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
+//! #     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
+//! #     "0B"
+//! # );
+//! # let sig_bytes = hex!(
+//! #     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
+//! #     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
+//! #     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
+//! #     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
+//! #     "71D86EFF3447018ADB0A6551EE8322AB30010202"
+//! # );
+//! # let msg = hex!(
+//! #     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
+//! #     "C8"
+//! # );
+//! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+//! let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+//! pk.verify(&msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+//! # Ok(())
+//! # }
 //! ```
 
 #![no_std]
@@ -49,7 +84,7 @@ pub mod hash;
 pub mod types;
 pub mod verify;
 
-pub use formats::{AnySignature, CompressedSignature, ExpandedSignature, SignatureFormat};
+pub use formats::{CompressedSignature, ExpandedSignature};
 pub use hash::hash_to_challenge;
 pub use types::{PublicKey, Scalar, Signature};
 

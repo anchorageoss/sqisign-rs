@@ -1,6 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use sqisign_verify::{AnySignature, Level1, PublicKey};
+use sqisign_verify::formats::AnySignature;
+use sqisign_verify::{Level1, PublicKey};
 
 const PK_BYTES: &[u8] = include_bytes!("l1_pk.bin");
 

@@ -3,7 +3,7 @@
 //! Field uses 9 limbs of 57-bit radix (unsaturated Montgomery form).
 
 use super::{Level5, SecurityLevel};
-use hybrid_array::sizes::{U128, U129, U292, U576, U64, U8, U9};
+use hybrid_array::sizes::{U128, U129, U257, U292, U420, U576, U64, U8, U9};
 
 /// The Level 5 prime `p = 27 * 2^500 - 1` as 64 little-endian bytes.
 ///
@@ -35,6 +35,10 @@ impl SecurityLevel for Level5 {
     type PkLen = U129;
     /// Signature: compressed response isogeny encoding (292 bytes).
     type SigLen = U292;
+    /// Expanded signature (420 bytes).
+    type ExpandedSigLen = U420;
+    /// Compressed signature (257 bytes).
+    type CompressedSigLen = U257;
     /// Secret key: ideal norm + generator coords + basis-change matrix.
     /// Actual content is 572 bytes; U576 is the next upstream hybrid-array
     /// size. The 4 trailing bytes are zero-padded.

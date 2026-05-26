@@ -11,10 +11,13 @@
 //! ```
 //! use sqisign_rs::{generate, PublicKey, SigningKey};
 //!
+//! # fn main() -> Result<(), sqisign_rs::Error> {
 //! let mut rng = rand::rngs::OsRng;
 //! let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
-//! let sig = sk.sign(b"hello world", &mut rng).unwrap();
-//! sig.verify(&pk, b"hello world").unwrap();
+//! let sig = sk.sign(b"hello world", &mut rng)?;
+//! pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod alloc;
@@ -92,6 +95,48 @@ impl<L: sqisign_verify::fp::FpBackend + LevelPrecomp> core::fmt::Debug for Signi
 impl<L: sqisign_verify::fp::FpBackend + LevelPrecomp> core::fmt::Display for SigningKey<L> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("SigningKey([REDACTED])")
+    }
+}
+
+impl<L: id2iso::sign_precomp::HasSigningPrecomp + LevelPrecomp> SigningKey<L> {
+    /// Return a wrapper that prints the raw signing key bytes as hex.
+    ///
+    /// # Security Warning
+    ///
+    /// The returned type implements [`Display`](core::fmt::Display) and
+    /// will output **secret key material in plaintext**. Use only for
+    /// debugging in secure, ephemeral environments. Never log this
+    /// output in production, persist it to files, or transmit it over
+    /// untrusted channels.
+    #[inline]
+    pub fn display_secret(&self) -> SigningKeyDisplay<'_, L> {
+        SigningKeyDisplay(self)
+    }
+}
+
+/// Wrapper returned by [`SigningKey::display_secret`] that prints raw
+/// signing key bytes as lowercase hex.
+///
+/// # Security Warning
+///
+/// This will output secret key material in plaintext when formatted.
+pub struct SigningKeyDisplay<'a, L: sqisign_verify::fp::FpBackend + LevelPrecomp>(
+    &'a SigningKey<L>,
+);
+
+impl<L: id2iso::sign_precomp::HasSigningPrecomp + LevelPrecomp> core::fmt::Display
+    for SigningKeyDisplay<'_, L>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.0.to_bytes() {
+            Ok(bytes) => {
+                for &b in bytes.as_slice() {
+                    write!(f, "{b:02x}")?;
+                }
+                Ok(())
+            }
+            Err(_) => f.write_str("<encoding error>"),
+        }
     }
 }
 

@@ -1,0 +1,11 @@
+[package]
+name = "project-sign"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+sqisign-rs = { path = "../../crates/sqisign-rs" }
+rand = "0.8"
+hex = "0.4"
+sha2 = { version = "0.10", features = ["std"] }

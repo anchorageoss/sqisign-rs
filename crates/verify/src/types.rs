@@ -9,13 +9,50 @@ use crate::precomp::LevelPrecomp;
 use hybrid_array::typenum::Unsigned;
 use hybrid_array::Array;
 
+/// Write a byte slice as lowercase hex into a formatter.
+pub(crate) fn fmt_hex(f: &mut core::fmt::Formatter<'_>, bytes: &[u8]) -> core::fmt::Result {
+    for &b in bytes {
+        write!(f, "{b:02x}")?;
+    }
+    Ok(())
+}
+
+/// Write the little-endian u64 limbs of a [`Scalar`] as a hex byte string.
+pub(crate) fn fmt_scalar<L>(f: &mut core::fmt::Formatter<'_>, s: &Scalar<L>) -> core::fmt::Result
+where
+    L: FpBackend,
+{
+    for &limb in s.digits.as_slice() {
+        for &b in &limb.to_le_bytes() {
+            write!(f, "{b:02x}")?;
+        }
+    }
+    Ok(())
+}
+
+/// Write an `Fp2` element as a hex byte string of its canonical encoding.
+pub(crate) fn fmt_fp2<L: FpBackend>(
+    f: &mut core::fmt::Formatter<'_>,
+    v: &Fp2<L>,
+) -> core::fmt::Result {
+    fmt_hex(f, &v.encode())
+}
+
 /// A fixed-width multi-precision integer for scalars, matrix entries,
 /// and challenge coefficients.
 ///
 /// Represented as `NWORDS_ORDER` little-endian 64-bit limbs.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Scalar<L: SecurityLevel = Level1> {
     pub(crate) digits: Array<u64, L::MpLimbs>,
+}
+
+impl<L: FpBackend> core::fmt::Debug for Scalar<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("Scalar(")?;
+        fmt_scalar(f, self)?;
+        f.write_str(")")
+    }
 }
 
 impl<L: FpBackend> Scalar<L> {
@@ -35,24 +72,101 @@ impl<L: FpBackend> Default for Scalar<L> {
 
 /// SQIsign public key: a Montgomery curve coefficient plus a torsion hint byte.
 ///
-/// # Decode from bytes
+/// Wire size: 65 bytes (Level 1), 97 bytes (Level 3), 129 bytes (Level 5).
+///
+/// # Verify a signature
+///
+/// [`verify_bytes`](PublicKey::verify_bytes) accepts raw signature bytes in
+/// any format (standard, expanded, or compressed) and auto-detects the
+/// format from the byte length:
 ///
 /// ```
 /// use hex_literal::hex;
-/// use sqisign_verify::{Level1, PublicKey};
+/// use sqisign_verify::PublicKey;
 ///
+/// # fn main() -> Result<(), sqisign_verify::Error> {
 /// let pk_bytes = hex!(
 ///     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
 ///     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
 ///     "0B"
 /// );
-/// let pk = PublicKey::<Level1>::from_bytes(&pk_bytes).unwrap();
-/// assert_eq!(pk_bytes, pk.to_bytes().as_slice());
+/// let sig_bytes = hex!(
+///     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
+///     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
+///     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
+///     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
+///     "71D86EFF3447018ADB0A6551EE8322AB30010202"
+/// );
+/// let msg = hex!(
+///     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
+///     "C8"
+/// );
+///
+/// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+/// pk.verify_bytes(&msg, &sig_bytes)?;
+/// # Ok(())
+/// # }
 /// ```
-#[derive(Clone, Debug)]
+///
+/// For typed signatures, use the [`Verifier`](signature::Verifier) trait:
+/// `pk.verify(msg, &sig)` (requires `use sqisign_verify::Verifier`).
+///
+/// # Decode and re-encode
+///
+/// ```
+/// use hex_literal::hex;
+/// use sqisign_verify::PublicKey;
+///
+/// # fn main() -> Result<(), sqisign_verify::Error> {
+/// let pk_bytes = hex!(
+///     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
+///     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
+///     "0B"
+/// );
+/// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+/// assert_eq!(pk_bytes, pk.to_bytes().as_slice());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Display
+///
+/// `Display` prints the wire-format bytes as lowercase hex:
+///
+/// ```
+/// # use hex_literal::hex;
+/// # use sqisign_verify::PublicKey;
+/// # fn main() -> Result<(), sqisign_verify::Error> {
+/// # let pk_bytes = hex!(
+/// #     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
+/// #     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
+/// #     "0B"
+/// # );
+/// # let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+/// let hex_str = format!("{pk}");
+/// assert!(hex_str.starts_with("07ccd214"));
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct PublicKey<L: SecurityLevel = Level1> {
     pub(crate) curve: EcCurve<L>,
     pub(crate) hint_pk: u8,
+}
+
+impl<L: FpBackend> core::fmt::Debug for PublicKey<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("PublicKey { curve_a: ")?;
+        fmt_fp2(f, &self.curve.a)?;
+        write!(f, ", hint: 0x{:02x}", self.hint_pk)?;
+        f.write_str(" }")
+    }
+}
+
+impl<L: FpBackend> core::fmt::Display for PublicKey<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt_hex(f, &self.to_bytes())
+    }
 }
 
 impl<L: FpBackend> PublicKey<L> {
@@ -84,18 +198,25 @@ impl<L: FpBackend> Default for PublicKey<L> {
 
 /// SQIsign signature (standard wire format).
 ///
-/// # Verify a signature
+/// Wire size: 148 bytes (Level 1), 224 bytes (Level 3), 292 bytes (Level 5).
+///
+/// # Verify
+///
+/// The simplest path is [`PublicKey::verify`] with raw bytes (no import
+/// needed, format auto-detected). With a typed `Signature`, use the
+/// [`Verifier`](signature::Verifier) trait:
 ///
 /// ```
 /// use hex_literal::hex;
-/// use sqisign_verify::{Level1, PublicKey, Signature};
+/// use sqisign_verify::{PublicKey, Signature, Verifier};
 ///
-/// let pk = hex!(
+/// # fn main() -> Result<(), sqisign_verify::Error> {
+/// let pk_bytes = hex!(
 ///     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
 ///     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
 ///     "0B"
 /// );
-/// let sig = hex!(
+/// let sig_bytes = hex!(
 ///     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
 ///     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
 ///     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
@@ -107,11 +228,39 @@ impl<L: FpBackend> Default for PublicKey<L> {
 ///     "C8"
 /// );
 ///
-/// let pk = PublicKey::<Level1>::from_bytes(&pk).unwrap();
-/// let sig = Signature::<Level1>::from_bytes(&sig).unwrap();
-/// sig.verify(&pk, &msg).unwrap();
+/// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+///
+/// // From raw bytes (auto-detects format):
+/// pk.verify_bytes(&msg, &sig_bytes)?;
+///
+/// // From a typed Signature (requires `use Verifier`):
+/// let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+/// pk.verify(&msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+/// # Ok(())
+/// # }
 /// ```
-#[derive(Clone, Debug)]
+///
+/// # Serialize
+///
+/// ```
+/// # use hex_literal::hex;
+/// # use sqisign_verify::{PublicKey, Signature};
+/// # fn main() -> Result<(), sqisign_verify::Error> {
+/// # let sig_bytes = hex!(
+/// #     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
+/// #     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
+/// #     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
+/// #     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
+/// #     "71D86EFF3447018ADB0A6551EE8322AB30010202"
+/// # );
+/// # let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+/// let wire = sig.to_bytes();
+/// assert_eq!(wire.len(), 148); // Level 1 standard signature
+/// assert_eq!(wire.as_slice(), &sig_bytes);
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct Signature<L: SecurityLevel = Level1> {
     pub(crate) e_aux_a: Fp2<L>,
     pub(crate) backtracking: u8,
@@ -216,6 +365,38 @@ impl<L: FpBackend> Default for Signature<L> {
             hint_aux: 0,
             hint_chall: 0,
         }
+    }
+}
+
+impl<L: FpBackend> core::fmt::Debug for Signature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("Signature { e_aux_a: ")?;
+        fmt_fp2(f, &self.e_aux_a)?;
+        write!(
+            f,
+            ", bt: {}, trl: {}, mat: [[",
+            self.backtracking, self.two_resp_length
+        )?;
+        fmt_scalar(f, &self.mat[0][0])?;
+        f.write_str(", ")?;
+        fmt_scalar(f, &self.mat[0][1])?;
+        f.write_str("], [")?;
+        fmt_scalar(f, &self.mat[1][0])?;
+        f.write_str(", ")?;
+        fmt_scalar(f, &self.mat[1][1])?;
+        f.write_str("]], chall: ")?;
+        fmt_scalar(f, &self.chall_coeff)?;
+        write!(
+            f,
+            ", hint_aux: 0x{:02x}, hint_chall: 0x{:02x} }}",
+            self.hint_aux, self.hint_chall
+        )
+    }
+}
+
+impl<L: FpBackend> core::fmt::Display for Signature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt_hex(f, &self.to_bytes())
     }
 }
 
@@ -454,6 +635,10 @@ impl<L: FpBackend + crate::precomp::LevelPrecomp> signature::Verifier<Signature<
 
 impl<L: FpBackend + crate::precomp::LevelPrecomp> Signature<L> {
     /// Verify this signature against a public key and message.
+    ///
+    /// This is a convenience wrapper. Prefer
+    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
+    /// `Verifier` trait for ecosystem consistency.
     pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), crate::Error> {
         crate::verify::protocols_verify(pk, msg, self)
     }

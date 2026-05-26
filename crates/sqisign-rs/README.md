@@ -2,6 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/sqisign-rs.svg)](https://crates.io/crates/sqisign-rs)
 [![docs.rs](https://docs.rs/sqisign-rs/badge.svg)](https://docs.rs/sqisign-rs)
+[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
+[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
 
 A pure Rust implementation of SQIsign v2.0.
 
@@ -20,17 +22,25 @@ Generate a keypair, sign, and verify:
 ```rust
 use sqisign_rs::{generate, PublicKey, SigningKey};
 
-let mut rng = rand::rngs::OsRng;
-let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
-let sig = sk.sign(b"hello world", &mut rng).unwrap();
-sig.verify(&pk, b"hello world").unwrap();
+fn main() -> Result<(), sqisign_rs::Error> {
+    let mut rng = rand::rngs::OsRng;
+    let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
+    let sig = sk.sign(b"hello world", &mut rng)?;
+    pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+    Ok(())
+}
 ```
 
 Compress a signature for minimal wire size (129 bytes at Level 1):
 
 ```rust
-let compressed = sig.compress();
-compressed.verify(&pk, b"hello world").unwrap();
+use sqisign_rs::{Signature, PublicKey};
+
+fn example(sig: &Signature, pk: &PublicKey) -> Result<(), sqisign_rs::Error> {
+    let compressed = sig.compress();
+    pk.verify_bytes(b"hello world", &compressed.to_bytes())?;
+    Ok(())
+}
 ```
 
 Use a higher security level:
@@ -38,10 +48,13 @@ Use a higher security level:
 ```rust
 use sqisign_rs::{generate, Level3};
 
-let mut rng = rand::rngs::OsRng;
-let (pk, sk) = generate::<Level3>(&mut rng);
-let sig = sk.sign(b"hello world", &mut rng).unwrap();
-sig.verify(&pk, b"hello world").unwrap();
+fn main() -> Result<(), sqisign_rs::Error> {
+    let mut rng = rand::rngs::OsRng;
+    let (pk, sk) = generate::<Level3>(&mut rng);
+    let sig = sk.sign(b"hello world", &mut rng)?;
+    pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+    Ok(())
+}
 ```
 
 ## Signature formats

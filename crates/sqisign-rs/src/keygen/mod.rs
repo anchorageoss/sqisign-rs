@@ -65,6 +65,48 @@ impl<L: FpBackend + sqisign_verify::precomp::LevelPrecomp> core::fmt::Display fo
     }
 }
 
+impl<L: FpBackend + sqisign_verify::precomp::LevelPrecomp> SecretKey<L> {
+    /// Return a wrapper that prints the raw secret key bytes as hex.
+    ///
+    /// # Security Warning
+    ///
+    /// The returned type implements [`Display`](core::fmt::Display) and
+    /// will output **secret key material in plaintext**. Use only for
+    /// debugging in secure, ephemeral environments. Never log this
+    /// output in production, persist it to files, or transmit it over
+    /// untrusted channels.
+    #[inline]
+    pub fn display_secret(&self) -> SecretKeyDisplay<'_, L> {
+        SecretKeyDisplay(self)
+    }
+}
+
+/// Wrapper returned by [`SecretKey::display_secret`] that prints raw
+/// secret key bytes as lowercase hex.
+///
+/// # Security Warning
+///
+/// This will output secret key material in plaintext when formatted.
+pub struct SecretKeyDisplay<'a, L: FpBackend + sqisign_verify::precomp::LevelPrecomp>(
+    &'a SecretKey<L>,
+);
+
+impl<L: HasSigningPrecomp + sqisign_verify::precomp::LevelPrecomp> core::fmt::Display
+    for SecretKeyDisplay<'_, L>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.0.to_bytes() {
+            Ok(bytes) => {
+                for &b in bytes.as_slice() {
+                    write!(f, "{b:02x}")?;
+                }
+                Ok(())
+            }
+            Err(_) => f.write_str("<encoding error>"),
+        }
+    }
+}
+
 impl<L: FpBackend + sqisign_verify::precomp::LevelPrecomp> Zeroize for SecretKey<L> {
     fn zeroize(&mut self) {
         self.curve.zeroize();

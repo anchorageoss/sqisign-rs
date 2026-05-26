@@ -2,6 +2,8 @@
 
 [![crates.io](https://img.shields.io/crates/v/sqisign-verify.svg)](https://crates.io/crates/sqisign-verify)
 [![docs.rs](https://docs.rs/sqisign-verify/badge.svg)](https://docs.rs/sqisign-verify)
+[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
+[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
 
 SQIsign signature verification in pure Rust. `no_std`-compatible, zero heap allocation, suitable for embedded targets.
 
@@ -13,45 +15,41 @@ For keygen and signing, use [`sqisign-rs`](https://crates.io/crates/sqisign-rs).
 
 ## Usage
 
-Verify a signature:
+Pass raw signature bytes; the format (standard, expanded, or compressed) is auto-detected from the byte length:
 
 ```rust
-use sqisign_verify::{PublicKey, Signature};
+use sqisign_verify::PublicKey;
 
-let pk = PublicKey::from_bytes(&pk_bytes)?;
-let sig = Signature::from_bytes(&sig_bytes)?;
-sig.verify(&pk, msg)?;
+fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
+    let pk = PublicKey::from_bytes(pk_bytes)?;
+    pk.verify_bytes(msg, sig_bytes)?;
+    Ok(())
+}
 ```
 
-Using the RustCrypto `Verifier` trait:
+With typed signatures, use the `Verifier` trait:
 
 ```rust
-use sqisign_verify::{PublicKey, Signature};
-use signature::Verifier;
+use sqisign_verify::{PublicKey, Signature, Verifier};
 
-let pk = PublicKey::from_bytes(&pk_bytes)?;
-let sig = Signature::from_bytes(&sig_bytes)?;
-pk.verify(msg, &sig)?;
-```
-
-Auto-detect format from wire length (standard, expanded, or compressed):
-
-```rust
-use sqisign_verify::{PublicKey, AnySignature};
-
-let pk = PublicKey::from_bytes(&pk_bytes)?;
-let sig = AnySignature::from_bytes(&wire_bytes)?;
-sig.verify(&pk, msg)?;
+fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
+    let pk = PublicKey::from_bytes(pk_bytes)?;
+    let sig = Signature::from_bytes(sig_bytes)?;
+    pk.verify(msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+    Ok(())
+}
 ```
 
 Level 1 is the default type parameter. For higher security levels, specify explicitly:
 
 ```rust
-use sqisign_verify::{PublicKey, Signature, Level3};
+use sqisign_verify::{PublicKey, Level3};
 
-let pk = PublicKey::<Level3>::from_bytes(&pk_bytes)?;
-let sig = Signature::<Level3>::from_bytes(&sig_bytes)?;
-sig.verify(&pk, msg)?;
+fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
+    let pk = PublicKey::<Level3>::from_bytes(pk_bytes)?;
+    pk.verify_bytes(msg, sig_bytes)?;
+    Ok(())
+}
 ```
 
 ## Signature formats
@@ -84,7 +82,6 @@ Verification outperforms the C reference because LLVM aggressively inlines field
 - `Signature<L>`: standard NIST v2.0 format (2x2 matrix + hints)
 - `ExpandedSignature<L>`: pre-evaluated kernel points (fastest verification)
 - `CompressedSignature<L>`: 3-of-4 matrix entries, 4th recovered via Weil pairing
-- `AnySignature<L>`: auto-detecting wrapper over all three formats
 - `Scalar<L>`: fixed-width multi-precision integer for matrix entries and challenge
 
 The default type parameter is `Level1`, so `PublicKey` and `PublicKey<Level1>` are equivalent. Use `Level3` or `Level5` for higher security levels.

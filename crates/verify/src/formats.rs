@@ -22,9 +22,12 @@ use crate::params::{Level1, SecurityLevel};
 use crate::precomp::LevelPrecomp;
 use crate::theta::HD_EXTRA_TORSION;
 use hybrid_array::typenum::Unsigned;
+use hybrid_array::Array;
 
 use crate::hash::hash_to_challenge;
-use crate::types::{decode_digits, encode_digits, PublicKey, Scalar, Signature};
+use crate::types::{
+    decode_digits, encode_digits, fmt_fp2, fmt_hex, fmt_scalar, PublicKey, Scalar, Signature,
+};
 use crate::verify::{
     basis_from_hint, check_canonical_basis_change_matrix, compute_challenge_curve,
     compute_commitment_curve_verify, matrix_scalar_application_even_basis, mp_compare, mp_is_even,
@@ -50,7 +53,25 @@ pub enum SignatureFormat {
 /// P_chl - Q_chl is recomputed during verification via `difference_point`.
 /// This may yield faster verification at the cost of a larger wire format;
 /// the actual speedup varies depending on the security level and platform.
-#[derive(Clone, Debug)]
+///
+/// Wire size: 212 bytes (Level 1), 316 bytes (Level 3), 420 bytes (Level 5).
+///
+/// # Create from a standard signature
+///
+/// ```no_run
+/// use sqisign_verify::{PublicKey, Signature, ExpandedSignature};
+///
+/// # fn example(pk: &PublicKey, sig: &Signature) -> Result<(), sqisign_verify::Error> {
+/// let expanded = sig.expand(pk)?;
+/// expanded.verify(pk, b"message")?;
+///
+/// // Serialize / deserialize
+/// let wire = expanded.to_bytes();
+/// let decoded: ExpandedSignature = ExpandedSignature::from_bytes(&wire)?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct ExpandedSignature<L: SecurityLevel = Level1> {
     /// Montgomery A-coefficient of the auxiliary curve E_aux.
     pub(crate) e_aux_a: Fp2<L>,
@@ -76,6 +97,28 @@ pub struct ExpandedSignature<L: SecurityLevel = Level1> {
     pub(crate) hint_aux: u8,
     /// Torsion basis hint for the challenge curve.
     pub(crate) hint_chall: u8,
+}
+
+impl<L: FpBackend> core::fmt::Debug for ExpandedSignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("ExpandedSignature { e_aux_a: ")?;
+        fmt_fp2(f, &self.e_aux_a)?;
+        write!(
+            f,
+            ", bt: {}, trl: {}, chall: ",
+            self.backtracking, self.two_resp_length
+        )?;
+        fmt_scalar(f, &self.chall_coeff)?;
+        f.write_str(", p_chl_x: ")?;
+        fmt_fp2(f, &self.p_chl_x)?;
+        f.write_str(", q_chl_x: ")?;
+        fmt_fp2(f, &self.q_chl_x)?;
+        write!(
+            f,
+            ", kernel_is_q: {}, pmq_sign_hint: {}, hint_aux: 0x{:02x}, hint_chall: 0x{:02x} }}",
+            self.kernel_is_q, self.pmq_sign_hint, self.hint_aux, self.hint_chall
+        )
+    }
 }
 
 impl<L: FpBackend> ExpandedSignature<L> {
@@ -151,11 +194,8 @@ impl<L: FpBackend> ExpandedSignature<L> {
     }
 
     /// Encode to bytes.
-    ///
-    /// Returns a fixed-size buffer; the first `WIRE_BYTES` bytes are
-    /// the meaningful payload.
-    pub fn to_bytes(&self) -> [u8; 420] {
-        let mut buf = [0u8; 420];
+    pub fn to_bytes(&self) -> Array<u8, L::ExpandedSigLen> {
+        let mut buf = Array::<u8, L::ExpandedSigLen>::default();
         let fp2_len = <L as SecurityLevel>::Fp2EncodedBytes::USIZE;
         let mut pos = 0;
 
@@ -196,10 +236,47 @@ impl<L: FpBackend> ExpandedSignature<L> {
     }
 }
 
+impl<L: FpBackend> TryFrom<&[u8]> for ExpandedSignature<L> {
+    type Error = Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::from_bytes(bytes)
+    }
+}
+
+impl<L: FpBackend> From<ExpandedSignature<L>> for Array<u8, L::ExpandedSigLen> {
+    fn from(sig: ExpandedSignature<L>) -> Self {
+        sig.to_bytes()
+    }
+}
+
+impl<L: FpBackend> signature::SignatureEncoding for ExpandedSignature<L>
+where
+    Array<u8, L::ExpandedSigLen>: Send + Sync,
+{
+    type Repr = Array<u8, L::ExpandedSigLen>;
+}
+
+impl<L: FpBackend + LevelPrecomp> signature::Verifier<ExpandedSignature<L>> for PublicKey<L> {
+    fn verify(&self, msg: &[u8], sig: &ExpandedSignature<L>) -> Result<(), signature::Error> {
+        verify_expanded(self, msg, sig).map_err(|_| signature::Error::new())
+    }
+}
+
 impl<L: FpBackend + LevelPrecomp> ExpandedSignature<L> {
     /// Verify this expanded signature against a public key and message.
+    ///
+    /// This is a convenience wrapper. Prefer
+    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
+    /// `Verifier` trait for ecosystem consistency.
     pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), Error> {
         verify_expanded(pk, msg, self)
+    }
+}
+
+impl<L: FpBackend> core::fmt::Display for ExpandedSignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt_hex(f, &self.to_bytes())
     }
 }
 
@@ -365,7 +442,25 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 ///
 /// The canonical basis hints for E_chall and E_aux are not stored;
 /// they are recomputed from the curves during decompression.
-#[derive(Clone, Debug)]
+///
+/// Wire size: 129 bytes (Level 1), 196 bytes (Level 3), 257 bytes (Level 5).
+///
+/// # Create from a standard signature
+///
+/// ```no_run
+/// use sqisign_verify::{PublicKey, Signature, CompressedSignature};
+///
+/// # fn example(pk: &PublicKey, sig: &Signature) -> Result<(), sqisign_verify::Error> {
+/// let compressed = sig.compress();
+/// compressed.verify(pk, b"message")?;
+///
+/// // Serialize / deserialize
+/// let wire = compressed.to_bytes();
+/// let decoded: CompressedSignature = CompressedSignature::from_bytes(&wire)?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct CompressedSignature<L: SecurityLevel = Level1> {
     /// Montgomery A-coefficient of the auxiliary curve E_aux.
     pub(crate) e_aux_a: Fp2<L>,
@@ -384,6 +479,26 @@ pub struct CompressedSignature<L: SecurityLevel = Level1> {
     /// 2-bit hint: bits of the dropped entry above what the Weil pairing
     /// determinant recovers.
     pub(crate) det_hint: u8,
+}
+
+impl<L: FpBackend> core::fmt::Debug for CompressedSignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("CompressedSignature { e_aux_a: ")?;
+        fmt_fp2(f, &self.e_aux_a)?;
+        write!(
+            f,
+            ", bt: {}, trl: {}, mat_00: ",
+            self.backtracking, self.two_resp_length
+        )?;
+        fmt_scalar(f, &self.mat_00)?;
+        f.write_str(", mat_01: ")?;
+        fmt_scalar(f, &self.mat_01)?;
+        f.write_str(", mat_var: ")?;
+        fmt_scalar(f, &self.mat_var)?;
+        f.write_str(", chall: ")?;
+        fmt_scalar(f, &self.chall_coeff)?;
+        write!(f, ", det_hint: 0x{:02x} }}", self.det_hint)
+    }
 }
 
 impl<L: SecurityLevel> CompressedSignature<L> {
@@ -478,11 +593,8 @@ impl<L: FpBackend> CompressedSignature<L> {
     }
 
     /// Encode to bytes.
-    ///
-    /// Returns a fixed-size buffer; the first `WIRE_BYTES` bytes are
-    /// the meaningful payload.
-    pub fn to_bytes(&self) -> [u8; 300] {
-        let mut buf = [0u8; 300];
+    pub fn to_bytes(&self) -> Array<u8, L::CompressedSigLen> {
+        let mut buf = Array::<u8, L::CompressedSigLen>::default();
         let fp2_len = <L as SecurityLevel>::Fp2EncodedBytes::USIZE;
         let mat_bytes = Self::matrix_entry_bytes();
         let chall_bytes = Self::chall_coeff_bytes();
@@ -661,10 +773,98 @@ impl<L: FpBackend> CompressedSignature<L> {
     }
 }
 
+impl<L: FpBackend> TryFrom<&[u8]> for CompressedSignature<L> {
+    type Error = Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::from_bytes(bytes)
+    }
+}
+
+impl<L: FpBackend> From<CompressedSignature<L>> for Array<u8, L::CompressedSigLen> {
+    fn from(sig: CompressedSignature<L>) -> Self {
+        sig.to_bytes()
+    }
+}
+
+impl<L: FpBackend> signature::SignatureEncoding for CompressedSignature<L>
+where
+    Array<u8, L::CompressedSigLen>: Send + Sync,
+{
+    type Repr = Array<u8, L::CompressedSigLen>;
+}
+
+impl<L: FpBackend + LevelPrecomp> signature::Verifier<CompressedSignature<L>> for PublicKey<L> {
+    fn verify(&self, msg: &[u8], sig: &CompressedSignature<L>) -> Result<(), signature::Error> {
+        verify_compressed(self, msg, sig).map_err(|_| signature::Error::new())
+    }
+}
+
 impl<L: FpBackend + LevelPrecomp> CompressedSignature<L> {
     /// Verify this compressed signature against a public key and message.
+    ///
+    /// This is a convenience wrapper. Prefer
+    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
+    /// `Verifier` trait for ecosystem consistency.
     pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), Error> {
         verify_compressed(pk, msg, self)
+    }
+}
+
+impl<L: FpBackend + LevelPrecomp> PublicKey<L> {
+    /// Verify a signature from raw bytes, auto-detecting the format from
+    /// the byte length.
+    ///
+    /// Accepts standard, expanded, or compressed wire formats. The format
+    /// is determined purely from the byte length (each format has a unique
+    /// size at every security level).
+    ///
+    /// For typed signatures, use the [`Verifier`](signature::Verifier) trait
+    /// instead: `pk.verify(msg, &sig)` (requires `use sqisign_verify::Verifier`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hex_literal::hex;
+    /// use sqisign_verify::PublicKey;
+    ///
+    /// # fn main() -> Result<(), sqisign_verify::Error> {
+    /// let pk_bytes = hex!(
+    ///     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
+    ///     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
+    ///     "0B"
+    /// );
+    /// let sig_bytes = hex!(
+    ///     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
+    ///     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
+    ///     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
+    ///     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
+    ///     "71D86EFF3447018ADB0A6551EE8322AB30010202"
+    /// );
+    /// let msg = hex!(
+    ///     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
+    ///     "C8"
+    /// );
+    ///
+    /// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
+    /// pk.verify_bytes(&msg, &sig_bytes)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    pub fn verify_bytes(&self, msg: &[u8], sig_bytes: &[u8]) -> Result<(), Error> {
+        let any = AnySignature::<L>::from_bytes(sig_bytes)?;
+        match any {
+            AnySignature::Standard(s) => crate::verify::protocols_verify(self, msg, &s),
+            AnySignature::Expanded(s) => verify_expanded(self, msg, &s),
+            AnySignature::Compressed(s) => verify_compressed(self, msg, &s),
+        }
+    }
+}
+
+impl<L: FpBackend> core::fmt::Display for CompressedSignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt_hex(f, &self.to_bytes())
     }
 }
 
@@ -673,11 +873,21 @@ impl<L: FpBackend + LevelPrecomp> CompressedSignature<L> {
 /// Each format has a unique wire size at every security level, so no
 /// prefix byte is needed. Use [`AnySignature::from_bytes`] to parse a
 /// signature of unknown format, then call [`.verify()`](AnySignature::verify).
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum AnySignature<L: SecurityLevel = Level1> {
     Expanded(ExpandedSignature<L>),
     Standard(Signature<L>),
     Compressed(CompressedSignature<L>),
+}
+
+impl<L: FpBackend> core::fmt::Debug for AnySignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            AnySignature::Expanded(s) => core::fmt::Debug::fmt(s, f),
+            AnySignature::Standard(s) => core::fmt::Debug::fmt(s, f),
+            AnySignature::Compressed(s) => core::fmt::Debug::fmt(s, f),
+        }
+    }
 }
 
 impl<L: FpBackend> AnySignature<L> {
@@ -717,6 +927,16 @@ impl<L: FpBackend + LevelPrecomp> AnySignature<L> {
             AnySignature::Standard(s) => s.verify(pk, msg),
             AnySignature::Expanded(s) => s.verify(pk, msg),
             AnySignature::Compressed(s) => s.verify(pk, msg),
+        }
+    }
+}
+
+impl<L: FpBackend> core::fmt::Display for AnySignature<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            AnySignature::Expanded(s) => core::fmt::Display::fmt(s, f),
+            AnySignature::Standard(s) => core::fmt::Display::fmt(s, f),
+            AnySignature::Compressed(s) => core::fmt::Display::fmt(s, f),
         }
     }
 }

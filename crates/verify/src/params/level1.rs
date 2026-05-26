@@ -3,7 +3,7 @@
 //! Field uses 5 limbs of 51-bit radix (unsaturated Montgomery form).
 
 use super::{Level1, SecurityLevel};
-use hybrid_array::sizes::{U148, U288, U32, U4, U5, U64, U65};
+use hybrid_array::sizes::{U129, U148, U212, U288, U32, U4, U5, U64, U65};
 
 /// The Level 1 prime `p = 5 * 2^248 - 1` as 32 little-endian bytes.
 ///
@@ -26,8 +26,12 @@ impl SecurityLevel for Level1 {
     type Fp2EncodedBytes = U64;
     /// Public key: 1-byte header + 2 × 32 bytes for the `Fp2` j-invariant.
     type PkLen = U65;
-    /// Signature: compressed response isogeny encoding (148 bytes).
+    /// Standard signature (148 bytes).
     type SigLen = U148;
+    /// Expanded signature (212 bytes).
+    type ExpandedSigLen = U212;
+    /// Compressed signature (129 bytes).
+    type CompressedSigLen = U129;
     /// Secret key: ideal norm + generator coords + basis-change matrix (288 bytes).
     type SkLen = U288;
 

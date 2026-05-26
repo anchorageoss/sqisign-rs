@@ -1,0 +1,50 @@
+name: Update Self-Signature
+on:
+  push:
+    branches: [main]
+    paths: ['crates/**/*.rs']
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build signing tool
+        run: cargo build --release -p project-sign
+
+      - name: Compute hash and sign
+        env:
+          SQISIGN_SIGNING_KEY: ${{ secrets.SQISIGN_SIGNING_KEY }}
+        run: |
+          HASH=$(cargo run --release -p project-sign -- hash)
+          SIG=$(cargo run --release -p project-sign -- sign \
+            --secret-key "$SQISIGN_SIGNING_KEY" \
+            --message "$HASH")
+          echo "SOURCE_HASH=$HASH" >> $GITHUB_ENV
+          echo "SIGNATURE=$SIG" >> $GITHUB_ENV
+
+      - name: Update README
+        run: |
+          sed -i "s|^Source hash: .*|Source hash: $SOURCE_HASH|" README.md
+          sed -i "s|^Signature: .*|Signature: $SIGNATURE|" README.md
+
+      - name: Verify before committing
+        run: |
+          SIG=$(grep "^Signature:" README.md | cut -d' ' -f2)
+          PK=$(cat PROJECT_KEY)
+          cargo run --release -p project-sign -- verify \
+            --public-key "$PK" \
+            --message "$SOURCE_HASH" \
+            --signature "$SIG"
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet README.md || \
+            (git add README.md && \
+             git commit -m "chore: update self-signature [skip ci]" && \
+             git push)

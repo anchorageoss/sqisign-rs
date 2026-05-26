@@ -45,8 +45,14 @@ pub trait SecurityLevel: Default + Clone + core::fmt::Debug + 'static {
     /// Byte length of a serialized public key.
     type PkLen: ArraySize;
 
-    /// Byte length of a serialized signature.
+    /// Byte length of a serialized standard signature.
     type SigLen: ArraySize;
+
+    /// Byte length of a serialized expanded signature.
+    type ExpandedSigLen: ArraySize;
+
+    /// Byte length of a serialized compressed signature.
+    type CompressedSigLen: ArraySize;
 
     /// Byte length of a serialized secret key.
     type SkLen: ArraySize;

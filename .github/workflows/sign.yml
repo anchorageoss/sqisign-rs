@@ -1,0 +1,37 @@
+name: Self-Sign
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build signing tool
+        run: cargo build --release -p project-sign
+
+      - name: Compute source hash
+        run: |
+          HASH=$(cargo run --release -p project-sign -- hash)
+          echo "SOURCE_HASH=$HASH" >> $GITHUB_ENV
+
+      - name: Sign source hash
+        env:
+          SQISIGN_SIGNING_KEY: ${{ secrets.SQISIGN_SIGNING_KEY }}
+        run: |
+          SIG=$(cargo run --release -p project-sign -- sign \
+            --secret-key "$SQISIGN_SIGNING_KEY" \
+            --message "$SOURCE_HASH")
+          echo "SIGNATURE=$SIG" >> $GITHUB_ENV
+
+      - name: Verify signature
+        run: |
+          PK=$(cat PROJECT_KEY)
+          cargo run --release -p project-sign -- verify \
+            --public-key "$PK" \
+            --message "$SOURCE_HASH" \
+            --signature "$SIGNATURE"
