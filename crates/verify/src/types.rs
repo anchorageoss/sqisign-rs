@@ -202,9 +202,9 @@ impl<L: FpBackend> Default for PublicKey<L> {
 ///
 /// # Verify
 ///
-/// The simplest path is [`PublicKey::verify`] with raw bytes (no import
-/// needed, format auto-detected). With a typed `Signature`, use the
-/// [`Verifier`](signature::Verifier) trait:
+/// The simplest path is `pk.verify_bytes(msg, sig_bytes)` with raw bytes
+/// (no import needed, format auto-detected). With a typed `Signature`,
+/// use the [`Verifier`](signature::Verifier) trait:
 ///
 /// ```
 /// use hex_literal::hex;
