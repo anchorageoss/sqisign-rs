@@ -1,49 +1,106 @@
 # sqisign-verify
 
-SQIsign signature verification. `no_std`-compatible, heap-free, and independent of the quaternion algebra stack.
+[![crates.io](https://img.shields.io/crates/v/sqisign-verify.svg)](https://crates.io/crates/sqisign-verify)
+[![docs.rs](https://docs.rs/sqisign-verify/badge.svg)](https://docs.rs/sqisign-verify)
+
+SQIsign signature verification in pure Rust. `no_std`-compatible, zero heap allocation, suitable for embedded targets.
+
+SQIsign is a post-quantum digital signature scheme based on isogenies between supersingular elliptic curves. It was proposed for NIST PQC standardization and produces the smallest signatures of any post-quantum candidate at comparable security levels.
+
+This crate provides only the verification path. It has no dependency on the quaternion algebra stack, `num-bigint`, or any heap allocator. Tested on `thumbv7em-none-eabihf`.
+
+For keygen and signing, use [`sqisign-rs`](https://crates.io/crates/sqisign-rs).
 
 ## Usage
+
+Verify a signature:
 
 ```rust
 use sqisign_verify::{PublicKey, Signature};
 
-let pk = PublicKey::from_bytes(&pk_bytes).expect("valid public key");
-let sig = Signature::from_bytes(&sig_bytes).expect("valid signature");
+let pk = PublicKey::from_bytes(&pk_bytes)?;
+let sig = Signature::from_bytes(&sig_bytes)?;
 sig.verify(&pk, msg)?;
 ```
 
-Auto-detect format from wire length:
+Using the RustCrypto `Verifier` trait:
 
 ```rust
-use sqisign_verify::AnySignature;
+use sqisign_verify::{PublicKey, Signature};
+use signature::Verifier;
 
-let sig = AnySignature::from_bytes(&wire_bytes).expect("valid signature");
+let pk = PublicKey::from_bytes(&pk_bytes)?;
+let sig = Signature::from_bytes(&sig_bytes)?;
+pk.verify(msg, &sig)?;
+```
+
+Auto-detect format from wire length (standard, expanded, or compressed):
+
+```rust
+use sqisign_verify::{PublicKey, AnySignature};
+
+let pk = PublicKey::from_bytes(&pk_bytes)?;
+let sig = AnySignature::from_bytes(&wire_bytes)?;
 sig.verify(&pk, msg)?;
 ```
 
-## Supported formats
+Level 1 is the default type parameter. For higher security levels, specify explicitly:
+
+```rust
+use sqisign_verify::{PublicKey, Signature, Level3};
+
+let pk = PublicKey::<Level3>::from_bytes(&pk_bytes)?;
+let sig = Signature::<Level3>::from_bytes(&sig_bytes)?;
+sig.verify(&pk, msg)?;
+```
+
+## Signature formats
+
+Three wire formats with different size/speed tradeoffs. Format detection is purely length-based (each format has a unique byte count per level).
 
 | Format | L1 | L3 | L5 | Verify (L1) |
 |---|---|---|---|---|
-| Compressed | 129 B | 196 B | 257 B | 6.83 ms |
-| Standard | 148 B | 224 B | 292 B | 4.65 ms |
-| Expanded | 212 B | 316 B | 420 B | 3.82 ms |
+| Compressed | 129 bytes | 196 bytes | 257 bytes | 6.83 ms |
+| Standard | 148 bytes | 224 bytes | 292 bytes | 4.65 ms |
+| Expanded | 212 bytes | 316 bytes | 420 bytes | 3.82 ms |
 
-Public keys are 65 B (L1), 97 B (L3), 129 B (L5).
+Public keys are 65 bytes (L1), 97 bytes (L3), 129 bytes (L5).
 
-Format detection is purely length-based (each format has a unique byte count per level).
+## Performance
 
-## Key types
+Intel Xeon @ 2.80 GHz, `--release`, `target-cpu=native`:
+
+| Operation | L1 | vs C reference |
+|---|---|---|
+| Verify (expanded) | 3.82 ms | 41% faster |
+| Verify (standard) | 4.65 ms | 29% faster |
+| Verify (compressed) | 6.83 ms | comparable |
+
+Verification outperforms the C reference because LLVM aggressively inlines field arithmetic across crate boundaries.
+
+## Types
 
 - `PublicKey<L>`: Montgomery curve coefficient + torsion hint byte
 - `Signature<L>`: standard NIST v2.0 format (2x2 matrix + hints)
-- `ExpandedSignature<L>`: pre-evaluated kernel points (fastest verify)
+- `ExpandedSignature<L>`: pre-evaluated kernel points (fastest verification)
 - `CompressedSignature<L>`: 3-of-4 matrix entries, 4th recovered via Weil pairing
 - `AnySignature<L>`: auto-detecting wrapper over all three formats
 - `Scalar<L>`: fixed-width multi-precision integer for matrix entries and challenge
 
-## Design constraints
+The default type parameter is `Level1`, so `PublicKey` and `PublicKey<Level1>` are equivalent. Use `Level3` or `Level5` for higher security levels.
 
-This crate deliberately excludes `sqisign-quaternion` and `num-bigint` from its dependency tree. Verification uses only elliptic curve and field arithmetic, suitable for embedded targets (`thumbv7em-none-eabihf` tested).
+## `no_std`
 
-For the full API with keygen and signing, use `sqisign-core`.
+This crate is `no_std` by default with zero heap allocation. Add the `std` feature if you need `std::error::Error` impls:
+
+```toml
+sqisign-verify = { version = "0.2", features = ["std"] }
+```
+
+## References
+
+SQIsign was introduced by De Feo, Kohel, Leroux, Petit, and Wesolowski (ASIACRYPT 2020). The v2.0 construction uses (2,2)-isogenies in the theta model following the SQIsign2D-West approach (Basso, Dartois, De Feo, Leroux, Maino, Pope, Robert, Wesolowski, ASIACRYPT 2024).
+
+## License
+
+Apache-2.0 OR MIT

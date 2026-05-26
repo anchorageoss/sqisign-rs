@@ -1,6 +1,7 @@
 [package]
 name = "sqisign-verify"
 description = "SQIsign signature verification (no_std, zero allocation, pure Rust)"
+readme = "README.md"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
