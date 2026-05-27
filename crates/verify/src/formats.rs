@@ -59,11 +59,11 @@ pub enum SignatureFormat {
 /// # Create from a standard signature
 ///
 /// ```no_run
-/// use sqisign_verify::{PublicKey, Signature, ExpandedSignature};
+/// use sqisign_verify::{PublicKey, Signature, ExpandedSignature, Verifier};
 ///
 /// # fn example(pk: &PublicKey, sig: &Signature) -> Result<(), sqisign_verify::Error> {
 /// let expanded = sig.expand(pk)?;
-/// expanded.verify(pk, b"message")?;
+/// pk.verify(b"message", &expanded)?;
 ///
 /// // Serialize / deserialize
 /// let wire = expanded.to_bytes();
@@ -263,17 +263,6 @@ impl<L: FpBackend + LevelPrecomp> signature::Verifier<ExpandedSignature<L>> for 
     }
 }
 
-impl<L: FpBackend + LevelPrecomp> ExpandedSignature<L> {
-    /// Verify this expanded signature against a public key and message.
-    ///
-    /// This is a convenience wrapper. Prefer
-    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
-    /// `Verifier` trait for ecosystem consistency.
-    pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), Error> {
-        verify_expanded(pk, msg, self)
-    }
-}
-
 impl<L: FpBackend> core::fmt::Display for ExpandedSignature<L> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         fmt_hex(f, &self.to_bytes())
@@ -448,11 +437,11 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 /// # Create from a standard signature
 ///
 /// ```no_run
-/// use sqisign_verify::{PublicKey, Signature, CompressedSignature};
+/// use sqisign_verify::{PublicKey, Signature, CompressedSignature, Verifier};
 ///
 /// # fn example(pk: &PublicKey, sig: &Signature) -> Result<(), sqisign_verify::Error> {
 /// let compressed = sig.compress();
-/// compressed.verify(pk, b"message")?;
+/// pk.verify(b"message", &compressed)?;
 ///
 /// // Serialize / deserialize
 /// let wire = compressed.to_bytes();
@@ -800,20 +789,14 @@ impl<L: FpBackend + LevelPrecomp> signature::Verifier<CompressedSignature<L>> fo
     }
 }
 
-impl<L: FpBackend + LevelPrecomp> CompressedSignature<L> {
-    /// Verify this compressed signature against a public key and message.
-    ///
-    /// This is a convenience wrapper. Prefer
-    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
-    /// `Verifier` trait for ecosystem consistency.
-    pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), Error> {
-        verify_compressed(pk, msg, self)
-    }
-}
-
 impl<L: FpBackend + LevelPrecomp> signature::Verifier<AnySignature<L>> for PublicKey<L> {
     fn verify(&self, msg: &[u8], sig: &AnySignature<L>) -> Result<(), signature::Error> {
-        sig.verify(self, msg).map_err(|_| signature::Error::new())
+        match sig {
+            AnySignature::Standard(s) => crate::verify::protocols_verify(self, msg, s),
+            AnySignature::Expanded(s) => verify_expanded(self, msg, s),
+            AnySignature::Compressed(s) => verify_compressed(self, msg, s),
+        }
+        .map_err(|_| signature::Error::new())
     }
 }
 
@@ -827,7 +810,8 @@ impl<L: FpBackend> core::fmt::Display for CompressedSignature<L> {
 ///
 /// Each format has a unique wire size at every security level, so no
 /// prefix byte is needed. Use [`AnySignature::from_bytes`] to parse a
-/// signature of unknown format, then call [`.verify()`](AnySignature::verify).
+/// signature of unknown format, then verify with
+/// [`pk.verify(msg, &sig)`](signature::Verifier::verify).
 #[derive(Clone)]
 pub enum AnySignature<L: SecurityLevel = Level1> {
     Expanded(ExpandedSignature<L>),
@@ -871,17 +855,6 @@ impl<L: FpBackend> AnySignature<L> {
             AnySignature::Expanded(_) => SignatureFormat::Expanded,
             AnySignature::Standard(_) => SignatureFormat::Standard,
             AnySignature::Compressed(_) => SignatureFormat::Compressed,
-        }
-    }
-}
-
-impl<L: FpBackend + LevelPrecomp> AnySignature<L> {
-    /// Verify this signature against a public key and message.
-    pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), Error> {
-        match self {
-            AnySignature::Standard(s) => s.verify(pk, msg),
-            AnySignature::Expanded(s) => s.verify(pk, msg),
-            AnySignature::Compressed(s) => s.verify(pk, msg),
         }
     }
 }

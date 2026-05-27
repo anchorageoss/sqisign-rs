@@ -3,7 +3,7 @@
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 use sqisign_rs::id2iso::sign_precomp::SigningPrecomp;
-use sqisign_rs::Level1;
+use sqisign_rs::{Level1, Verifier};
 use sqisign_rs::keygen::keygen::protocols_keygen;
 use sqisign_rs::sign::sign::protocols_sign;
 use std::time::Instant;
@@ -47,7 +47,7 @@ fn main() {
         let sign_time = t0.elapsed();
 
         let t0 = Instant::now();
-        let result = sig.verify(&pk, msg.as_bytes());
+        let result = pk.verify(msg.as_bytes(), &sig);
         let verify_time = t0.elapsed();
 
         let valid = result.is_ok();

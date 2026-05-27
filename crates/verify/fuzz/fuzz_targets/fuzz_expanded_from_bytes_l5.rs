@@ -1,6 +1,6 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use sqisign_verify::{ExpandedSignature, Level5, PublicKey};
+use sqisign_verify::{ExpandedSignature, Level5, PublicKey, Verifier};
 
 const PK_BYTES: &[u8] = include_bytes!("l5_pk.bin");
 
@@ -13,5 +13,5 @@ fuzz_target!(|data: &[u8]| {
         Ok(sig) => sig,
         Err(_) => return,
     };
-    let _ = sig.verify(&pk, b"fuzz message");
+    let _ = pk.verify(b"fuzz message", &sig);
 });

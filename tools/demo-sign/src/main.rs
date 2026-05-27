@@ -1,6 +1,6 @@
 use sqisign_rs::keygen::keypair;
 use sqisign_rs::sign::sign;
-use sqisign_rs::Level1;
+use sqisign_rs::{Level1, Verifier};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -23,7 +23,7 @@ fn main() {
         let sig = sign::<Level1>(&sk, &pk, msg.as_bytes(), &mut rng).expect("signing must succeed");
         let sig_bytes = sig.to_bytes();
 
-        let valid = sig.verify(&pk, msg.as_bytes()).is_ok();
+        let valid = pk.verify(msg.as_bytes(), &sig).is_ok();
 
         println!("msg = \"{}\"", msg);
         println!("sig = {}", hex::encode(sig_bytes));

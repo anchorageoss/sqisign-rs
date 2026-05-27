@@ -6,7 +6,7 @@
 
 use rayon::prelude::*;
 use sqisign_kat::kat_parser;
-use sqisign_verify::{Level1, PublicKey, Signature};
+use sqisign_verify::{Level1, PublicKey, Signature, Verifier};
 
 const KAT_RSP: &str = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
 
@@ -26,7 +26,7 @@ fn kat_verify_level1() {
             .unwrap_or_else(|_| panic!("sig deserialization failed for count={}", entry.count));
 
         assert!(
-            sig.verify(&pk, &entry.msg).is_ok(),
+            pk.verify(&entry.msg, &sig).is_ok(),
             "verification failed for count={}",
             entry.count
         );

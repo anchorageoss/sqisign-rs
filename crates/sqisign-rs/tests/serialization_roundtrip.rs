@@ -5,6 +5,7 @@ use sqisign_rs::keygen::keypair;
 use sqisign_rs::params::Level1;
 use sqisign_rs::sign::sign;
 use sqisign_rs::types::{PublicKey, Signature};
+use sqisign_rs::Verifier;
 
 type L = Level1;
 
@@ -108,7 +109,7 @@ fn sig_deserialized_still_verifies() {
     let sig2 = Signature::<L>::from_bytes(&enc).expect("sig deserialization must succeed");
 
     assert!(
-        sig2.verify(&pk, msg).is_ok(),
+        pk.verify(msg, &sig2).is_ok(),
         "deserialized signature must still verify"
     );
 }
@@ -169,7 +170,7 @@ fn full_roundtrip_through_serialization() {
 
     // Verify with deserialized public key and signature
     assert!(
-        sig2.verify(&pk2, msg).is_ok(),
+        pk2.verify(msg, &sig2).is_ok(),
         "full round-trip through serialization must verify"
     );
 }
@@ -187,7 +188,7 @@ fn sign_with_deserialized_sk_wrong_message_fails() {
     let sig = sign::<L>(&sk2, &pk, b"correct", &mut rng).expect("signing must succeed");
 
     assert!(
-        sig.verify(&pk, b"wrong").is_err(),
+        pk.verify(b"wrong", &sig).is_err(),
         "wrong message must not verify"
     );
 }
@@ -237,11 +238,11 @@ fn signing_key_deserialized_can_sign_and_verify() {
         .expect("signing with deserialized key must succeed");
 
     assert!(
-        sig.verify(&pk, msg).is_ok(),
+        pk.verify(msg, &sig).is_ok(),
         "signature from deserialized key must verify against original pk"
     );
     assert!(
-        sig.verify(signing_key2.public_key(), msg).is_ok(),
+        signing_key2.public_key().verify(msg, &sig).is_ok(),
         "signature must verify against deserialized pk"
     );
 }

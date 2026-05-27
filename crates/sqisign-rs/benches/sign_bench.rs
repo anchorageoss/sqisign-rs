@@ -3,6 +3,7 @@ use sqisign_rs::id2iso::sign_precomp::SigningPrecomp;
 use sqisign_rs::keygen::keygen::protocols_keygen;
 use sqisign_rs::sign::sign::protocols_sign;
 use sqisign_rs::Level1;
+use sqisign_rs::Verifier;
 
 type L = Level1;
 
@@ -46,7 +47,7 @@ fn bench_keygen_sign_verify(c: &mut Criterion) {
         b.iter(|| {
             let (pk, sk) = protocols_keygen::<L>(&mut rng, &precomp);
             let sig = protocols_sign(&pk, &sk, msg, &mut rng).expect("signing must succeed");
-            assert!(sig.verify(&pk, msg).is_ok());
+            assert!(pk.verify(msg, &sig).is_ok());
         })
     });
 }

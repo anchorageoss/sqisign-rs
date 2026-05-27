@@ -4,7 +4,7 @@
 //! runs `protocols_keygen` then `protocols_sign`, and compares the
 //! serialized signature against the expected bytes from the `.rsp` file.
 //!
-//! Also verifies the signature with `sig.verify()`.
+//! Also verifies the signature with `pk.verify()`.
 
 use rayon::prelude::*;
 use sqisign_kat::kat_parser;
@@ -12,7 +12,7 @@ use sqisign_kat::nist_drbg::NistDrbg;
 use sqisign_rs::id2iso::sign_precomp::SigningPrecomp;
 use sqisign_rs::keygen::keygen::protocols_keygen;
 use sqisign_rs::sign::sign::protocols_sign;
-use sqisign_rs::Level1;
+use sqisign_rs::{Level1, Verifier};
 
 const KAT_RSP: &str = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
 
@@ -82,7 +82,7 @@ fn kat_sign_level1() {
 
         // 4. Verify
         assert!(
-            sig.verify(&pk, &entry.msg).is_ok(),
+            pk.verify(&entry.msg, &sig).is_ok(),
             "signature must verify for count={}",
             entry.count
         );

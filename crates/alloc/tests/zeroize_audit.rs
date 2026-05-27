@@ -101,6 +101,7 @@ static ALLOC: ZeroizingAllocator<AuditAllocator> = ZeroizingAllocator(AuditAlloc
 #[test]
 fn all_freed_memory_is_zeroed_during_keygen_sign_drop() {
     use sqisign_rs::params::Level1;
+    use sqisign_rs::Verifier;
 
     ALLOC.0.reset();
 
@@ -113,7 +114,7 @@ fn all_freed_memory_is_zeroed_during_keygen_sign_drop() {
             sqisign_rs::sign::sign::<Level1>(&sk, &pk, b"zeroize audit test message", &mut rng);
 
         if let Ok(ref sig) = sig {
-            assert!(sig.verify(&pk, b"zeroize audit test message").is_ok());
+            assert!(pk.verify(b"zeroize audit test message", &sig).is_ok());
         }
     }
 

@@ -7,7 +7,7 @@
 use sqisign_verify::fp::FpBackend;
 use sqisign_verify::params::{Level1, Level3, Level5, SecurityLevel};
 use sqisign_verify::precomp::LevelPrecomp;
-use sqisign_verify::{PublicKey, Signature};
+use sqisign_verify::{PublicKey, Signature, Verifier};
 
 type L1 = Level1;
 
@@ -83,7 +83,7 @@ fn verify_kat_entry(entry: &KatEntry, index: usize) -> bool {
     let sig = Signature::<L1>::from_bytes(sig_bytes)
         .unwrap_or_else(|_| panic!("KAT {}: failed to decode signature", index));
 
-    sig.verify(&pk, msg).is_ok()
+    pk.verify(msg, &sig).is_ok()
 }
 
 #[test]
@@ -142,8 +142,7 @@ fn test_expand_and_verify_kat_entry_0() {
         .expand(&pk)
         .expect("failed to expand KAT entry 0 signature");
 
-    expanded
-        .verify(&pk, msg)
+    pk.verify(msg, &expanded)
         .expect("expanded verification failed on KAT entry 0");
 }
 
@@ -161,8 +160,7 @@ fn test_expand_and_verify_all_kat_entries() {
             .expand(&pk)
             .unwrap_or_else(|e| panic!("KAT {}: expand failed: {:?}", i, e));
 
-        expanded
-            .verify(&pk, msg)
+        pk.verify(msg, &expanded)
             .unwrap_or_else(|e| panic!("KAT {}: expanded verify failed: {:?}", i, e));
     }
 }
@@ -184,8 +182,7 @@ fn test_expanded_serialization_roundtrip_kat() {
     let decoded = ExpandedSignature::<L1>::from_bytes(&wire[..ExpandedSignature::<L1>::WIRE_BYTES])
         .expect("expanded from_bytes failed");
 
-    decoded
-        .verify(&pk, msg)
+    pk.verify(msg, &decoded)
         .expect("verify after roundtrip failed");
 }
 
@@ -200,7 +197,7 @@ fn test_expanded_rejects_wrong_message() {
 
     let expanded = sig.expand(&pk).expect("expand failed");
     assert!(
-        expanded.verify(&pk, b"wrong message").is_err(),
+        pk.verify(b"wrong message", &expanded).is_err(),
         "expanded verify should reject wrong message"
     );
 }
@@ -220,7 +217,7 @@ fn test_expanded_any_signature_dispatch() {
     let expanded = sig.expand(&pk).expect("expand failed");
     let any = AnySignature::Expanded(expanded);
     assert_eq!(any.format(), SignatureFormat::Expanded);
-    any.verify(&pk, msg)
+    pk.verify(msg, &any)
         .expect("AnySignature::verify failed for expanded");
 }
 
@@ -240,7 +237,7 @@ fn test_corrupted_signature() {
     let msg = &sm_corrupt[L1_SIG_BYTES..];
 
     assert!(
-        sig.verify(&pk, msg).is_err(),
+        pk.verify(msg, &sig).is_err(),
         "corrupted signature should be rejected"
     );
 }
@@ -256,7 +253,7 @@ fn test_wrong_message() {
     let wrong_msg = b"this is not the right message";
 
     assert!(
-        sig.verify(&pk, wrong_msg).is_err(),
+        pk.verify(wrong_msg, &sig).is_err(),
         "wrong message should be rejected"
     );
 }
@@ -291,7 +288,7 @@ fn test_signature_bitflip_mutation() {
     let msg = &entry.sm[L1_SIG_BYTES..];
 
     let orig_sig = Signature::<L1>::from_bytes(sig_bytes).unwrap();
-    assert!(orig_sig.verify(&pk, msg).is_ok(), "original must verify");
+    assert!(pk.verify(msg, &orig_sig).is_ok(), "original must verify");
 
     let mut accepted_bits = Vec::new();
     let total_bits = L1_SIG_BYTES * 8;
@@ -301,7 +298,7 @@ fn test_signature_bitflip_mutation() {
 
         let accepted = Signature::<L1>::from_bytes(&mutated)
             .ok()
-            .and_then(|sig| sig.verify(&pk, msg).ok())
+            .and_then(|sig| pk.verify(msg, &sig).ok())
             .is_some();
 
         if accepted {
@@ -349,7 +346,7 @@ fn test_public_key_bitflip_mutation() {
     let msg = &entry.sm[L1_SIG_BYTES..];
 
     let orig_pk = PublicKey::<L1>::from_bytes(pk_bytes).unwrap();
-    assert!(sig.verify(&orig_pk, msg).is_ok(), "original must verify");
+    assert!(orig_pk.verify(msg, &sig).is_ok(), "original must verify");
 
     let mut rejected = 0u32;
     let total_bits = pk_bytes.len() * 8;
@@ -359,7 +356,7 @@ fn test_public_key_bitflip_mutation() {
 
         let accepted = PublicKey::<L1>::from_bytes(&mutated)
             .ok()
-            .and_then(|pk| sig.verify(&pk, msg).ok())
+            .and_then(|pk| pk.verify(msg, &sig).ok())
             .is_some();
 
         if !accepted {
@@ -400,7 +397,7 @@ fn verify_all_formats_generic<L: FpBackend + LevelPrecomp>(
         // Standard
         {
             assert!(
-                sig.verify(&pk, msg).is_ok(),
+                pk.verify(msg, &sig).is_ok(),
                 "{} KAT {} standard failed",
                 label,
                 idx
@@ -413,7 +410,7 @@ fn verify_all_formats_generic<L: FpBackend + LevelPrecomp>(
             let expanded = sig
                 .expand(&pk)
                 .unwrap_or_else(|e| panic!("{} KAT {}: expand failed: {:?}", label, idx, e));
-            expanded.verify(&pk, msg).unwrap_or_else(|e| {
+            pk.verify(msg, &expanded).unwrap_or_else(|e| {
                 panic!("{} KAT {}: expanded verify failed: {:?}", label, idx, e)
             });
             pass_expanded += 1;
@@ -423,7 +420,7 @@ fn verify_all_formats_generic<L: FpBackend + LevelPrecomp>(
         {
             let compressed = sig.compress();
 
-            compressed.verify(&pk, msg).unwrap_or_else(|e| {
+            pk.verify(msg, &compressed).unwrap_or_else(|e| {
                 let pow_dim2 =
                     L::E_RSP as i32 - sig.two_resp_length() as i32 - sig.backtracking() as i32;
                 panic!(
@@ -1391,8 +1388,7 @@ fn test_compress_and_verify_kat_entry_0() {
     let msg = &entry.sm[L1_SIG_BYTES..];
 
     let compressed = sig.compress();
-    compressed
-        .verify(&pk, msg)
+    pk.verify(msg, &compressed)
         .expect("compressed verification failed on KAT entry 0");
 }
 
@@ -1407,8 +1403,7 @@ fn test_compress_and_verify_all_kat_entries() {
         let msg = &entry.sm[L1_SIG_BYTES..];
 
         let compressed = sig.compress();
-        compressed
-            .verify(&pk, msg)
+        pk.verify(msg, &compressed)
             .unwrap_or_else(|e| panic!("KAT {}: compressed verify failed: {:?}", i, e));
     }
 }
@@ -1431,8 +1426,7 @@ fn test_compressed_serialization_roundtrip_kat() {
         CompressedSignature::<L1>::from_bytes(&wire[..CompressedSignature::<L1>::WIRE_BYTES])
             .expect("compressed from_bytes failed");
 
-    decoded
-        .verify(&pk, msg)
+    pk.verify(msg, &decoded)
         .expect("verify after roundtrip failed");
 }
 
@@ -1447,7 +1441,7 @@ fn test_compressed_rejects_wrong_message() {
 
     let compressed = sig.compress();
     assert!(
-        compressed.verify(&pk, b"wrong message").is_err(),
+        pk.verify(b"wrong message", &compressed).is_err(),
         "compressed verify should reject wrong message"
     );
 }
@@ -1467,7 +1461,7 @@ fn test_compressed_any_signature_dispatch() {
     let compressed = sig.compress();
     let any = AnySignature::Compressed(compressed);
     assert_eq!(any.format(), SignatureFormat::Compressed);
-    any.verify(&pk, msg)
+    pk.verify(msg, &any)
         .expect("AnySignature::verify failed for compressed");
 }
 

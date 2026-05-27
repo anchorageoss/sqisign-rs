@@ -627,17 +627,6 @@ impl<L: FpBackend + crate::precomp::LevelPrecomp> signature::Verifier<Signature<
     }
 }
 
-impl<L: FpBackend + crate::precomp::LevelPrecomp> Signature<L> {
-    /// Verify this signature against a public key and message.
-    ///
-    /// This is a convenience wrapper. Prefer
-    /// [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
-    /// `Verifier` trait for ecosystem consistency.
-    pub fn verify(&self, pk: &PublicKey<L>, msg: &[u8]) -> Result<(), crate::Error> {
-        crate::verify::protocols_verify(pk, msg, self)
-    }
-}
-
 /// Encode an elliptic curve `(A:C)` to bytes (affine A-coefficient).
 pub fn ec_curve_to_bytes<L: FpBackend>(dst: &mut [u8], curve: &EcCurve<L>) -> usize {
     proj_to_bytes::<L>(dst, &curve.a, &curve.c)

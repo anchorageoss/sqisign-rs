@@ -4,6 +4,7 @@ use sqisign_verify::hash::hash_to_challenge;
 use sqisign_verify::params::{Level1, SecurityLevel};
 use sqisign_verify::precomp::level1;
 use sqisign_verify::types::{PublicKey, Signature};
+use sqisign_verify::Verifier;
 
 type L1 = Level1;
 
@@ -54,7 +55,7 @@ fn bench_verify_standard(c: &mut Criterion) {
     c.bench_function("verify_standard (Level 1)", |b| {
         b.iter(|| {
             let sig = Signature::<L1>::from_bytes(sig_bytes).unwrap();
-            assert!(sig.verify(&pk, msg).is_ok());
+            assert!(pk.verify(msg, &sig).is_ok());
         })
     });
 }
@@ -72,7 +73,7 @@ fn bench_verify_expanded(c: &mut Criterion) {
 
     c.bench_function("verify_expanded (Level 1)", |b| {
         b.iter(|| {
-            expanded.verify(&pk, msg).expect("expanded verify failed");
+            pk.verify(msg, &expanded).expect("expanded verify failed");
         })
     });
 }
@@ -105,8 +106,7 @@ fn bench_verify_compressed(c: &mut Criterion) {
 
     c.bench_function("verify_compressed (Level 1)", |b| {
         b.iter(|| {
-            compressed
-                .verify(&pk, msg)
+            pk.verify(msg, &compressed)
                 .expect("compressed verify failed");
         })
     });

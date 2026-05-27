@@ -3,6 +3,7 @@
 use sqisign_rs::keygen::keypair;
 use sqisign_rs::params::Level1;
 use sqisign_rs::sign::sign;
+use sqisign_rs::Verifier;
 
 type L1 = Level1;
 
@@ -15,7 +16,7 @@ fn sign_verify_roundtrip() {
     let msg = b"SQIsign round-trip test message";
     let sig = sign::<L1>(&sk, &pk, msg, &mut rng).expect("signing must succeed");
 
-    assert!(sig.verify(&pk, msg).is_ok(), "valid signature must verify");
+    assert!(pk.verify(msg, &sig).is_ok(), "valid signature must verify");
 }
 
 #[test]
@@ -27,7 +28,7 @@ fn sign_verify_empty_message() {
     let sig = sign::<L1>(&sk, &pk, b"", &mut rng).expect("signing must succeed");
 
     assert!(
-        sig.verify(&pk, b"").is_ok(),
+        pk.verify(b"", &sig).is_ok(),
         "empty message signature must verify"
     );
 }
@@ -43,7 +44,7 @@ fn sign_verify_wrong_message_fails() {
     let sig = sign::<L1>(&sk, &pk, msg, &mut rng).expect("signing must succeed");
 
     assert!(
-        sig.verify(&pk, wrong_msg).is_err(),
+        pk.verify(wrong_msg, &sig).is_err(),
         "signature must not verify under wrong message"
     );
 }
@@ -59,7 +60,7 @@ fn sign_verify_wrong_key_fails() {
     let sig = sign::<L1>(&_sk1, &pk1, msg, &mut rng).expect("signing must succeed");
 
     assert!(
-        sig.verify(&pk2, msg).is_err(),
+        pk2.verify(msg, &sig).is_err(),
         "signature must not verify under wrong public key"
     );
 }
