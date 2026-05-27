@@ -93,7 +93,7 @@ The default type parameter is `Level1`, so `PublicKey` and `PublicKey<Level1>` a
 This crate is `no_std` by default with zero heap allocation. Add the `std` feature if you need `std::error::Error` impls:
 
 ```toml
-sqisign-verify = { version = "0.2", features = ["std"] }
+sqisign-verify = { version = "0.3", features = ["std"] }
 ```
 
 ## References

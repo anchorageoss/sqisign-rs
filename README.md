@@ -127,7 +127,7 @@ Secret key material is protected by a three-tier system:
 The allocator is enabled by default through the `sqisign-core` facade crate with zero measured overhead. If you use a custom allocator (jemalloc, mimalloc, etc.), disable it:
 
 ```toml
-sqisign-core = { version = "0.1", default-features = false }
+sqisign-rs = { version = "0.3", default-features = false }
 ```
 
 Disabling the allocator means heap memory freed by `num-bigint` during signing will NOT be zeroed. Ghost copies of secret intermediate values may persist in freed heap pages until the memory is reused. Tier 1 (SecretKey zeroization) and Tier 2 (explicit intermediate zeroization) remain active regardless of allocator choice.
