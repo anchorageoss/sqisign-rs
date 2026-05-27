@@ -114,7 +114,7 @@ fn all_freed_memory_is_zeroed_during_keygen_sign_drop() {
             sqisign_rs::sign::sign::<Level1>(&sk, &pk, b"zeroize audit test message", &mut rng);
 
         if let Ok(ref sig) = sig {
-            assert!(pk.verify(b"zeroize audit test message", &sig).is_ok());
+            assert!(pk.verify(b"zeroize audit test message", sig).is_ok());
         }
     }
 
