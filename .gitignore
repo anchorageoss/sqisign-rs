@@ -2,7 +2,6 @@ target/
 Cargo.lock
 bin/
 .vscode/
-PROJECT_KEY
 
 # Fuzz artifacts (corpus, crashes, and auto-generated seeds are machine-local)
 crates/verify/fuzz/corpus/

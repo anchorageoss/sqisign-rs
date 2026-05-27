@@ -173,48 +173,6 @@ The verification path (verify and its dependencies: ec, fp, theta, precomp, para
 
 SQIsign was introduced by De Feo, Kohel, Leroux, Petit, and Wesolowski (ASIACRYPT 2020). The v2.0 construction uses (2,2)-isogenies in the theta model following the SQIsign2D-West approach (Basso, Dartois, De Feo, Leroux, Maino, Pope, Robert, Wesolowski, ASIACRYPT 2024).
 
-## Self-Signature
-
-This library signs its own source code using SQIsign compressed signatures.
-The signature below covers the SHA-256 hash of all Rust source files in the
-`crates/` directory, sorted lexicographically.
-
-**Public key** (65 bytes):
-```
-1a5ec6377182ec36e4ab8d29ca525bbfb8dac4d547e985
-7774df20afd726690006ddca551230c4b1b416c53016ec
-4008becfda012d4afcfd198dae9f55e30b020c
-```
-
-**Source hash** (SHA-256):
-```
-cf122e19f05cfa13668cbe6808050717567ef0220d1c0fdf83fc98cacd88ca21
-```
-
-**Signature** (129 bytes, SQIsign Level 1 compressed):
-```
-47b243c0c560f3b88c4a0bf2c65afe11019e660deeacbc
-26c4d6239067b5af03abb51bc0fe5c48523181b1084490
-57cd9cc0492ce2355257de9a228d858bde0108a78eed72
-39da7df4b2d9ec60139e9461ece6e6c569978eb57c322d
-232d73e89226d01042bcfb14dc55e8d0ac30fe3a9c5545
-53c2ec6a63e15079ee7aa4e46b00
-```
-
-To verify:
-```bash
-cargo run --release -p project-sign -- hash
-# Compare with the source hash above, then:
-cargo run --release -p project-sign -- verify \
-  --public-key <pk> \
-  --message <hash> \
-  --signature <sig>
-```
-
-For comparison, an ML-DSA (Dilithium) signature for the same message would be
-2,420 bytes. An SLH-DSA (SPHINCS+) signature would be 7,856 bytes.
-This SQIsign signature is **129 bytes**.
-
 ## License
 
 Apache-2.0 OR MIT

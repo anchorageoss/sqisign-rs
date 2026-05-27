@@ -5,7 +5,6 @@ members = [
     "crates/sqisign-rs",
     "crates/kat",
     "tools/demo-sign",
-    "tools/project-sign",
 ]
 exclude = [
     "crates/alloc",
