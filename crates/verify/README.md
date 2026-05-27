@@ -102,4 +102,4 @@ SQIsign was introduced by De Feo, Kohel, Leroux, Petit, and Wesolowski (ASIACRYP
 
 ## License
 
-Apache-2.0 OR MIT
+Apache-2.0 OR MIT at your option.
