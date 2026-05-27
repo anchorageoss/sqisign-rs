@@ -1,7 +1,7 @@
 # sqisign-rs
 
-[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
-[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
+[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
+[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
 
 A pure Rust implementation of SQIsign v2.0.
 
@@ -186,9 +186,20 @@ The signature below covers the SHA-256 hash of all Rust source files in the
 96429469606b3362d8e8178a538d052b9c0202
 ```
 
-Source hash: 4c0cf6e5d89b62e58f941a9935e3c0dd86e5ff29e9b97c41b731e93025ad473c
+**Source hash** (SHA-256):
+```
+c01579d766dc2669707ea21cf7fb23f5f2214f26513e34b5efabcf2ad336e380
+```
 
-Signature: e6f1af44d2602b84410df1e5d964420f6598f52b02c4f1f4a1a09a3f59e1790091e8147f1a4f054f36898ec167ec0661949a55889017047f539e691973b0b104040d1c1ddda553aa2efa8449161fac4b5f7637b24a8b6ed213c1f70b70e07c3687e1107f561404b7acdea099533764bf1c3dc65f1186c887c0b00d8c8b9bbab603
+**Signature** (129 bytes, SQIsign Level 1 compressed):
+```
+ccd5462b4746ade47e428846522380f2fe9e7588ff5e09
+85a4820df88365dc006fd720001962a155999d187e57db
+1c90b2c6381383c06000eaf800652feb8a0104cc21fdec
+64b3294418773e561b315e18db8c7012edf88cab5daa68
+f9df0c01bc5029883af4f678024329bbba314b3af39e77
+3565ee09f1e2f376f66fd1d66303
+```
 
 To verify:
 ```bash

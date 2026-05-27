@@ -8,8 +8,9 @@ fn usage() -> ! {
     eprintln!("commands:");
     eprintln!("  generate                          Generate a keypair (hex)");
     eprintln!("  hash                              Compute deterministic source hash");
-    eprintln!("  sign   --secret-key <hex> --message <hex>");
-    eprintln!("  verify --public-key <hex> --message <hex> --signature <hex>");
+    eprintln!("  sign    --secret-key <hex> --message <hex>");
+    eprintln!("  verify  --public-key <hex> --message <hex> --signature <hex>");
+    eprintln!("  update-readme --secret-key <hex>  Hash, sign, and update README.md");
     std::process::exit(1);
 }
 
@@ -62,19 +63,7 @@ fn walk_dir(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
 }
 
 fn cmd_hash() {
-    let files = collect_source_files();
-    let mut outer = Sha256::new();
-    for path in &files {
-        let contents = std::fs::read(path).unwrap_or_else(|e| {
-            eprintln!("error reading {}: {e}", path.display());
-            std::process::exit(1);
-        });
-        let hash = Sha256::digest(&contents);
-        let line = format!("{}  {}\n", hex::encode(hash), path.display());
-        outer.update(line.as_bytes());
-    }
-    let final_hash = outer.finalize();
-    println!("{}", hex::encode(final_hash));
+    println!("{}", compute_hash());
 }
 
 fn cmd_sign(args: &[String]) {
@@ -137,6 +126,111 @@ fn cmd_verify(args: &[String]) {
     }
 }
 
+fn wrap_hex(hex: &str, width: usize) -> String {
+    hex.as_bytes()
+        .chunks(width)
+        .map(|c| std::str::from_utf8(c).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn compute_hash() -> String {
+    let files = collect_source_files();
+    let mut outer = Sha256::new();
+    for path in &files {
+        let contents = std::fs::read(path).unwrap_or_else(|e| {
+            eprintln!("error reading {}: {e}", path.display());
+            std::process::exit(1);
+        });
+        let hash = Sha256::digest(&contents);
+        let line = format!("{}  {}\n", hex::encode(hash), path.display());
+        outer.update(line.as_bytes());
+    }
+    hex::encode(outer.finalize())
+}
+
+fn skip_block<'a>(lines: &mut impl Iterator<Item = &'a str>) {
+    let mut in_fence = false;
+    for l in lines.by_ref() {
+        if l.starts_with("```") {
+            if in_fence {
+                return;
+            }
+            in_fence = true;
+        } else if !in_fence {
+            continue;
+        }
+    }
+}
+
+fn cmd_update_readme(args: &[String]) {
+    let sk_hex = require_flag(args, "--secret-key");
+
+    let sk_bytes = hex::decode(sk_hex).unwrap_or_else(|e| {
+        eprintln!("error: invalid secret key hex: {e}");
+        std::process::exit(1);
+    });
+    let sk: SigningKey = SigningKey::from_bytes(&sk_bytes).unwrap_or_else(|e| {
+        eprintln!("error: failed to parse signing key: {e}");
+        std::process::exit(1);
+    });
+
+    let hash_hex = compute_hash();
+    let msg_bytes = hex::decode(&hash_hex).unwrap();
+
+    let mut rng = rand::rngs::OsRng;
+    let sig = sk.sign(&msg_bytes, &mut rng).unwrap_or_else(|e| {
+        eprintln!("error: signing failed: {e}");
+        std::process::exit(1);
+    });
+    let sig_hex = hex::encode(sig.compress().to_bytes());
+
+    // Verify before touching the README
+    let pk = sk.public_key();
+    let sig_bytes = hex::decode(&sig_hex).unwrap();
+    pk.verify_bytes(&msg_bytes, &sig_bytes).unwrap_or_else(|e| {
+        eprintln!("error: self-verification failed: {e}");
+        std::process::exit(1);
+    });
+
+    let readme = std::fs::read_to_string("README.md").unwrap_or_else(|e| {
+        eprintln!("error: cannot read README.md: {e}");
+        std::process::exit(1);
+    });
+
+    let hash_block = format!("**Source hash** (SHA-256):\n```\n{}\n```", hash_hex);
+    let sig_block = format!(
+        "**Signature** (129 bytes, SQIsign Level 1 compressed):\n```\n{}\n```",
+        wrap_hex(&sig_hex, 46)
+    );
+
+    let mut out = String::new();
+    let mut lines = readme.lines().peekable();
+    while let Some(line) = lines.next() {
+        if line.starts_with("**Source hash**") {
+            out.push_str(&hash_block);
+            out.push('\n');
+            skip_block(&mut lines);
+        } else if line.starts_with("**Signature**") {
+            out.push_str(&sig_block);
+            out.push('\n');
+            skip_block(&mut lines);
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+
+    std::fs::write("README.md", &out).unwrap_or_else(|e| {
+        eprintln!("error: cannot write README.md: {e}");
+        std::process::exit(1);
+    });
+
+    eprintln!("Updated README.md");
+    eprintln!("  hash: {hash_hex}");
+    eprintln!("  sig:  {sig_hex}");
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -148,6 +242,7 @@ fn main() {
         "hash" => cmd_hash(),
         "sign" => cmd_sign(&args[2..]),
         "verify" => cmd_verify(&args[2..]),
+        "update-readme" => cmd_update_readme(&args[2..]),
         _ => usage(),
     }
 }

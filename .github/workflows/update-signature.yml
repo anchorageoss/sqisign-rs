@@ -15,30 +15,10 @@ jobs:
       - name: Build signing tool
         run: cargo build --release -p project-sign
 
-      - name: Compute hash and sign
+      - name: Update README signature
         env:
           SQISIGN_SIGNING_KEY: ${{ secrets.SQISIGN_SIGNING_KEY }}
-        run: |
-          HASH=$(cargo run --release -p project-sign -- hash)
-          SIG=$(cargo run --release -p project-sign -- sign \
-            --secret-key "$SQISIGN_SIGNING_KEY" \
-            --message "$HASH")
-          echo "SOURCE_HASH=$HASH" >> $GITHUB_ENV
-          echo "SIGNATURE=$SIG" >> $GITHUB_ENV
-
-      - name: Update README
-        run: |
-          sed -i "s|^Source hash: .*|Source hash: $SOURCE_HASH|" README.md
-          sed -i "s|^Signature: .*|Signature: $SIGNATURE|" README.md
-
-      - name: Verify before committing
-        run: |
-          SIG=$(grep "^Signature:" README.md | cut -d' ' -f2)
-          PK=$(cat PROJECT_KEY)
-          cargo run --release -p project-sign -- verify \
-            --public-key "$PK" \
-            --message "$SOURCE_HASH" \
-            --signature "$SIG"
+        run: cargo run --release -p project-sign -- update-readme --secret-key "$SQISIGN_SIGNING_KEY"
 
       - name: Commit if changed
         run: |
