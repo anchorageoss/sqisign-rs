@@ -396,9 +396,9 @@ pub fn ibz_rand_interval_minm_m(rng: &mut impl Rng, m: i32) -> Ibz {
     r - m
 }
 
-/// Random integer in `[-2^m - m, 2^m - m]`.
+/// Random integer in `[−2ᵐ − m, 2ᵐ − m]`.
 ///
-/// Samples uniformly from `[-2^m, 2^m]` then subtracts `m`.
+/// Samples uniformly from `[−2ᵐ, 2ᵐ]` then subtracts `m`.
 pub fn ibz_rand_interval_bits(rng: &mut impl Rng, m: u32) -> Ibz {
     let bound = BigInt::one() << m as usize;
     let low = -&bound;

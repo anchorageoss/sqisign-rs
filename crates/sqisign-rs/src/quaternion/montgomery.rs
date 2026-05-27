@@ -15,13 +15,13 @@ pub struct MontgomeryCtx {
     n: BigUint,
     /// Number of 64-bit limbs in the modulus.
     limbs: usize,
-    /// R = 2^(64*limbs), not stored directly (too large), but R mod n and R^2 mod n are.
+    /// R = 2^(64×limbs), not stored directly (too large), but R mod n and R² mod n are.
     r_mod_n: BigUint,
-    /// R^2 mod n, used to convert into Montgomery form.
+    /// R² mod n, used to convert into Montgomery form.
     r2_mod_n: BigUint,
-    /// -n^{-1} mod R, the full multi-limb Montgomery reduction constant.
+    /// −n⁻¹ mod R, the full multi-limb Montgomery reduction constant.
     n_inv_full: BigUint,
-    /// Bitmask: R - 1 = 2^(64*limbs) - 1.
+    /// Bitmask: R − 1 = 2^(64×limbs) − 1.
     r_mask: BigUint,
 }
 
@@ -62,13 +62,13 @@ impl MontgomeryCtx {
         self.mont_mul(a, &self.r2_mod_n)
     }
 
-    /// Convert from Montgomery form back to normal: a = a_mont * 1 = a_mont * R^{-1} mod n.
+    /// Convert from Montgomery form back to normal: a = a_mont * 1 = a_mont * R⁻¹ mod n.
     #[inline]
     fn reduce_mont(&self, a_mont: &BigUint) -> BigUint {
         self.mont_redc(a_mont)
     }
 
-    /// Montgomery reduction: given T < n * R, compute T * R^{-1} mod n.
+    /// Montgomery reduction: given T < n * R, compute T * R⁻¹ mod n.
     ///
     /// Uses the REDC algorithm:
     ///   m = (T mod R) * n_inv mod R
@@ -93,14 +93,14 @@ impl MontgomeryCtx {
         }
     }
 
-    /// Montgomery multiplication: compute a * b * R^{-1} mod n.
+    /// Montgomery multiplication: compute a * b * R⁻¹ mod n.
     #[inline]
     fn mont_mul(&self, a: &BigUint, b: &BigUint) -> BigUint {
         let t = a * b;
         self.mont_redc(&t)
     }
 
-    /// Montgomery squaring: compute a^2 * R^{-1} mod n.
+    /// Montgomery squaring: compute a² * R⁻¹ mod n.
     #[inline]
     fn mont_sqr(&self, a: &BigUint) -> BigUint {
         let t = a * a;
@@ -133,7 +133,7 @@ impl MontgomeryCtx {
     }
 }
 
-/// Compute -n^{-1} mod 2^r_bits via Hensel lifting.
+/// Compute −n⁻¹ mod 2^r_bits via Hensel lifting.
 ///
 /// `n` must be odd. `r_bits` must be a multiple of 64.
 fn compute_neg_n_inv_full(n: &BigUint, r_bits: usize) -> BigUint {

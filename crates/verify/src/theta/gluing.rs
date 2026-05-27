@@ -35,7 +35,7 @@ fn action_by_translation_z_and_det<L: FpBackend>(
     (z_inv, det)
 }
 
-/// Build the 2x2 translation matrix from the 4-torsion and 2-torsion
+/// Build the 2×2 translation matrix from the 4-torsion and 2-torsion
 /// points after their Z-coordinate and determinant have been inverted.
 #[inline]
 fn action_by_translation_compute_matrix<L: FpBackend>(
@@ -141,7 +141,7 @@ fn action_by_translation<L: FpBackend>(
     Some([g0, g1, g2, g3])
 }
 
-/// Compute the 4x4 basis change matrix for the gluing isogeny from
+/// Compute the 4×4 basis change matrix for the gluing isogeny from
 /// 4-torsion kernel generators on E1 x E2.
 ///
 /// Returns `None` if the kernel does not have the expected order.

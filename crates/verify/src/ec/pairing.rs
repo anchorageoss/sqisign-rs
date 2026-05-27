@@ -99,7 +99,7 @@ fn cubical_dbladd<L: FpBackend>(
     (EcPoint::new(ppq_x, ppq_z), EcPoint::new(qq_x, qq_z))
 }
 
-/// Iterative biextension ladder: compute `(P + [2^e]Q, [2^e]Q)`.
+/// Iterative biextension ladder: compute (P + [2ᵉ]Q, [2ᵉ]Q).
 #[inline]
 fn biext_ladder_2e<L: FpBackend>(
     e: u32,
@@ -174,8 +174,8 @@ fn cubical_normalization<L: FpBackend>(
 }
 
 /// Compute the biextension monodromy via the cubical ladder.
-/// When `swap_pq` is false, computes from P + [2^e]Q.
-/// When `swap_pq` is true, computes from Q + [2^e]P.
+/// When `swap_pq` is false, computes from P + [2ᵉ]Q.
+/// When `swap_pq` is true, computes from Q + [2ᵉ]P.
 #[inline]
 fn monodromy_i<L: FpBackend>(params: &PairingParams<L>, swap_pq: bool) -> EcPoint<L> {
     let (p, q, ix_p) = if !swap_pq {
@@ -203,7 +203,7 @@ fn weil_n<L: FpBackend>(params: &PairingParams<L>) -> Fp2<L> {
     r.mul(&r1.x)
 }
 
-/// Weil pairing `e_{2^e}(P, Q)` via the biextension cubical ladder.
+/// Weil pairing e_{2ᵉ}(P, Q) via the biextension cubical ladder.
 ///
 /// `pq` must be `x(P - Q)` in (X:Z) coordinates. Crashes (division by
 /// zero) if either P or Q is the identity.
@@ -230,7 +230,7 @@ pub fn weil<L: FpBackend>(
     weil_n(&params)
 }
 
-/// Clear the cofactor `(p+1) / 2^f` from an Fp2 element by
+/// Clear the cofactor (p+1) / 2ᶠ from an 𝔽p² element by
 /// exponentiation. Uses `p_cofactor_for_2f` (a small odd integer).
 #[inline]
 pub fn clear_cofac<L: FpBackend>(a: &Fp2<L>, cofactor: &[u64]) -> Fp2<L> {
@@ -248,17 +248,17 @@ pub fn clear_cofac<L: FpBackend>(a: &Fp2<L>, cofactor: &[u64]) -> Fp2<L> {
     r
 }
 
-/// Frobenius endomorphism on Fp2: `a + b*i -> a - b*i`.
+/// Frobenius endomorphism on 𝔽p²: a + bi → a − bi.
 /// This is conjugation since `p = 3 mod 4`.
 #[inline]
 pub fn fp2_frob<L: FpBackend>(x: &Fp2<L>) -> Fp2<L> {
     x.conjugate()
 }
 
-/// Reduced Tate pairing `t_{2^e}(P, Q)` via the biextension cubical ladder.
+/// Reduced Tate pairing t_{2ᵉ}(P, Q) via the biextension cubical ladder.
 ///
 /// `pq` must be `x(P - Q)` in (X:Z) coordinates.
-/// Computes the unreduced pairing and applies `^((p^2-1)/2^f)`.
+/// Computes the unreduced pairing and applies ^((p²−1)/2ᶠ).
 #[inline]
 pub fn reduced_tate<L: FpBackend>(
     e: u32,
@@ -366,8 +366,8 @@ fn fp2_dlog_2e_rec<L: FpBackend>(
     Some(())
 }
 
-/// Compute discrete log: find `scal` such that `f = g^scal` where `g_inverse = g^(-1)`,
-/// in the `2^e`-subgroup of Fp2*.
+/// Compute discrete log: find `scal` such that `f = g^scal` where `g_inverse = g⁻¹`,
+/// in the 2ᵉ-subgroup of 𝔽p²*.
 #[inline]
 fn fp2_dlog_2e<L: FpBackend>(
     scal: &mut [u64],
@@ -398,8 +398,8 @@ fn fp2_dlog_2e<L: FpBackend>(
     fp2_dlog_2e_rec(scal, e as usize, &mut pows_f, &mut pows_g, 1)
 }
 
-/// Find `scal` such that `f = g^scal` in the `2^e`-subgroup of `Fp2*`,
-/// given `g_inverse = g^{-1}`. Returns `None` if the DLP has no solution.
+/// Find `scal` such that `f = g^scal` in the 2ᵉ-subgroup of `Fp2*`,
+/// given `g_inverse = g⁻¹`. Returns `None` if the DLP has no solution.
 #[inline]
 pub fn fp2_dlog_2e_pub<L: FpBackend>(
     scal: &mut [u64],
@@ -692,7 +692,7 @@ fn weil_dlog<L: FpBackend>(data: &PairingDlogParams<L>) -> Option<DlogResult> {
 
 /// Compute 2-power discrete log using the Weil pairing.
 ///
-/// Given bases `{P, Q}` and `{R, S}` of the `2^e`-torsion, find
+/// Given bases `{P, Q}` and `{R, S}` of the 2ᵉ-torsion, find
 /// scalars `r1, r2, s1, s2` such that `R = [r1]P + [r2]Q` and
 /// `S = [s1]P + [s2]Q`.
 #[allow(clippy::too_many_arguments)]
@@ -887,7 +887,7 @@ fn tate_dlog_partial<L: FpBackend>(
 /// Compute 2-power discrete log using the reduced Tate pairing.
 ///
 /// `{P, Q}` must be a basis of the full `2^torsion_even_power`-torsion.
-/// `{R, S}` is a basis of the `2^e`-torsion (where `e <= torsion_even_power`).
+/// `{R, S}` is a basis of the 2ᵉ-torsion (where `e <= torsion_even_power`).
 /// Finds scalars `r1, r2, s1, s2` such that
 /// `R = [2^(f-e)]([r1]P + [r2]Q)` and `S = [2^(f-e)]([s1]P + [s2]Q)`.
 #[allow(clippy::too_many_arguments)]

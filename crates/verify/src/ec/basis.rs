@@ -1,5 +1,5 @@
 //!
-//! Provides routines to generate canonical bases for the `2^f`-torsion
+//! Provides routines to generate canonical bases for the 2ᶠ-torsion
 //! subgroup, including hint-based generation for fast recomputation
 //! during verification, y-coordinate recovery, and on-curve checks.
 
@@ -240,7 +240,7 @@ pub fn is_on_curve<L: FpBackend>(x: &Fp2<L>, curve: &EcCurve<L>) -> Choice {
 }
 
 /// Clear the odd cofactor and excess powers of 2 to get a point of
-/// order exactly `2^f`.
+/// order exactly 2ᶠ.
 #[inline]
 fn clear_cofactor_for_maximal_even_order<L: FpBackend>(
     p: &EcPoint<L>,
@@ -260,7 +260,7 @@ fn clear_cofactor_for_maximal_even_order<L: FpBackend>(
     result
 }
 
-/// Generate the canonical `2^f`-torsion basis on E0 (A = 0).
+/// Generate the canonical 2ᶠ-torsion basis on E0 (A = 0).
 ///
 /// Uses the precomputed basis points `BASIS_E0_PX` and `BASIS_E0_QX`.
 #[inline]
@@ -353,7 +353,7 @@ fn find_na_x_coord<L: FpBackend>(curve: &EcCurve<L>, start: u8) -> Result<(Fp2<L
     Ok((x, hint))
 }
 
-/// Generate a `2^f`-torsion basis `<P, Q>` on the given curve, where Q
+/// Generate a 2ᶠ-torsion basis `<P, Q>` on the given curve, where Q
 /// is above the Montgomery point `(0:0)`.
 ///
 /// Stores a hint byte for fast recomputation via `ec_curve_to_basis_2f_from_hint`.
@@ -414,7 +414,7 @@ pub fn ec_curve_to_basis_2f_to_hint<L: FpBackend>(
     Ok((EcBasis::new(p, basis_q, q), hint_byte))
 }
 
-/// Reconstruct a `2^f`-torsion basis `<P, Q>` from a hint byte, where Q
+/// Reconstruct a 2ᶠ-torsion basis `<P, Q>` from a hint byte, where Q
 /// is above the Montgomery point `(0:0)`.
 ///
 /// Returns `(basis, ok)` where `ok` is always 1 (failure only in debug

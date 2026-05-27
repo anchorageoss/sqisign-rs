@@ -7,8 +7,8 @@ pub mod ec_params;
 
 pub use ec_params::{P_COFACTOR_FOR_2F, P_COFACTOR_FOR_2F_BITLENGTH, TORSION_EVEN_POWER};
 
-/// Canonical Fp2-encoded bytes for `BASIS_E0_PX`, the x-coordinate of the
-/// first generator of the `2^f`-torsion basis on E0.
+/// Canonical 𝔽p²-encoded bytes for `BASIS_E0_PX`, the x-coordinate of the
+/// first generator of the 2ᶠ-torsion basis on E0.
 pub const BASIS_E0_PX_BYTES: [u8; 128] = [
     0xc0, 0xb4, 0x87, 0xb1, 0xde, 0x5c, 0x02, 0x80, 0x81, 0xdf, 0x6f, 0x2b, 0x61, 0x2a, 0x84, 0xe7,
     0x04, 0x36, 0x08, 0xc4, 0xc4, 0x49, 0xf1, 0xc8, 0x9e, 0x45, 0x2d, 0x2e, 0x92, 0x09, 0xa0, 0x6b,
@@ -20,8 +20,8 @@ pub const BASIS_E0_PX_BYTES: [u8; 128] = [
     0xa1, 0xab, 0x8f, 0xd8, 0xa2, 0xe7, 0xe2, 0xd3, 0x80, 0xcf, 0xf3, 0x6e, 0x51, 0x2a, 0xc4, 0x00,
 ];
 
-/// Canonical Fp2-encoded bytes for `BASIS_E0_QX`, the x-coordinate of the
-/// second generator of the `2^f`-torsion basis on E0.
+/// Canonical 𝔽p²-encoded bytes for `BASIS_E0_QX`, the x-coordinate of the
+/// second generator of the 2ᶠ-torsion basis on E0.
 pub const BASIS_E0_QX_BYTES: [u8; 128] = [
     0x09, 0xaa, 0xc8, 0xbf, 0x99, 0x40, 0x65, 0x6e, 0x5e, 0xef, 0x70, 0x2c, 0x57, 0xa3, 0x8a, 0xf6,
     0x19, 0x82, 0x60, 0xb4, 0xeb, 0xfc, 0x2a, 0x87, 0x1e, 0xa9, 0x09, 0x8b, 0xb5, 0x99, 0xcb, 0xf0,
@@ -56,7 +56,7 @@ pub const EVEN_INDEX: [[i32; 2]; 10] = [
 /// Character evaluation table for splitting.
 pub const CHI_EVAL: [[i32; 4]; 4] = [[1, 1, 1, 1], [1, -1, 1, -1], [1, 1, -1, -1], [1, -1, -1, 1]];
 
-/// 10 precomputed 4x4 basis change matrices for splitting transforms.
+/// 10 precomputed 4×4 basis change matrices for splitting transforms.
 /// Each entry is a u8 index into `{0, 1, i, -1, -i}`.
 pub const SPLITTING_TRANSFORMS: [[[u8; 4]; 4]; 10] = [
     [
@@ -121,7 +121,7 @@ pub const SPLITTING_TRANSFORMS: [[[u8; 4]; 4]; 10] = [
     ],
 ];
 
-/// 6 precomputed 4x4 normalization matrices for splitting.
+/// 6 precomputed 4×4 normalization matrices for splitting.
 pub const NORMALIZATION_TRANSFORMS: [[[u8; 4]; 4]; 6] = [
     [
         [FP2_ONE, FP2_ZERO, FP2_ZERO, FP2_ZERO],

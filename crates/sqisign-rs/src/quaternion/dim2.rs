@@ -17,7 +17,7 @@ pub fn ibz_mat_2x2_copy(src: &IbzMat2x2) -> IbzMat2x2 {
     src.clone()
 }
 
-/// Element-wise addition of two 2x2 matrices.
+/// Element-wise addition of two 2×2 matrices.
 pub fn ibz_mat_2x2_add(a: &IbzMat2x2, b: &IbzMat2x2) -> IbzMat2x2 {
     IbzMat2x2([
         [&a[0][0] + &b[0][0], &a[0][1] + &b[0][1]],
@@ -25,7 +25,7 @@ pub fn ibz_mat_2x2_add(a: &IbzMat2x2, b: &IbzMat2x2) -> IbzMat2x2 {
     ])
 }
 
-/// 2x2 determinant from four individual elements: `a11*a22 - a12*a21`.
+/// 2×2 determinant from four individual elements: `a11*a22 - a12*a21`.
 pub fn ibz_mat_2x2_det_from_ibz(a11: &Ibz, a12: &Ibz, a21: &Ibz, a22: &Ibz) -> Ibz {
     &(a11 * a22) - &(a12 * a21)
 }

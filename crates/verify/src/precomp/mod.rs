@@ -14,27 +14,27 @@ pub mod level5;
 /// Level-specific precomputed constants needed by the verification and
 /// EC layers. Implemented for each security level marker type.
 pub trait LevelPrecomp: SecurityLevel {
-    /// Canonical Fp2-encoded bytes for the x-coordinate of the first
-    /// generator of the `2^f`-torsion basis on E0.
+    /// Canonical 𝔽p²-encoded bytes for the x-coordinate of the first
+    /// generator of the 2ᶠ-torsion basis on E0.
     fn basis_e0_px_bytes() -> &'static [u8];
 
-    /// Canonical Fp2-encoded bytes for the x-coordinate of the second
-    /// generator of the `2^f`-torsion basis on E0.
+    /// Canonical 𝔽p²-encoded bytes for the x-coordinate of the second
+    /// generator of the 2ᶠ-torsion basis on E0.
     fn basis_e0_qx_bytes() -> &'static [u8];
 
-    /// The odd cofactor `(p+1) / 2^f` as 64-bit limbs (little-endian).
+    /// The odd cofactor (p+1) / 2ᶠ as 64-bit limbs (little-endian).
     fn p_cofactor_for_2f() -> &'static [u64];
 
     /// Bit-length of the odd cofactor.
     fn p_cofactor_for_2f_bitlength() -> u32;
 
-    /// Exponent f such that the torsion subgroup is `Z/2^f x Z/2^f`.
+    /// Exponent f such that the torsion subgroup is ℤ/2ᶠ × ℤ/2ᶠ.
     fn torsion_even_power() -> u32;
 
-    /// 10 precomputed 4x4 basis change matrices for splitting transforms.
+    /// 10 precomputed 4×4 basis change matrices for splitting transforms.
     fn splitting_transforms() -> &'static [[[u8; 4]; 4]; 10];
 
-    /// 6 precomputed 4x4 normalization matrices for splitting.
+    /// 6 precomputed 4×4 normalization matrices for splitting.
     fn normalization_transforms() -> &'static [[[u8; 4]; 4]; 6];
 
     /// Character evaluation table for splitting.

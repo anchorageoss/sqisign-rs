@@ -96,7 +96,7 @@ pub fn ibz_xgcd_with_u_not_0(x: &Ibz, y: &Ibz) -> (Ibz, Ibz, Ibz) {
     (d, u, v)
 }
 
-/// Test whether a 4x4 integer matrix is in Hermite Normal Form.
+/// Test whether a 4×4 integer matrix is in Hermite Normal Form.
 ///
 /// Checks: upper-triangular, each pivot (first nonzero entry per row)
 /// is positive and strictly larger than all entries to its right.

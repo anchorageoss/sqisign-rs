@@ -98,14 +98,14 @@ pub trait FpBackend: SecurityLevel {
     /// `out <- -a mod 2p`.
     fn neg(out: &mut Array<u64, Self::FpLimbs>, a: &Array<u64, Self::FpLimbs>);
 
-    /// Montgomery multiplication: `out <- a * b * R^{-1} mod 2p`.
+    /// Montgomery multiplication: out ← a · b · R⁻¹ mod 2p.
     fn mul(
         out: &mut Array<u64, Self::FpLimbs>,
         a: &Array<u64, Self::FpLimbs>,
         b: &Array<u64, Self::FpLimbs>,
     );
 
-    /// Specialized Montgomery squaring: `out <- a^2 * R^{-1} mod 2p`.
+    /// Specialized Montgomery squaring: out ← a² · R⁻¹ mod 2p.
     fn sqr(out: &mut Array<u64, Self::FpLimbs>, a: &Array<u64, Self::FpLimbs>);
 
     /// `out <- 1 / a mod p`. If `a == 0` the output is `0` (no panic).

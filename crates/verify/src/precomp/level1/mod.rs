@@ -5,18 +5,18 @@
 pub mod e0_basis;
 pub mod ec_params;
 
-/// Exponent f such that the torsion subgroup is `Z/2^f x Z/2^f`.
+/// Exponent f such that the torsion subgroup is ℤ/2ᶠ × ℤ/2ᶠ.
 pub const TORSION_EVEN_POWER: u32 = 248;
 
-/// Bit-length of the odd cofactor `(p+1) / 2^f`.
+/// Bit-length of the odd cofactor (p+1) / 2ᶠ.
 pub const P_COFACTOR_FOR_2F_BITLENGTH: u32 = 3;
 
-/// The odd cofactor `(p+1) / 2^f` as a single 64-bit limb.
+/// The odd cofactor (p+1) / 2ᶠ as a single 64-bit limb.
 /// For Level 1: `(p+1)/2^248 = 5`.
 pub const P_COFACTOR_FOR_2F: &[u64] = &[5];
 
-/// Canonical Fp2-encoded bytes for `BASIS_E0_PX`, the x-coordinate of the
-/// first generator of the `2^f`-torsion basis on E0.
+/// Canonical 𝔽p²-encoded bytes for `BASIS_E0_PX`, the x-coordinate of the
+/// first generator of the 2ᶠ-torsion basis on E0.
 pub const BASIS_E0_PX_BYTES: [u8; 64] = [
     0x78, 0x00, 0xb4, 0xae, 0x5e, 0xd9, 0x19, 0x21, 0x8b, 0xa7, 0xbf, 0x59, 0x1a, 0x99, 0xbe, 0x44,
     0xc4, 0x16, 0x62, 0xa6, 0xc3, 0x04, 0xcc, 0x83, 0x24, 0xb1, 0x82, 0xca, 0x7f, 0x87, 0x9b, 0x01,
@@ -24,8 +24,8 @@ pub const BASIS_E0_PX_BYTES: [u8; 64] = [
     0x2f, 0xe9, 0x67, 0x98, 0xaa, 0x0a, 0x15, 0x52, 0x42, 0xe0, 0xea, 0x49, 0xdb, 0x2a, 0x44, 0x04,
 ];
 
-/// Canonical Fp2-encoded bytes for `BASIS_E0_QX`, the x-coordinate of the
-/// second generator of the `2^f`-torsion basis on E0.
+/// Canonical 𝔽p²-encoded bytes for `BASIS_E0_QX`, the x-coordinate of the
+/// second generator of the 2ᶠ-torsion basis on E0.
 pub const BASIS_E0_QX_BYTES: [u8; 64] = [
     0x1f, 0xeb, 0x93, 0x55, 0x2a, 0x25, 0x16, 0x7c, 0xf3, 0xe1, 0x4b, 0xa5, 0xf7, 0x78, 0x86, 0x87,
     0x1d, 0x04, 0x0d, 0x05, 0x17, 0x27, 0xdf, 0x9f, 0x71, 0x0b, 0x5c, 0x7d, 0x47, 0xfd, 0x5f, 0x04,
@@ -59,7 +59,7 @@ pub const EVEN_INDEX: [[i32; 2]; 10] = [
 /// Character evaluation table for splitting.
 pub const CHI_EVAL: [[i32; 4]; 4] = [[1, 1, 1, 1], [1, -1, 1, -1], [1, 1, -1, -1], [1, -1, -1, 1]];
 
-/// 10 precomputed 4x4 basis change matrices for splitting transforms.
+/// 10 precomputed 4×4 basis change matrices for splitting transforms.
 /// Each entry is a u8 index into `{0, 1, i, -1, -i}`.
 pub const SPLITTING_TRANSFORMS: [[[u8; 4]; 4]; 10] = [
     [
@@ -124,7 +124,7 @@ pub const SPLITTING_TRANSFORMS: [[[u8; 4]; 4]; 10] = [
     ],
 ];
 
-/// 6 precomputed 4x4 normalization matrices for splitting.
+/// 6 precomputed 4×4 normalization matrices for splitting.
 pub const NORMALIZATION_TRANSFORMS: [[[u8; 4]; 4]; 6] = [
     [
         [FP2_ONE, FP2_ZERO, FP2_ZERO, FP2_ZERO],

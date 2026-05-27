@@ -43,13 +43,13 @@ pub struct SecretKey<L: FpBackend + sqisign_verify::precomp::LevelPrecomp = Leve
     pub curve: EcCurve<L>,
     /// The secret left ideal of O0 encoding the secret isogeny.
     pub secret_ideal: QuatLeftIdeal,
-    /// 2x2 change-of-basis matrix `M` encoding the coordinates of
+    /// 2×2 change-of-basis matrix `M` encoding the coordinates of
     /// `BA_can` in the basis `BA0_two`: `(M * v) . BA0_two = v . BA_can`,
-    /// where `BA_can` is the canonical `2^f`-torsion basis on the public
+    /// where `BA_can` is the canonical `2ᶠ`-torsion basis on the public
     /// curve and `BA0_two` is the image of the E0 torsion basis
     /// through the secret isogeny. Entries are mod `2^TORSION_EVEN_POWER`.
     pub mat_ba_can_to_ba0_two: IbzMat2x2,
-    /// Canonical `2^f`-torsion basis on the public curve.
+    /// Canonical `2ᶠ`-torsion basis on the public curve.
     pub canonical_basis: EcBasis<L>,
 }
 

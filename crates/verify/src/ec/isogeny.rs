@@ -202,7 +202,7 @@ pub fn xeval_4_inplace<L: FpBackend>(points: &mut [EcPoint<L>], kps: &EcKps4<L>)
     }
 }
 
-/// Strategy-driven evaluation of a 2^n isogeny chain using degree-4 steps
+/// Strategy-driven evaluation of a 2ⁿ isogeny chain using degree-4 steps
 /// with an optional trailing degree-2 step.
 ///
 /// Modifies `curve` to the codomain and pushes all `points` through the

@@ -16,7 +16,7 @@ use sqisign_verify::params::SecurityLevel;
 type BasisChangeMat<L> = [[Array<u64, <L as SecurityLevel>::MpLimbs>; 2]; 2];
 
 /// Scalar multiplication `[x]P + [y]Q` where `x` and `y` are given
-/// as u64 limb arrays and `P, Q` form a basis of `E[2^f]`.
+/// as u64 limb arrays and `P, Q` form a basis of `E[2ᶠ]`.
 pub fn ec_biscalar_mul_ibz<L: FpBackend>(
     scalar0: &[u64],
     scalar1: &[u64],
@@ -27,7 +27,7 @@ pub fn ec_biscalar_mul_ibz<L: FpBackend>(
     ec_biscalar_mul(scalar0, scalar1, f as usize, basis, curve)
 }
 
-/// Applies a 2x2 scalar matrix to a torsion basis of `E[2^f]`, in place.
+/// Applies a 2×2 scalar matrix to a torsion basis of `E[2ᶠ]`, in place.
 ///
 /// Matrix layout: `mat[row][col]`, each entry is a `Array<u64, L::MpLimbs>`.
 /// For matrix `[[a, c], [b, d]]`, computes:
@@ -73,7 +73,7 @@ pub fn matrix_application_even_basis<L: FpBackend>(
 
 /// Change-of-basis matrix via Tate pairing.
 ///
-/// Returns 2x2 matrix `[[r1, s1], [r2, s2]]` as `Array<u64, L::MpLimbs>`.
+/// Returns 2×2 matrix `[[r1, s1], [r2, s2]]` as `Array<u64, L::MpLimbs>`.
 /// Matrix semantics: `(mat * v) . B2 = v . B1`.
 #[allow(clippy::too_many_arguments)]
 pub fn change_of_basis_matrix_tate<L: FpBackend>(
@@ -89,8 +89,8 @@ pub fn change_of_basis_matrix_tate<L: FpBackend>(
 
 /// Change-of-basis matrix via Tate pairing, with inversion.
 ///
-/// Returns 2x2 matrix `[[r1, s1], [r2, s2]]` as `Array<u64, L::MpLimbs>`.
-/// Matrix semantics: `(mat * v) . B2 = [2^(e-f)] * v . B1`.
+/// Returns 2×2 matrix `[[r1, s1], [r2, s2]]` as `Array<u64, L::MpLimbs>`.
+/// Matrix semantics: `(mat * v) . B2 = [2^(e−f)] * v . B1`.
 #[allow(clippy::too_many_arguments)]
 pub fn change_of_basis_matrix_tate_invert<L: FpBackend>(
     b1: &EcBasis<L>,
@@ -159,7 +159,7 @@ fn change_of_basis_matrix_tate_impl<L: FpBackend>(
     Some([[x1, x3], [x2, x4]])
 }
 
-/// Multi-precision subtraction: `out = a - b` (mod 2^(64*nwords)).
+/// Multi-precision subtraction: `out = a − b` (mod 2^(64*nwords)).
 fn mp_sub(out: &mut [u64], a: &[u64], b: &[u64], nwords: usize) {
     let mut borrow: u64 = 0;
     for i in 0..nwords {
@@ -170,7 +170,7 @@ fn mp_sub(out: &mut [u64], a: &[u64], b: &[u64], nwords: usize) {
     }
 }
 
-/// Reduce `x` modulo `2^e` in place.
+/// Reduce `x` modulo `2ᵉ` in place.
 fn mp_mod_2exp(x: &mut [u64], e: usize) {
     let full_words = e / 64;
     let remaining_bits = e % 64;
@@ -202,7 +202,7 @@ fn mp_mul(out: &mut [u64], a: &[u64], b: &[u64], nwords: usize) {
     }
 }
 
-/// Negate `x` in place (two's complement, mod 2^(64*nwords)).
+/// Negate `x` in place (two's complement, mod 2^(64×nwords)).
 fn mp_neg(x: &mut [u64], nwords: usize) {
     let mut carry: u64 = 1;
     for limb in x.iter_mut().take(nwords) {
@@ -212,7 +212,7 @@ fn mp_neg(x: &mut [u64], nwords: usize) {
     }
 }
 
-/// Compute `x^{-1} mod 2^e` using Hensel lifting.
+/// Compute `x⁻¹ mod 2ᵉ` using Hensel lifting.
 ///
 /// Requires `x` to be odd (invertible mod 2).
 fn mp_inv_2e(out: &mut [u64], x: &[u64], e: usize, nwords: usize) {
@@ -251,10 +251,10 @@ fn mp_inv_2e(out: &mut [u64], x: &[u64], e: usize, nwords: usize) {
     out[..nwords].copy_from_slice(&inv[..nwords]);
 }
 
-/// Invert a 2x2 matrix of u64 digit arrays mod 2^e.
+/// Invert a 2×2 matrix of u64 digit arrays mod 2ᵉ.
 ///
 /// Given `[[r1, r2], [s1, s2]]` = `[[a, b], [c, d]]`,
-/// computes `(1/det) * [[d, -b], [-c, a]]` mod 2^e in place.
+/// computes `(1/det) * [[d, −b], [−c, a]]` mod 2ᵉ in place.
 pub fn mp_invert_matrix(
     r1: &mut [u64],
     r2: &mut [u64],

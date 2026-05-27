@@ -257,7 +257,7 @@ fn challenge_and_aux_basis_verify<L: FpBackend + LevelPrecomp>(
     Some((b_chall_can, b_aux_can))
 }
 
-/// Evaluate the small `2^r`-isogeny chain for the `two_resp_length`
+/// Evaluate the small `2ʳ`-isogeny chain for the `two_resp_length`
 /// portion of the response.
 ///
 /// `kernel_is_q`: if true, the kernel generator is `b_chall_can.q`;

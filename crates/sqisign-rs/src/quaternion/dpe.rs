@@ -48,7 +48,7 @@ fn dpe_normalize(x: &mut Dpe) {
     }
 }
 
-/// Decompose `x` into `(m, e)` such that `x = m × 2^e` with `0.5 <= |m| < 1`.
+/// Decompose `x` into `(m, e)` such that `x = m × 2ᵉ` with `0.5 <= |m| < 1`.
 fn frexp(x: f64) -> (f64, i32) {
     if x == 0.0 || !x.is_finite() {
         return (x, 0);
@@ -61,7 +61,7 @@ fn frexp(x: f64) -> (f64, i32) {
     (f64::from_bits(new_bits), e)
 }
 
-/// Reconstruct `m × 2^e`.
+/// Reconstruct `m × 2ᵉ`.
 fn ldexp(m: f64, e: i32) -> f64 {
     m * (2.0f64).powi(e)
 }

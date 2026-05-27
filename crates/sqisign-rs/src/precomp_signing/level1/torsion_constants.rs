@@ -17,15 +17,15 @@ fn ibz(s: &str) -> Ibz {
     }
 }
 
-/// Byte length of `2^TORSION_EVEN_POWER` (= `2^248` for Level 1 = 32 bytes).
+/// Byte length of `2^TORSION_EVEN_POWER` (= `2²⁴⁸` for Level 1 = 32 bytes).
 pub const TORSION_2POWER_BYTES: usize = 32;
 
 /// `2^128`: used as the modulus for challenge scalars (`2^LAMBDA`).
 pub static TWO_TO_SECURITY_BITS: LazyLock<Ibz> =
     LazyLock::new(|| ibz("340282366920938463463374607431768211456"));
 
-/// `2^248`: the full even torsion `|E0[2^f]| = (2^f)^2`, but stored
-/// here as the single power `2^f` for scalar arithmetic.
+/// `2²⁴⁸`: the full even torsion `|E0[2ᶠ]| = (2ᶠ)²`, but stored
+/// here as the single power `2ᶠ` for scalar arithmetic.
 pub static TORSION_PLUS_2POWER: LazyLock<Ibz> = LazyLock::new(|| {
     ibz("452312848583266388373324160190187140051835877600158453279131187530910662656")
 });

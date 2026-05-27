@@ -19,7 +19,7 @@ pub fn double_couple_point<L: FpBackend>(
     }
 }
 
-/// Iterated doubling of a couple point: [2^n](P1, P2).
+/// Iterated doubling of a couple point: \[2ⁿ\](P1, P2).
 #[inline]
 pub fn double_couple_point_iter<L: FpBackend>(
     p: &ThetaCouplePoint<L>,
@@ -128,7 +128,7 @@ pub fn copy_bases_to_kernel<L: FpBackend>(
     }
 }
 
-/// Test if both points in a couple point have order exactly 2^t.
+/// Test if both points in a couple point have order exactly 2ᵗ.
 #[inline]
 pub fn test_couple_point_order_twof<L: FpBackend>(
     p: &ThetaCouplePoint<L>,

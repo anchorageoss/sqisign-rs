@@ -23,7 +23,7 @@ pub fn select_base_change_matrix<L: FpBackend>(
     out
 }
 
-/// Expand a precomputed basis change matrix (u8 indices) into full Fp2 elements.
+/// Expand a precomputed basis change matrix (u8 indices) into full 𝔽p² elements.
 #[inline]
 pub fn set_base_change_matrix_from_precomp<L: FpBackend>(
     m: &PrecompBasisChangeMatrix,
@@ -53,7 +53,7 @@ pub fn choose_index_theta_point<L: FpBackend>(ind: usize, p: &ThetaPoint<L>) -> 
     }
 }
 
-/// Apply a 4x4 basis change matrix to a theta point.
+/// Apply a 4×4 basis change matrix to a theta point.
 ///
 /// When `pt_not_zero` is true, all 4 columns of M are used (general case).
 /// When false, the t-coordinate column (column 3) is skipped as an
@@ -109,7 +109,7 @@ pub fn apply_isomorphism_general<L: FpBackend>(
     }
 }
 
-/// Apply a 4x4 basis change matrix to a theta point (full, all 4 columns).
+/// Apply a 4×4 basis change matrix to a theta point (full, all 4 columns).
 #[inline]
 pub fn apply_isomorphism<L: FpBackend>(
     m: &BasisChangeMatrix<L>,
@@ -118,7 +118,7 @@ pub fn apply_isomorphism<L: FpBackend>(
     apply_isomorphism_general(m, p, true)
 }
 
-/// Multiply two 4x4 basis change matrices: res = m1 * m2.
+/// Multiply two 4×4 basis change matrices: res = m1 * m2.
 #[inline]
 pub fn base_change_matrix_multiplication<L: FpBackend>(
     m1: &BasisChangeMatrix<L>,

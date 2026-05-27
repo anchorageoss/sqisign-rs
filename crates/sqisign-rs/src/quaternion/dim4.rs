@@ -126,7 +126,7 @@ pub fn ibz_mat_4x4_zero() -> IbzMat4x4 {
     IbzMat4x4::default()
 }
 
-/// 4x4 identity matrix.
+/// 4×4 identity matrix.
 pub fn ibz_mat_4x4_identity() -> IbzMat4x4 {
     let mut mat = IbzMat4x4::default();
     for i in 0..4 {
@@ -223,7 +223,7 @@ pub fn ibz_inv_dim4_make_coeff_mpm(
     &(b1 * b2) - &(a1 * a2) - &(c1 * c2)
 }
 
-/// 4x4 matrix inverse via Laplace expansion.
+/// 4×4 matrix inverse via Laplace expansion.
 ///
 /// Returns `(adjugate, determinant, invertible)` where `adjugate * mat == det * I`.
 /// If the determinant is zero, `adjugate` is the zero matrix and `invertible` is false.

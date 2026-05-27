@@ -77,7 +77,7 @@ pub struct ExpandedSignature<L: SecurityLevel = Level1> {
     pub(crate) e_aux_a: Fp2<L>,
     /// Number of backtracking steps in the response isogeny.
     /// Wire encoding packs flags into the high bits of this byte:
-    /// bit 7 = kernel_is_q, bit 6 = pmq_sign_hint, bits 0-5 = backtracking.
+    /// bit 7 = kernel_is_q, bit 6 = pmq_sign_hint, bits 0–5 = backtracking.
     pub(crate) backtracking: u8,
     /// Length of the initial 2-isogeny chain in the response.
     pub(crate) two_resp_length: u8,
@@ -269,7 +269,7 @@ impl<L: FpBackend> core::fmt::Display for ExpandedSignature<L> {
     }
 }
 
-/// Compute a canonical `2^f`-torsion basis and its hint byte from a curve.
+/// Compute a canonical 2ᶠ-torsion basis and its hint byte from a curve.
 fn basis_to_hint<L: FpBackend + LevelPrecomp>(
     curve: &mut crate::ec::EcCurve<L>,
     f: u32,
@@ -339,7 +339,7 @@ fn mp_mod_2exp(a: &mut [u64], e: usize) {
     }
 }
 
-/// Compute `a^{-1} mod 2^e` via Newton/Hensel lifting.
+/// Compute a⁻¹ mod 2ᵉ via Newton/Hensel lifting.
 /// Requires `a` to be odd.
 fn hensel_inv_mod_2e(out: &mut [u64], a: &[u64], e: usize) {
     let n = out.len();
@@ -417,12 +417,12 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 ///
 /// One entry from the second row is dropped and recovered during
 /// decompression via the Weil pairing determinant relation. Which entry
-/// is dropped depends on `M[0][0]` parity:
+/// is dropped depends on M₀₀ parity:
 ///
-/// - **M\[0\]\[0\] odd**: drop `M[1][1]`, store `M[1][0]` as `mat_var`.
-///   Recover `M[1][1] = (det + M[0][1]·M[1][0]) · M[0][0]⁻¹`.
-/// - **M\[0\]\[0\] even**: drop `M[1][0]`, store `M[1][1]` as `mat_var`.
-///   Recover `M[1][0] = (M[0][0]·M[1][1] − det) · M[0][1]⁻¹`.
+/// - **M₀₀ odd**: drop M₁₁, store M₁₀ as `mat_var`.
+///   Recover M₁₁ = (det + M₀₁·M₁₀) · M₀₀⁻¹.
+/// - **M₀₀ even**: drop M₁₀, store M₁₁ as `mat_var`.
+///   Recover M₁₀ = (M₀₀·M₁₁ − det) · M₀₁⁻¹.
 ///
 /// The Weil pairing determinant gives `E_RSP - bt` bits of precision,
 /// leaving exactly 2 unknown bits (HD_EXTRA_TORSION). These are packed
@@ -453,15 +453,15 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 pub struct CompressedSignature<L: SecurityLevel = Level1> {
     /// Montgomery A-coefficient of the auxiliary curve E_aux.
     pub(crate) e_aux_a: Fp2<L>,
-    /// Number of backtracking steps (0-3).
+    /// Number of backtracking steps (0–3).
     pub(crate) backtracking: u8,
     /// Length of the initial 2-isogeny chain in the response.
     pub(crate) two_resp_length: u8,
-    /// Matrix entry M[0][0].
+    /// Matrix entry M₀₀.
     pub(crate) mat_00: Scalar<L>,
-    /// Matrix entry M[0][1].
+    /// Matrix entry M₀₁.
     pub(crate) mat_01: Scalar<L>,
-    /// Third matrix entry: M[1][0] when M[0][0] is odd, M[1][1] when even.
+    /// Third matrix entry: M₁₀ when M₀₀ is odd, M₁₁ when even.
     pub(crate) mat_var: Scalar<L>,
     /// Challenge coefficient (LAMBDA bits).
     pub(crate) chall_coeff: Scalar<L>,
@@ -514,8 +514,8 @@ impl<L: FpBackend> CompressedSignature<L> {
     /// Layout: `Fp2 (e_aux) | packed_meta |
     ///          3 × matrix_entry_bytes | LAMBDA/8 (challenge)`
     ///
-    /// The packed metadata byte holds backtracking (bits 0-1),
-    /// det_hint (bits 2-3), and two_resp_length (bits 4-7).
+    /// The packed metadata byte holds backtracking (bits 0–1),
+    /// det_hint (bits 2–3), and two_resp_length (bits 4–7).
     /// Canonical basis hints are not stored.
     pub const WIRE_BYTES: usize = <L as SecurityLevel>::Fp2EncodedBytes::USIZE
         + 3 * ((<L as SecurityLevel>::E_RSP as usize + 9) / 8)
@@ -937,7 +937,7 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
         })
     }
 
-    /// Compress by dropping one second-row entry based on `M[0][0]` parity.
+    /// Compress by dropping one second-row entry based on M₀₀ parity.
     ///
     /// The Weil pairing recovers `det_precision = pow_dim2 + trl` bits of
     /// the dropped entry. The remaining 2 bits are stored as `det_hint`,

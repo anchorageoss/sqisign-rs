@@ -41,7 +41,7 @@ pub fn to_squared_theta<L: FpBackend>(p: &ThetaPoint<L>) -> ThetaPoint<L> {
     hadamard(&pointwise_square(p))
 }
 
-/// Precompute the 8 Fp2 constants needed for efficient theta doubling
+/// Precompute the 8 𝔽p² constants needed for efficient theta doubling
 /// and (2,2)-isogeny computation.
 ///
 /// Given null_point = (x, y, z, t) and its squared theta dual

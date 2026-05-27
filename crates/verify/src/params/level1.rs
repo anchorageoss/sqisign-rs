@@ -81,7 +81,7 @@ mod tests {
     }
 
     /// `p = 5 * 2^248 - 1`, so `p mod 4 = (5*2^248 mod 4) - 1 mod 4 =
-    /// 0 - 1 mod 4 = 3`. Required for the `Fp2 = Fp[i]/(i^2 + 1)`
+    /// 0 - 1 mod 4 = 3`. Required for the 𝔽p² = 𝔽p[i]/(i² + 1)
     /// construction and the Fermat-style `Fp` square root.
     #[test]
     fn level1_prime_is_3_mod_4() {

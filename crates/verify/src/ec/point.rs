@@ -97,7 +97,7 @@ impl<L: FpBackend> EcBasis<L> {
     }
 }
 
-/// Check if an (X:Z) point has order exactly `2^t`.
+/// Check if an (X:Z) point has order exactly 2ᵗ.
 #[inline]
 pub fn test_point_order_twof<L: FpBackend>(p: &EcPoint<L>, e: &EcCurve<L>, t: usize) -> Choice {
     let mut curve = e.clone();
@@ -114,7 +114,7 @@ pub fn test_point_order_twof<L: FpBackend>(p: &EcPoint<L>, e: &EcCurve<L>, t: us
     test.is_zero()
 }
 
-/// Check if all three basis points (P, Q, P-Q) have order exactly `2^t`.
+/// Check if all three basis points (P, Q, P-Q) have order exactly 2ᵗ.
 #[inline]
 pub fn test_basis_order_twof<L: FpBackend>(b: &EcBasis<L>, e: &EcCurve<L>, t: usize) -> Choice {
     let check_p = test_point_order_twof(&b.p, e, t);
@@ -123,7 +123,7 @@ pub fn test_basis_order_twof<L: FpBackend>(b: &EcBasis<L>, e: &EcCurve<L>, t: us
     check_p & check_q & check_pmq
 }
 
-/// Check if a Jacobian point has order exactly `2^t`.
+/// Check if a Jacobian point has order exactly 2ᵗ.
 #[inline]
 pub fn test_jac_order_twof<L: FpBackend>(
     p: &super::JacPoint<L>,
@@ -265,7 +265,7 @@ pub fn ec_dbl<L: FpBackend>(p: &EcPoint<L>, curve: &EcCurve<L>) -> EcPoint<L> {
     }
 }
 
-/// Iterated doubling: compute `[2^n]P`.
+/// Iterated doubling: compute \[2ⁿ\]P.
 #[inline]
 pub fn ec_dbl_iter<L: FpBackend>(p: &EcPoint<L>, n: usize, curve: &mut EcCurve<L>) -> EcPoint<L> {
     if n == 0 {

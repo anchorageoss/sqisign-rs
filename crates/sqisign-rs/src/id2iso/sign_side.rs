@@ -60,8 +60,8 @@ fn ibz_to_scalar(x: &Ibz, nwords: usize) -> [u64; MAX_NWORDS] {
     out
 }
 
-/// Translates an ideal of norm `2^f` into kernel dlog coefficients
-/// `[s0, s1]` over the canonical basis of `E0[2^f]`.
+/// Translates an ideal of norm `2ᶠ` into kernel dlog coefficients
+/// `[s0, s1]` over the canonical basis of `E0[2ᶠ]`.
 pub fn id2iso_ideal_to_kernel_dlogs_even<L: FpBackend>(
     lideal: &QuatLeftIdeal,
     precomp: &SigningPrecomp<L>,
@@ -104,7 +104,7 @@ pub fn id2iso_ideal_to_kernel_dlogs_even<L: FpBackend>(
     vec
 }
 
-/// Applies a 2x2 BigInt matrix to a torsion basis of `E[2^f]`.
+/// Applies a 2×2 BigInt matrix to a torsion basis of `E[2ᶠ]`.
 pub fn matrix_application_even_basis<L: FpBackend>(
     bas: &mut EcBasis<L>,
     curve: &EcCurve<L>,
@@ -299,7 +299,7 @@ pub fn change_of_basis_matrix_tate_invert<L: FpBackend>(
     change_of_basis_matrix_tate_impl(b1, b2, curve, f, true, precomp)
 }
 
-/// Invert a 2x2 matrix of u64 digit arrays mod 2^e.
+/// Invert a 2×2 matrix of u64 digit arrays mod 2ᵉ.
 fn mp_invert_matrix(r1: &mut [u64], r2: &mut [u64], s1: &mut [u64], s2: &mut [u64], e: usize) {
     let a = crate::quaternion::intbig::ibz_copy_digits(r1);
     let b = crate::quaternion::intbig::ibz_copy_digits(r2);
@@ -327,10 +327,10 @@ fn mp_invert_matrix(r1: &mut [u64], r2: &mut [u64], s1: &mut [u64], s2: &mut [u6
 
 /// Additional bits of 2-power torsion consumed by the (2,2)-isogeny
 /// chain beyond the ideal's own degree. The theta-model chain needs
-/// `2^(f + HD_EXTRA_TORSION)` torsion to compute a degree-`2^f` isogeny.
+/// `2^(f + HD_EXTRA_TORSION)` torsion to compute a degree-`2ᶠ` isogeny.
 const HD_EXTRA_TORSION: u32 = sqisign_verify::theta::HD_EXTRA_TORSION;
 
-/// Swap two elements in a 4x4 matrix using temporary storage.
+/// Swap two elements in a 4×4 matrix using temporary storage.
 fn mat_swap(m: &mut IbzMat4x4, r1: usize, c1: usize, r2: usize, c2: usize) {
     let tmp = m.0[r1][c1].clone();
     m.0[r1][c1] = m.0[r2][c2].clone();

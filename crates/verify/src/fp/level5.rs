@@ -49,7 +49,7 @@ pub const ONE: [u64; NLIMBS] = [
     0x0000b00000000000,
 ];
 
-/// Internal Montgomery form of `2^{-1} mod p`.
+/// Internal Montgomery form of 2⁻¹ mod p.
 pub const TWO_INV: [u64; NLIMBS] = [
     0x0000000000000097,
     0x0000000000000000,
@@ -62,7 +62,7 @@ pub const TWO_INV: [u64; NLIMBS] = [
     0x0001300000000000,
 ];
 
-/// Internal Montgomery form of `3^{-1} mod p`.
+/// Internal Montgomery form of 3⁻¹ mod p.
 pub const THREE_INV: [u64; NLIMBS] = [
     0x00aaaaaaaaaaab0f,
     0x0155555555555555,

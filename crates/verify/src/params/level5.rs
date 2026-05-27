@@ -23,15 +23,15 @@ pub const PRIME_LE_BYTES: [u8; 64] = {
 };
 
 impl SecurityLevel for Level5 {
-    /// 9 limbs x 57-bit radix = 513 bits of storage for the 505-bit prime.
+    /// 9 limbs × 57-bit radix = 513 bits of storage for the 505-bit prime.
     type FpLimbs = U9;
-    /// 8 limbs x 64 bits = 512-bit scalars for order arithmetic.
+    /// 8 limbs × 64 bits = 512-bit scalars for order arithmetic.
     type MpLimbs = U8;
     /// `p` fits in 64 bytes (505 bits).
     type FpEncodedBytes = U64;
     /// Two `Fp` elements = 128 bytes.
     type Fp2EncodedBytes = U128;
-    /// Public key: 1-byte header + 2 x 64 bytes for the `Fp2` j-invariant.
+    /// Public key: 1-byte header + 2 × 64 bytes for the `Fp2` j-invariant.
     type PkLen = U129;
     /// Signature: compressed response isogeny encoding (292 bytes).
     type SigLen = U292;
@@ -59,7 +59,7 @@ impl SecurityLevel for Level5 {
     const E_CHL: u32 = 256;
     /// Up to 512 SHAKE256 squeeze attempts to find a valid challenge.
     const HASH_ITERATIONS: u32 = 512;
-    /// 8 limbs x 64 = 512-bit scalar width.
+    /// 8 limbs × 64 = 512-bit scalar width.
     const NWORDS_ORDER: usize = 8;
     /// `v_2(p + 1) = 500`.
     const TORSION_EVEN_POWER: u32 = 500;

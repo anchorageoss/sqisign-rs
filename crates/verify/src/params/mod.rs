@@ -65,7 +65,7 @@ pub trait SecurityLevel: Default + Clone + core::fmt::Debug + 'static {
     const LAMBDA: u32;
 
     /// Exponent `f` of the 2-power torsion available on the starting
-    /// curve E0. The full `2^f`-torsion `E0[2^f] ≅ (Z/2^f)^2` is
+    /// curve E0. The full 2ᶠ-torsion E0\[2ᶠ\] ≅ (ℤ/2ᶠ)² is
     /// rational over `Fp2`. Equal to [`TORSION_EVEN_POWER`](Self::TORSION_EVEN_POWER).
     const F_CHR: u32;
 
@@ -91,7 +91,7 @@ pub trait SecurityLevel: Default + Clone + core::fmt::Debug + 'static {
     const NWORDS_ORDER: usize;
 
     /// The 2-adic valuation of `p + 1`, i.e. the largest `f` such that
-    /// `2^f | (p + 1)`. This is the exponent of the available even
+    /// 2ᶠ | (p + 1). This is the exponent of the available even
     /// torsion on the supersingular curve E0 over `Fp2`.
     const TORSION_EVEN_POWER: u32;
 

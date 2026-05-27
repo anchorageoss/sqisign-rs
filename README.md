@@ -58,29 +58,29 @@ Public keys are 65 bytes (L1), 97 bytes (L3), 129 bytes (L5) across all formats.
 
 ### Standard (148 bytes at L1)
 
-Contains the auxiliary curve, a challenge scalar, the full 2x2 basis-change matrix, and hint bytes for canonical basis reconstruction.
+Contains the auxiliary curve, a challenge scalar, the full 2×2 basis-change matrix, and hint bytes for canonical basis reconstruction.
 
 | Field | Size (L1) | Description |
 |---|---|---|
-| e_aux_a | 64 bytes | Auxiliary curve A-coefficient (Fp2) |
-| backtracking | 1 byte | Backtracking amount n_bt (0-3) |
-| two_resp_length | 1 byte | Dim-1 response length r' (0-8) |
-| M[0][0], M[0][1], M[1][0], M[1][1] | 4 x 16 bytes | Basis-change matrix coefficients |
+| E_aux(A) | 64 bytes | Auxiliary curve A-coefficient (𝔽p²) |
+| backtracking | 1 byte | Backtracking amount n_bt (0–3) |
+| two_resp_length | 1 byte | Dim-1 response length r′ (0–8) |
+| M₀₀, M₀₁, M₁₀, M₁₁ | 4 × 16 bytes | Basis-change matrix coefficients |
 | challenge | 16 bytes | Challenge scalar |
 | hint_aux, hint_chall | 2 bytes | Canonical basis selection hints |
 
 ### Expanded (212 bytes at L1)
 
-Stores pre-evaluated kernel point x-coordinates instead of the matrix. The verifier skips the biscalar multiplication during verification, trading 64 extra bytes for ~17% faster verification.
+Stores pre-evaluated kernel point x-coordinates instead of the matrix. The verifier skips the bi-scalar multiplication during verification, trading 64 extra bytes for ~17% faster verification.
 
 | Field | Size (L1) | Description |
 |---|---|---|
-| e_aux_a | 64 bytes | Auxiliary curve A-coefficient (Fp2) |
-| backtracking + flags | 1 byte | Backtracking, kernel_is_q flag, pmq sign hint |
-| two_resp_length | 1 byte | Dim-1 response length r' |
+| E_aux(A) | 64 bytes | Auxiliary curve A-coefficient (𝔽p²) |
+| backtracking + flags | 1 byte | Backtracking, kernel_is_Q flag, P−Q sign hint |
+| two_resp_length | 1 byte | Dim-1 response length r′ |
 | challenge | 16 bytes | Challenge scalar |
-| P_chl_x | 64 bytes | Challenge kernel point P x-coordinate (Fp2) |
-| Q_chl_x | 64 bytes | Challenge kernel point Q x-coordinate (Fp2) |
+| P_chl(x) | 64 bytes | Challenge kernel point P x-coordinate (𝔽p²) |
+| Q_chl(x) | 64 bytes | Challenge kernel point Q x-coordinate (𝔽p²) |
 | hint_aux, hint_chall | 2 bytes | Canonical basis selection hints |
 
 ### Compressed (129 bytes at L1)
@@ -89,14 +89,14 @@ Drops one matrix coefficient and recovers it during verification using a Weil pa
 
 | Field | Size (L1) | Description |
 |---|---|---|
-| e_aux_a | 64 bytes | Auxiliary curve A-coefficient (Fp2) |
+| E_aux(A) | 64 bytes | Auxiliary curve A-coefficient (𝔽p²) |
 | packed_meta | 1 byte | [trl:4 \| det_hint:2 \| bt:2] packed LSB-first |
-| M[0][0] | 16 bytes | Matrix coefficient (always stored) |
-| M[0][1] | 16 bytes | Matrix coefficient (always stored) |
-| M[var] | 16 bytes | M[1][0] if M[0][0] is odd, M[1][1] if even |
+| M₀₀ | 16 bytes | Matrix coefficient (always stored) |
+| M₀₁ | 16 bytes | Matrix coefficient (always stored) |
+| M_var | 16 bytes | M₁₀ if M₀₀ is odd, M₁₁ if even |
 | challenge | 16 bytes | Challenge scalar |
 
-The dropped coefficient is recovered via `det(M) = dlog(omega_aux^{-1}, omega_f^{-1})` where omega_f and omega_aux are Weil pairings of the canonical bases of E_chall and E_aux. See [COMPRESSION.md](COMPRESSION.md) for the full algorithm.
+The dropped coefficient is recovered via det(M) = dlog(ω_aux⁻¹, ω_f⁻¹) where ω_f and ω_aux are Weil pairings of the canonical bases of E_chall and E_aux. See [COMPRESSION.md](COMPRESSION.md) for the full algorithm.
 
 ## Performance
 
@@ -153,7 +153,7 @@ codegen-units = 1
 
 ```
 params        Security level trait and per-level constants
-fp            Fp and Fp2 field arithmetic (Montgomery form)
+fp            𝔽p and 𝔽p² field arithmetic (Montgomery form)
 ec            Elliptic curves, isogenies, pairings
 precomp       Precomputed constants for all 3 security levels
 theta         (2,2)-isogenies in the theta model

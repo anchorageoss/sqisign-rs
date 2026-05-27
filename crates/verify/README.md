@@ -81,7 +81,7 @@ Verification outperforms the C reference because LLVM aggressively inlines field
 ## Types
 
 - `PublicKey<L>`: Montgomery curve coefficient + torsion hint byte
-- `Signature<L>`: standard NIST v2.0 format (2x2 matrix + hints)
+- `Signature<L>`: standard NIST v2.0 format (2×2 matrix + hints)
 - `ExpandedSignature<L>`: pre-evaluated kernel points (fastest verification)
 - `CompressedSignature<L>`: 3-of-4 matrix entries, 4th recovered via Weil pairing
 - `Scalar<L>`: fixed-width multi-precision integer for matrix entries and challenge

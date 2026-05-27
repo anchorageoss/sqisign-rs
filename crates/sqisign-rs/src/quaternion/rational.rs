@@ -40,7 +40,7 @@ impl IndexMut<usize> for IbqVec4 {
     }
 }
 
-/// 4x4 matrix of rationals.
+/// 4×4 matrix of rationals.
 #[derive(Clone, Debug, Default)]
 pub struct IbqMat4x4(pub [IbqVec4; 4]);
 

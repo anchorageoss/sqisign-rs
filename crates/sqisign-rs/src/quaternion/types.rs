@@ -53,7 +53,7 @@ impl IndexMut<usize> for IbzVec4 {
     }
 }
 
-/// 2x2 matrix of big integers. Indexed as `mat[row][col]`.
+/// 2×2 matrix of big integers. Indexed as `mat[row][col]`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IbzMat2x2(pub [[Ibz; 2]; 2]);
 
@@ -76,7 +76,7 @@ impl IndexMut<usize> for IbzMat2x2 {
     }
 }
 
-/// 4x4 matrix of big integers. Indexed as `mat[row][col]`.
+/// 4×4 matrix of big integers. Indexed as `mat[row][col]`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IbzMat4x4(pub [[Ibz; 4]; 4]);
 

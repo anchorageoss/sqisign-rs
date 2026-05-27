@@ -120,7 +120,7 @@ fn mask_top_limb(buf: &mut [u8], limb_count: usize, mask: u64) {
     buf[base..end].copy_from_slice(&masked[..end - base]);
 }
 
-/// Multiprecision modulo 2^e: zero all bits at position e and above.
+/// Multiprecision modulo 2ᵉ: zero all bits at position e and above.
 fn mp_mod_2exp(buf: &mut [u8], e: usize, total_bytes: usize) {
     let q = e / 8;
     let r = e % 8;

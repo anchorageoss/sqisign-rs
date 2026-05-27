@@ -14,8 +14,8 @@ pub mod splitting;
 pub mod theta_structure;
 
 /// Additional bits of 2-power torsion consumed by the (2,2)-isogeny chain
-/// beyond the target isogeny degree. Computing a degree-`2^n` isogeny via
-/// the theta model requires `2^(n + HD_EXTRA_TORSION)` torsion points.
+/// beyond the target isogeny degree. Computing a degree-2ⁿ isogeny via
+/// the theta model requires 2ⁿ⁺ᴴᴰ_ᴱˣᵀᴿᴬ_ᵀᴼᴿˢᴵᴼᴺ torsion points.
 pub const HD_EXTRA_TORSION: u32 = 2;
 
 /// A point on an elliptic product E1 x E2 in (X : Z) coordinates.
@@ -72,7 +72,7 @@ pub struct ThetaPointCompact<L: FpBackend> {
     pub y: Fp2<L>,
 }
 
-/// A theta structure: null point plus 8 precomputed Fp2 values for
+/// A theta structure: null point plus 8 precomputed 𝔽p² values for
 /// efficient doubling and (2,2)-isogeny computation.
 #[derive(Clone, Debug)]
 pub struct ThetaStructure<L: FpBackend> {
@@ -92,7 +92,7 @@ pub struct ThetaStructure<L: FpBackend> {
     pub xyt0: Fp2<L>, // x * y * t
 }
 
-/// A 2x2 Fp2 matrix for the action-by-translation in gluing.
+/// A 2×2 𝔽p² matrix for the action-by-translation in gluing.
 #[derive(Clone, Debug)]
 pub struct TranslationMatrix<L: FpBackend> {
     pub g00: Fp2<L>,
@@ -101,13 +101,13 @@ pub struct TranslationMatrix<L: FpBackend> {
     pub g11: Fp2<L>,
 }
 
-/// A 4x4 Fp2 matrix for theta basis changes.
+/// A 4×4 𝔽p² matrix for theta basis changes.
 #[derive(Clone, Debug)]
 pub struct BasisChangeMatrix<L: FpBackend> {
     pub m: [[Fp2<L>; 4]; 4],
 }
 
-/// Precomputed basis change matrix: 4x4 of u8 indices into FP2_CONSTANTS.
+/// Precomputed basis change matrix: 4×4 of u8 indices into FP2_CONSTANTS.
 #[derive(Clone, Debug)]
 pub struct PrecompBasisChangeMatrix {
     pub m: [[u8; 4]; 4],

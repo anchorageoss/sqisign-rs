@@ -196,7 +196,7 @@ impl<L: FpBackend> Fp2<L> {
         }
     }
 
-    /// Returns `Choice(1)` if `self` is a square in Fp2. Equivalent to
+    /// Returns `Choice(1)` if `self` is a square in 𝔽p². Equivalent to
     /// checking whether `re^2 + im^2` is a square in Fp.
     #[inline]
     pub fn is_square(&self) -> Choice {
@@ -206,7 +206,7 @@ impl<L: FpBackend> Fp2<L> {
         norm.is_square()
     }
 
-    /// Square root in Fp2 (ePrint 2024/1563). Output is well defined
+    /// Square root in 𝔽p² (ePrint 2024/1563). Output is well defined
     /// up to sign; the sign
     /// is chosen canonically so that the real part is even when
     /// non-zero, and otherwise the imaginary part is even.
@@ -272,8 +272,8 @@ impl<L: FpBackend> Fp2<L> {
     }
 
     /// Montgomery batch inversion: computes the inverse of each
-    /// element in `x` in place, using a single Fp2 inversion plus
-    /// `3 * (len - 1)` Fp2 multiplications.
+    /// element in `x` in place, using a single 𝔽p² inversion plus
+    /// `3 * (len - 1)` 𝔽p² multiplications.
     ///
     /// Caller must provide scratch slices `t1` and `t2` of the same
     /// length as `x`. This avoids heap allocation, keeping the crate
