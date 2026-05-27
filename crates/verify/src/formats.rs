@@ -811,54 +811,9 @@ impl<L: FpBackend + LevelPrecomp> CompressedSignature<L> {
     }
 }
 
-impl<L: FpBackend + LevelPrecomp> PublicKey<L> {
-    /// Verify a signature from raw bytes, auto-detecting the format from
-    /// the byte length.
-    ///
-    /// Accepts standard, expanded, or compressed wire formats. The format
-    /// is determined purely from the byte length (each format has a unique
-    /// size at every security level).
-    ///
-    /// For typed signatures, use the [`Verifier`](signature::Verifier) trait
-    /// instead: `pk.verify(msg, &sig)` (requires `use sqisign_verify::Verifier`).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use hex_literal::hex;
-    /// use sqisign_verify::PublicKey;
-    ///
-    /// # fn main() -> Result<(), sqisign_verify::Error> {
-    /// let pk_bytes = hex!(
-    ///     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
-    ///     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
-    ///     "0B"
-    /// );
-    /// let sig_bytes = hex!(
-    ///     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
-    ///     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
-    ///     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
-    ///     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
-    ///     "71D86EFF3447018ADB0A6551EE8322AB30010202"
-    /// );
-    /// let msg = hex!(
-    ///     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
-    ///     "C8"
-    /// );
-    ///
-    /// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-    /// pk.verify_bytes(&msg, &sig_bytes)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn verify_bytes(&self, msg: &[u8], sig_bytes: &[u8]) -> Result<(), Error> {
-        let any = AnySignature::<L>::from_bytes(sig_bytes)?;
-        match any {
-            AnySignature::Standard(s) => crate::verify::protocols_verify(self, msg, &s),
-            AnySignature::Expanded(s) => verify_expanded(self, msg, &s),
-            AnySignature::Compressed(s) => verify_compressed(self, msg, &s),
-        }
+impl<L: FpBackend + LevelPrecomp> signature::Verifier<AnySignature<L>> for PublicKey<L> {
+    fn verify(&self, msg: &[u8], sig: &AnySignature<L>) -> Result<(), signature::Error> {
+        sig.verify(self, msg).map_err(|_| signature::Error::new())
     }
 }
 

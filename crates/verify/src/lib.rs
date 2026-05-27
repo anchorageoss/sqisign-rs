@@ -9,12 +9,14 @@
 //!
 //! # Verify a signature
 //!
-//! Pass raw signature bytes directly; the format (standard, expanded, or
-//! compressed) is auto-detected from the byte length:
+//! All verification goes through [`pk.verify(msg, &sig)`](Verifier::verify)
+//! via the RustCrypto [`Verifier`] trait. It accepts any signature type:
+//! [`Signature`], [`ExpandedSignature`], [`CompressedSignature`], or
+//! [`AnySignature`](formats::AnySignature) (auto-detected from raw bytes).
 //!
 //! ```
 //! use hex_literal::hex;
-//! use sqisign_verify::PublicKey;
+//! use sqisign_verify::{PublicKey, Signature, Verifier};
 //!
 //! # fn main() -> Result<(), sqisign_verify::Error> {
 //! let pk_bytes = hex!(
@@ -35,16 +37,18 @@
 //! );
 //!
 //! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-//! pk.verify_bytes(&msg, &sig_bytes)?;
+//! let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+//! pk.verify(&msg, &sig)?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! Or use the [`Verifier`] trait with typed signatures:
+//! For raw bytes where the format is unknown, parse into
+//! [`AnySignature`](formats::AnySignature) first:
 //!
 //! ```
 //! use hex_literal::hex;
-//! use sqisign_verify::{PublicKey, Signature, Verifier};
+//! use sqisign_verify::{formats::AnySignature, PublicKey, Verifier};
 //!
 //! # fn main() -> Result<(), sqisign_verify::Error> {
 //! # let pk_bytes = hex!(
@@ -64,8 +68,8 @@
 //! #     "C8"
 //! # );
 //! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-//! let sig: Signature = Signature::from_bytes(&sig_bytes)?;
-//! pk.verify(&msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+//! let sig = AnySignature::from_bytes(&sig_bytes)?;
+//! pk.verify(&msg, &sig)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -114,6 +118,13 @@ impl core::fmt::Display for Error {
             Error::InvalidLength => f.write_str("invalid length"),
             Error::InternalError => f.write_str("internal error"),
         }
+    }
+}
+
+impl From<signature::Error> for Error {
+    #[inline]
+    fn from(_: signature::Error) -> Self {
+        Error::InvalidSignature
     }
 }
 

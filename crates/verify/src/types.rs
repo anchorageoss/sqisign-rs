@@ -76,13 +76,15 @@ impl<L: FpBackend> Default for Scalar<L> {
 ///
 /// # Verify a signature
 ///
-/// [`verify_bytes`](PublicKey::verify_bytes) accepts raw signature bytes in
-/// any format (standard, expanded, or compressed) and auto-detects the
-/// format from the byte length:
+/// Use [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
+/// [`Verifier`](signature::Verifier) trait. It accepts any signature type:
+/// [`Signature`], [`ExpandedSignature`](crate::ExpandedSignature),
+/// [`CompressedSignature`](crate::CompressedSignature), or
+/// [`AnySignature`](crate::formats::AnySignature).
 ///
 /// ```
 /// use hex_literal::hex;
-/// use sqisign_verify::PublicKey;
+/// use sqisign_verify::{PublicKey, Signature, Verifier};
 ///
 /// # fn main() -> Result<(), sqisign_verify::Error> {
 /// let pk_bytes = hex!(
@@ -103,13 +105,11 @@ impl<L: FpBackend> Default for Scalar<L> {
 /// );
 ///
 /// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-/// pk.verify_bytes(&msg, &sig_bytes)?;
+/// let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+/// pk.verify(&msg, &sig)?;
 /// # Ok(())
 /// # }
 /// ```
-///
-/// For typed signatures, use the [`Verifier`](signature::Verifier) trait:
-/// `pk.verify(msg, &sig)` (requires `use sqisign_verify::Verifier`).
 ///
 /// # Decode and re-encode
 ///
@@ -202,9 +202,8 @@ impl<L: FpBackend> Default for PublicKey<L> {
 ///
 /// # Verify
 ///
-/// The simplest path is `pk.verify_bytes(msg, sig_bytes)` with raw bytes
-/// (no import needed, format auto-detected). With a typed `Signature`,
-/// use the [`Verifier`](signature::Verifier) trait:
+/// Use [`pk.verify(msg, &sig)`](signature::Verifier::verify) via the
+/// [`Verifier`](signature::Verifier) trait:
 ///
 /// ```
 /// use hex_literal::hex;
@@ -229,13 +228,8 @@ impl<L: FpBackend> Default for PublicKey<L> {
 /// );
 ///
 /// let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-///
-/// // From raw bytes (auto-detects format):
-/// pk.verify_bytes(&msg, &sig_bytes)?;
-///
-/// // From a typed Signature (requires `use Verifier`):
 /// let sig: Signature = Signature::from_bytes(&sig_bytes)?;
-/// pk.verify(&msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+/// pk.verify(&msg, &sig)?;
 /// # Ok(())
 /// # }
 /// ```

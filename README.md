@@ -16,30 +16,30 @@ This implementation passes all 300 NIST KAT vectors (100 per level) across Level
 Generate a keypair, sign, and verify:
 
 ```rust
-use sqisign_core::{generate, PublicKey, SigningKey};
+use sqisign_rs::{generate, PublicKey, SigningKey, Verifier};
 
-let mut rng = rand::thread_rng();
+let mut rng = rand::rngs::OsRng;
 let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
-let sig = sk.sign(b"hello world", &mut rng).unwrap();
-sig.verify(&pk, b"hello world").unwrap();
+let sig = sk.sign(b"hello world", &mut rng)?;
+pk.verify(b"hello world", &sig)?;
 ```
 
 Compress a signature for minimal wire size (129 bytes at Level 1):
 
 ```rust
 let compressed = sig.compress();
-compressed.verify(&pk, b"hello world").unwrap();
+pk.verify(b"hello world", &compressed)?;
 ```
 
 Use a higher security level:
 
 ```rust
-use sqisign_core::{generate, Level3};
+use sqisign_rs::{generate, Level3, Verifier};
 
 // Level5 is available as well:
 let (pk, sk) = generate::<Level3>(&mut rng);
-let sig = sk.sign(b"hello world", &mut rng).unwrap();
-sig.verify(&pk, b"hello world").unwrap();
+let sig = sk.sign(b"hello world", &mut rng)?;
+pk.verify(b"hello world", &sig)?;
 ```
 
 ## Signature formats

@@ -9,13 +9,13 @@
 //! ## Quick Start
 //!
 //! ```
-//! use sqisign_rs::{generate, PublicKey, SigningKey};
+//! use sqisign_rs::{generate, PublicKey, SigningKey, Verifier};
 //!
 //! # fn main() -> Result<(), sqisign_rs::Error> {
 //! let mut rng = rand::rngs::OsRng;
 //! let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
 //! let sig = sk.sign(b"hello world", &mut rng)?;
-//! pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+//! pk.verify(b"hello world", &sig)?;
 //! # Ok(())
 //! # }
 //! ```

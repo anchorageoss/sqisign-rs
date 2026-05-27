@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use sqisign_rs::{generate, PublicKey, SigningKey};
+use sqisign_rs::{formats::AnySignature, generate, PublicKey, SigningKey, Verifier};
 use std::path::PathBuf;
 
 fn usage() -> ! {
@@ -117,7 +117,12 @@ fn cmd_verify(args: &[String]) {
         std::process::exit(1);
     });
 
-    match pk.verify_bytes(&msg_bytes, &sig_bytes) {
+    let sig = AnySignature::from_bytes(&sig_bytes).unwrap_or_else(|e| {
+        eprintln!("error: failed to parse signature: {e}");
+        std::process::exit(1);
+    });
+
+    match pk.verify(&msg_bytes, &sig) {
         Ok(()) => println!("OK"),
         Err(e) => {
             eprintln!("FAILED: {e}");
@@ -185,10 +190,10 @@ fn cmd_update_readme(args: &[String]) {
     });
     let sig_hex = hex::encode(sig.compress().to_bytes());
 
-    // Verify before touching the README
     let pk = sk.public_key();
-    let sig_bytes = hex::decode(&sig_hex).unwrap();
-    pk.verify_bytes(&msg_bytes, &sig_bytes).unwrap_or_else(|e| {
+    let sig_raw = hex::decode(&sig_hex).unwrap();
+    let any = AnySignature::from_bytes(&sig_raw).unwrap();
+    pk.verify(&msg_bytes, &any).unwrap_or_else(|e| {
         eprintln!("error: self-verification failed: {e}");
         std::process::exit(1);
     });

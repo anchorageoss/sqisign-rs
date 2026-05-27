@@ -15,19 +15,7 @@ For keygen and signing, use [`sqisign-rs`](https://crates.io/crates/sqisign-rs).
 
 ## Usage
 
-Pass raw signature bytes; the format (standard, expanded, or compressed) is auto-detected from the byte length:
-
-```rust
-use sqisign_verify::PublicKey;
-
-fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
-    let pk = PublicKey::from_bytes(pk_bytes)?;
-    pk.verify_bytes(msg, sig_bytes)?;
-    Ok(())
-}
-```
-
-With typed signatures, use the `Verifier` trait:
+All verification goes through `pk.verify(msg, &sig)` via the RustCrypto `Verifier` trait:
 
 ```rust
 use sqisign_verify::{PublicKey, Signature, Verifier};
@@ -35,7 +23,20 @@ use sqisign_verify::{PublicKey, Signature, Verifier};
 fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
     let pk = PublicKey::from_bytes(pk_bytes)?;
     let sig = Signature::from_bytes(sig_bytes)?;
-    pk.verify(msg, &sig).map_err(|_| sqisign_verify::Error::InvalidSignature)?;
+    pk.verify(msg, &sig)?;
+    Ok(())
+}
+```
+
+For raw bytes where the format is unknown, parse into `AnySignature` first (auto-detects from byte length):
+
+```rust
+use sqisign_verify::{formats::AnySignature, PublicKey, Verifier};
+
+fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
+    let pk = PublicKey::from_bytes(pk_bytes)?;
+    let sig = AnySignature::from_bytes(sig_bytes)?;
+    pk.verify(msg, &sig)?;
     Ok(())
 }
 ```
@@ -43,11 +44,12 @@ fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_v
 Level 1 is the default type parameter. For higher security levels, specify explicitly:
 
 ```rust
-use sqisign_verify::{PublicKey, Level3};
+use sqisign_verify::{PublicKey, Signature, Level3, Verifier};
 
 fn verify(pk_bytes: &[u8], sig_bytes: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error> {
     let pk = PublicKey::<Level3>::from_bytes(pk_bytes)?;
-    pk.verify_bytes(msg, sig_bytes)?;
+    let sig = Signature::<Level3>::from_bytes(sig_bytes)?;
+    pk.verify(msg, &sig)?;
     Ok(())
 }
 ```

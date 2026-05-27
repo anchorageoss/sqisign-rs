@@ -20,13 +20,13 @@ For verify-only usage (`no_std`, no heap), depend on [`sqisign-verify`](https://
 Generate a keypair, sign, and verify:
 
 ```rust
-use sqisign_rs::{generate, PublicKey, SigningKey};
+use sqisign_rs::{generate, PublicKey, SigningKey, Verifier};
 
 fn main() -> Result<(), sqisign_rs::Error> {
     let mut rng = rand::rngs::OsRng;
     let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
     let sig = sk.sign(b"hello world", &mut rng)?;
-    pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+    pk.verify(b"hello world", &sig)?;
     Ok(())
 }
 ```
@@ -34,11 +34,11 @@ fn main() -> Result<(), sqisign_rs::Error> {
 Compress a signature for minimal wire size (129 bytes at Level 1):
 
 ```rust
-use sqisign_rs::{Signature, PublicKey};
+use sqisign_rs::{Signature, PublicKey, Verifier};
 
 fn example(sig: &Signature, pk: &PublicKey) -> Result<(), sqisign_rs::Error> {
     let compressed = sig.compress();
-    pk.verify_bytes(b"hello world", &compressed.to_bytes())?;
+    pk.verify(b"hello world", &compressed)?;
     Ok(())
 }
 ```
@@ -46,13 +46,13 @@ fn example(sig: &Signature, pk: &PublicKey) -> Result<(), sqisign_rs::Error> {
 Use a higher security level:
 
 ```rust
-use sqisign_rs::{generate, Level3};
+use sqisign_rs::{generate, Level3, Verifier};
 
 fn main() -> Result<(), sqisign_rs::Error> {
     let mut rng = rand::rngs::OsRng;
     let (pk, sk) = generate::<Level3>(&mut rng);
     let sig = sk.sign(b"hello world", &mut rng)?;
-    pk.verify_bytes(b"hello world", &sig.to_bytes())?;
+    pk.verify(b"hello world", &sig)?;
     Ok(())
 }
 ```
