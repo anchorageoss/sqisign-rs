@@ -206,7 +206,7 @@ To verify:
 cargo run --release -p project-sign -- hash
 # Compare with the source hash above, then:
 cargo run --release -p project-sign -- verify \
-  --public-key $(cat PROJECT_KEY) \
+  --public-key <pk> \
   --message <hash> \
   --signature <sig>
 ```
