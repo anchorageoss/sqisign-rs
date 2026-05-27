@@ -1,7 +1,9 @@
 # sqisign-rs
 
-[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
-[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
+[![crates.io](https://img.shields.io/crates/v/sqisign-rs.svg)](https://crates.io/crates/sqisign-rs)
+[![docs.rs](https://docs.rs/sqisign-rs/badge.svg)](https://docs.rs/sqisign-rs)
+[![KAT](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/kat.yml)
+[![Tests](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anchorageoss/sqisign-rs/actions/workflows/tests.yml)
 
 A pure Rust implementation of SQIsign v2.0.
 
@@ -10,6 +12,8 @@ SQIsign is a post-quantum digital signature scheme based on isogenies between su
 This implementation passes all 300 NIST KAT vectors (100 per level) across Level 1, Level 3, and Level 5. Verification is observed to be 29% faster than the C reference implementation. See performance numbers below for more details.
 
 > **This library has not been audited.** The verification path is designed to be constant-time, but no formal verification or third-party audit has been performed. The signing path is inherently variable-time due to SQIsign's algorithmic structure. See [SECURITY.md](SECURITY.md) for details. Use at your own discretion.
+
+For verify-only usage (`no_std`, no heap), depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify) directly.
 
 ## Quick start
 
