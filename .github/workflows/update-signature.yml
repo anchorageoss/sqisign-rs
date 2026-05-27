@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths: ['crates/**/*.rs']
 
+permissions:
+  contents: write
+
 jobs:
   sign:
     runs-on: ubuntu-latest
