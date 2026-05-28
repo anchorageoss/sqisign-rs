@@ -114,15 +114,16 @@ jobs:
         run: |
           cargo install cargo-cyclonedx --version 0.5.9 --locked
           cargo cyclonedx --all --format json
-          # cargo-cyclonedx emits per-crate files; collect them into one bom.
-          # The workspace-root bom is the aggregate we publish.
-          sbom="sqisign-rs-${SEMVER}.cdx.json"
-          if [ -f bom.json ]; then
-            cp bom.json "$sbom"
-          else
-            # Fall back to the main crate's bom if no workspace-root bom exists.
-            cp "$(find . -name 'bom.json' -path '*sqisign-rs*' | head -1)" "$sbom"
+          # cargo-cyclonedx writes <crate>/bom.json per package. Publish the main
+          # crate's SBOM from its known path; fail loudly if it's missing rather
+          # than guessing among the per-crate files.
+          src="crates/sqisign-rs/bom.json"
+          if [ ! -f "$src" ]; then
+            echo "ERROR: expected SBOM not found at $src" >&2
+            exit 1
           fi
+          sbom="sqisign-rs-${SEMVER}.cdx.json"
+          cp "$src" "$sbom"
           echo "sbom=$sbom" >> "$GITHUB_ENV"
 
       - name: Attest build provenance

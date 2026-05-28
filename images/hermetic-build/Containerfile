@@ -8,9 +8,10 @@
 # carries the resolved `Cargo.lock`.
 FROM stagex/pallet-rust:1.88.0@sha256:b9021d2b75eac64fe8b931d96dde63ef11792e5023cee77c3471ccc34a95a377 AS build
 
-# The repo's .cargo/config.toml sets `target-cpu=native`, which is
-# host-dependent. Override RUSTFLAGS here so the build is portable across hosts;
-# static-link the musl CRT.
+# Build for musl with a statically linked CRT. We set RUSTFLAGS explicitly
+# rather than inheriting .cargo/config.toml: its `target-cpu=native` is scoped
+# to the gnu target and would not apply to this musl build anyway, and pinning
+# RUSTFLAGS here keeps the result host-independent.
 ENV RUSTFLAGS='-C target-feature=+crt-static'
 ENV CARGOFLAGS='--target x86_64-unknown-linux-musl --locked --release'
 

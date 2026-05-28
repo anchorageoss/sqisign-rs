@@ -108,7 +108,9 @@ jobs:
           # cargo-edit is version-pinned for reproducible release behavior.
           cargo install cargo-edit --version 0.13.11 --locked
           cargo set-version "$SEMVER"
-          # Refresh the lockfile so the workspace crate versions match.
+          # Re-stamp the lockfile's workspace package versions to match the
+          # manifests. `--workspace` updates ONLY workspace members, never their
+          # dependencies, so external dep versions stay pinned (deterministic).
           cargo update --workspace --offline
 
           git commit -am "chore(release): $TAG"
