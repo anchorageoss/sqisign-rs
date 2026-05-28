@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip actual release)'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    # Restrict releases to main: workflow_dispatch is allowed from any ref by
+    # GitHub, so we gate on the actual checked-out ref to prevent feature
+    # branches from minting tags/releases against non-main commits.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable, pinned
+
+      - name: Compute version
+        id: version
+        run: |
+          FULL_VERSION=$(scripts/auto-version.sh)
+          SEMVER="${FULL_VERSION%%+*}"
+          if [[ ! "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Invalid semver: $SEMVER (from $FULL_VERSION)"
+            exit 1
+          fi
+          TAG="v${SEMVER}"
+          echo "full_version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Version: $FULL_VERSION  Tag: $TAG"
+
+      - name: Check if tag/release already exist
+        id: check_tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --tags origin
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            # This height has already been released. The tag points at a release
+            # commit (see "Sync, tag and release" below), which by design is not
+            # on main, so we don't compare commits -- the tag's existence alone
+            # means "already released", so skip.
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          RELEASE_ERR=$(mktemp)
+          if gh release view "$TAG" >/dev/null 2>"$RELEASE_ERR"; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG and its release both exist, skipping."
+          elif grep -qiE 'release not found|not found|HTTP 404' "$RELEASE_ERR"; then
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: gh release view failed unexpectedly:" >&2
+            cat "$RELEASE_ERR" >&2
+            exit 1
+          fi
+          rm -f "$RELEASE_ERR"
+
+      - name: Sync version and tag
+        # Create a release commit that pins Cargo.toml to the computed
+        # v0.3.<distance> version so the tag, the tagged tree, and the SBOM all
+        # agree. The release commit is reachable only via the tag (we push the
+        # tag, not a commit back to main): this keeps main's manifest on the
+        # clean 0.3 base, avoids re-triggering this workflow, sidesteps branch
+        # protection on main, and keeps the git distance free of release-commit
+        # inflation.
+        #
+        # No GH_TOKEN here: the version bump and `git push` of the tag use the
+        # credentials actions/checkout already persists, so we keep the token
+        # away from the `cargo install`/`cargo set-version` invocations.
+        #
+        # Gate on release_exists == false (not tag_exists) so a retry after a
+        # partial failure (tag pushed, release creation failed) still proceeds.
+        if: steps.check_tag.outputs.release_exists == 'false' && !inputs.dry_run
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          SEMVER: ${{ steps.version.outputs.semver }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Pin the workspace version to the computed release version.
+          # cargo-edit is version-pinned for reproducible release behavior.
+          cargo install cargo-edit --version 0.13.11 --locked
+          cargo set-version "$SEMVER"
+          # Refresh the lockfile so the workspace crate versions match.
+          cargo update --workspace --offline
+
+          git commit -am "chore(release): $TAG"
+
+          if [ "${{ steps.check_tag.outputs.tag_exists }}" = "false" ]; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Create GitHub release
+        if: steps.check_tag.outputs.release_exists == 'false' && !inputs.dry_run
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$TAG" --generate-notes
+
+      - name: Trigger hermetic build
+        # GITHUB_TOKEN tag pushes don't re-trigger other workflows, so we
+        # dispatch the hermetic build explicitly so the released tag gets a
+        # hermetic build + SBOM + provenance attached to its release.
+        #
+        # Gate only on !dry_run (not release_exists): if a prior run created the
+        # release but failed before/at dispatch, re-running must still kick off
+        # the build so the SBOM/provenance get attached. The build is idempotent
+        # and uploads the SBOM with --clobber.
+        if: ${{ !inputs.dry_run }}
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run hermetic-build.yml --ref "$TAG"
+
+      - name: Dry run summary
+        if: inputs.dry_run
+        run: |
+          echo "DRY RUN: would have created tag ${{ steps.version.outputs.tag }} (version: ${{ steps.version.outputs.full_version }})"
