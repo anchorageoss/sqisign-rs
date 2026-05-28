@@ -1,7 +1,9 @@
 target/
-Cargo.lock
 bin/
 .vscode/
+
+# Deterministic build OCI output (stagex)
+out/
 
 # Fuzz artifacts (corpus, crashes, and auto-generated seeds are machine-local)
 crates/verify/fuzz/corpus/
