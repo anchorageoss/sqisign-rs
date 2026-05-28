@@ -94,7 +94,7 @@ jobs:
         #
         # Gate on release_exists == false (not tag_exists) so a retry after a
         # partial failure (tag pushed, release creation failed) still proceeds.
-        if: steps.check_tag.outputs.release_exists == 'false' && !inputs.dry_run
+        if: steps.check_tag.outputs.release_exists == 'false' && github.event.inputs.dry_run != 'true'
         env:
           TAG: ${{ steps.version.outputs.tag }}
           SEMVER: ${{ steps.version.outputs.semver }}
@@ -121,7 +121,7 @@ jobs:
           fi
 
       - name: Create GitHub release
-        if: steps.check_tag.outputs.release_exists == 'false' && !inputs.dry_run
+        if: steps.check_tag.outputs.release_exists == 'false' && github.event.inputs.dry_run != 'true'
         env:
           TAG: ${{ steps.version.outputs.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -136,13 +136,13 @@ jobs:
         # release but failed before/at dispatch, re-running must still kick off
         # the build so the SBOM/provenance get attached. The build is idempotent
         # and uploads the SBOM with --clobber.
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
           TAG: ${{ steps.version.outputs.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run hermetic-build.yml --ref "$TAG"
 
       - name: Dry run summary
-        if: inputs.dry_run
+        if: github.event.inputs.dry_run == 'true'
         run: |
           echo "DRY RUN: would have created tag ${{ steps.version.outputs.tag }} (version: ${{ steps.version.outputs.full_version }})"

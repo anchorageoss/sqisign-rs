@@ -21,6 +21,7 @@ on:
       - "images/**"
       - "scripts/**"
       - "Makefile"
+      - ".dockerignore"
   pull_request:
     # Run on every PR update *while* the `stagex` label is present, not just at
     # the moment the label is applied -- otherwise the check goes stale against
