@@ -88,7 +88,10 @@ fn verify_kat_entry(entry: &KatEntry, index: usize) -> bool {
 
 #[test]
 fn test_kat_entry_0() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     assert!(!entries.is_empty(), "no KAT entries found");
     assert!(verify_kat_entry(&entries[0], 0), "KAT entry 0 failed");
@@ -96,7 +99,10 @@ fn test_kat_entry_0() {
 
 #[test]
 fn test_kat_entry_1() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 2);
     assert!(entries.len() >= 2, "not enough KAT entries");
     assert!(verify_kat_entry(&entries[1], 1), "KAT entry 1 failed");
@@ -104,7 +110,10 @@ fn test_kat_entry_1() {
 
 #[test]
 fn test_kat_entry_2() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 3);
     assert!(entries.len() >= 3, "not enough KAT entries");
     assert!(verify_kat_entry(&entries[2], 2), "KAT entry 2 failed");
@@ -112,7 +121,10 @@ fn test_kat_entry_2() {
 
 #[test]
 fn test_kat_entry_3() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 4);
     assert!(entries.len() >= 4, "not enough KAT entries");
     assert!(verify_kat_entry(&entries[3], 3), "KAT entry 3 failed");
@@ -120,7 +132,10 @@ fn test_kat_entry_3() {
 
 #[test]
 fn test_kat_entry_4() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 5);
     assert!(entries.len() >= 5, "not enough KAT entries");
     assert!(verify_kat_entry(&entries[4], 4), "KAT entry 4 failed");
@@ -130,7 +145,10 @@ fn test_kat_entry_4() {
 
 #[test]
 fn test_expand_and_verify_kat_entry_0() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -148,7 +166,10 @@ fn test_expand_and_verify_kat_entry_0() {
 
 #[test]
 fn test_expand_and_verify_all_kat_entries() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 5);
 
     for (i, entry) in entries.iter().enumerate() {
@@ -169,7 +190,10 @@ fn test_expand_and_verify_all_kat_entries() {
 fn test_expanded_serialization_roundtrip_kat() {
     use sqisign_verify::formats::ExpandedSignature;
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -188,7 +212,10 @@ fn test_expanded_serialization_roundtrip_kat() {
 
 #[test]
 fn test_expanded_rejects_wrong_message() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -206,7 +233,10 @@ fn test_expanded_rejects_wrong_message() {
 fn test_expanded_any_signature_dispatch() {
     use sqisign_verify::formats::{AnySignature, SignatureFormat};
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -225,7 +255,10 @@ fn test_expanded_any_signature_dispatch() {
 
 #[test]
 fn test_corrupted_signature() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -244,7 +277,10 @@ fn test_corrupted_signature() {
 
 #[test]
 fn test_wrong_message() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -260,7 +296,10 @@ fn test_wrong_message() {
 
 #[test]
 fn test_corrupted_public_key() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -279,7 +318,10 @@ fn test_corrupted_public_key() {
 
 #[test]
 fn test_signature_bitflip_mutation() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -337,7 +379,10 @@ fn test_signature_bitflip_mutation() {
 
 #[test]
 fn test_public_key_bitflip_mutation() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -444,19 +489,28 @@ fn verify_all_formats_generic<L: FpBackend + LevelPrecomp>(
 
 #[test]
 fn test_all_100_kats_all_formats_l1() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     verify_all_formats_generic::<Level1>(content, L1_SIG_BYTES, "L1");
 }
 
 #[test]
 fn test_all_100_kats_all_formats_l3() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_529_SQIsign_lvl3.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_529_SQIsign_lvl3.rsp"
+    ));
     verify_all_formats_generic::<Level3>(content, L3_SIG_BYTES, "L3");
 }
 
 #[test]
 fn test_all_100_kats_all_formats_l5() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_701_SQIsign_lvl5.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_701_SQIsign_lvl5.rsp"
+    ));
     verify_all_formats_generic::<Level5>(content, L5_SIG_BYTES, "L5");
 }
 
@@ -471,7 +525,10 @@ fn diagnostic_det_bit_precision() {
     use sqisign_verify::theta::HD_EXTRA_TORSION;
     use sqisign_verify::verify::{basis_from_hint, compute_challenge_curve};
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 100);
     assert_eq!(entries.len(), 100);
 
@@ -683,7 +740,10 @@ fn lowest_set_bit(a: &[u64], nlimbs: usize) -> Option<usize> {
 
 #[test]
 fn diagnostic_matrix_bit_structure() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 100);
 
     use hybrid_array::typenum::Unsigned;
@@ -970,7 +1030,10 @@ fn diagnostic_matrix_bit_structure() {
 fn diagnostic_det_hint_distribution() {
     use hybrid_array::typenum::Unsigned;
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 100);
 
     let e_rsp = L1::E_RSP as usize;
@@ -1089,7 +1152,10 @@ fn diagnostic_tate_vs_weil_for_compression() {
 
     use sqisign_verify::verify::{basis_from_hint, compute_challenge_curve};
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 10);
     let nw = <L1 as SecurityLevel>::MpLimbs::USIZE;
     let e_rsp = L1::E_RSP as usize;
@@ -1379,7 +1445,10 @@ fn diagnostic_tate_vs_weil_for_compression() {
 
 #[test]
 fn test_compress_and_verify_kat_entry_0() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -1394,7 +1463,10 @@ fn test_compress_and_verify_kat_entry_0() {
 
 #[test]
 fn test_compress_and_verify_all_kat_entries() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 5);
 
     for (i, entry) in entries.iter().enumerate() {
@@ -1412,7 +1484,10 @@ fn test_compress_and_verify_all_kat_entries() {
 fn test_compressed_serialization_roundtrip_kat() {
     use sqisign_verify::formats::CompressedSignature;
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -1432,7 +1507,10 @@ fn test_compressed_serialization_roundtrip_kat() {
 
 #[test]
 fn test_compressed_rejects_wrong_message() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -1450,7 +1528,10 @@ fn test_compressed_rejects_wrong_message() {
 fn test_compressed_any_signature_dispatch() {
     use sqisign_verify::formats::{AnySignature, SignatureFormat};
 
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 1);
     let entry = &entries[0];
 
@@ -1467,7 +1548,10 @@ fn test_compressed_any_signature_dispatch() {
 
 #[test]
 fn test_compress_decompress_byte_identical_all_100() {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entries = parse_kat_entries(content, 100);
     assert_eq!(entries.len(), 100);
 

@@ -45,7 +45,10 @@ fn parse_first_kat_entry(content: &str) -> KatEntry {
 }
 
 fn bench_verify_standard(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -61,7 +64,10 @@ fn bench_verify_standard(c: &mut Criterion) {
 }
 
 fn bench_verify_expanded(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -79,7 +85,10 @@ fn bench_verify_expanded(c: &mut Criterion) {
 }
 
 fn bench_hash_to_challenge(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -94,7 +103,10 @@ fn bench_hash_to_challenge(c: &mut Criterion) {
 }
 
 fn bench_verify_compressed(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -113,7 +125,10 @@ fn bench_verify_compressed(c: &mut Criterion) {
 }
 
 fn bench_basis_from_hint(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+    ));
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
