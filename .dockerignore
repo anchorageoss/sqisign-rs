@@ -1,0 +1,11 @@
+# Keep the build context small and stable for the hermetic stagex build.
+.git
+target
+out
+# Exclude the large `reference` C submodule, but keep the KAT vectors: the
+# verify crate's tests `include_str!` them, so they must be in the build context.
+reference/*
+!reference/KAT
+**/*.sage.py
+flamegraph.svg
+dhat-heap.json
