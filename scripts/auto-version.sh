@@ -78,8 +78,10 @@ SHORT_HASH=$(git rev-parse --short=12 HEAD)
 # Sanitized branch for semver build metadata (allowed: [0-9A-Za-z-]).
 # Trailing "-" is a separator before SHORT_HASH; omitted when branch is empty.
 if [ -n "$RAW_BRANCH" ]; then
+  # printf, not echo: a branch name starting with `-` (e.g. `-n`) would be
+  # treated as an option by echo and corrupt the metadata.
   # shellcheck disable=SC2001
-  BRANCH_META="$(echo "$RAW_BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')-"
+  BRANCH_META="$(printf '%s' "$RAW_BRANCH" | sed 's/[^a-zA-Z0-9-]/-/g')-"
 else
   BRANCH_META=
 fi
