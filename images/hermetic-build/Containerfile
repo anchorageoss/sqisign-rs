@@ -13,7 +13,6 @@ FROM stagex/pallet-rust:1.88.0@sha256:b9021d2b75eac64fe8b931d96dde63ef11792e5023
 # to the gnu target and would not apply to this musl build anyway, and pinning
 # RUSTFLAGS here keeps the result host-independent.
 ENV RUSTFLAGS='-C target-feature=+crt-static'
-ENV CARGOFLAGS='--target x86_64-unknown-linux-musl --locked --release'
 
 # Version injected at build time via --build-arg (set by `make VERSION=...`).
 # Recorded as an OCI label so the verify image is traceable to a build version.
@@ -32,8 +31,11 @@ RUN cargo fetch --locked
 
 RUN --network=none <<-EOF
 	set -eu
-	cargo build ${CARGOFLAGS} -p sqisign-verify -p sqisign-rs
-	cargo test  ${CARGOFLAGS} -p sqisign-verify -p sqisign-rs
+	# Plain shell variable (not a Dockerfile ENV) so the flags are word-split by
+	# the shell here, with no ambiguity about embedded quotes.
+	cargoflags="--target x86_64-unknown-linux-musl --locked --release"
+	cargo build $cargoflags -p sqisign-verify -p sqisign-rs
+	cargo test  $cargoflags -p sqisign-verify -p sqisign-rs
 EOF
 
 # Minimal final stage: carry the resolved lockfile as a reproducibility marker.
