@@ -6,22 +6,16 @@ name: hermetic-build
 # On release tags it also emits a CycloneDX SBOM and a SLSA provenance
 # attestation and attaches the SBOM to the GitHub release. Nothing is shipped.
 on:
+  # No `paths:` filter: a `paths` filter combined with `tags:` can suppress the
+  # workflow on release-tag pushes (tag pushes often have no changed-file list
+  # to evaluate), which would skip SBOM/provenance. Run on all main pushes and
+  # all release tags. (release.yml's tag push uses GITHUB_TOKEN, which doesn't
+  # re-trigger workflows, so it dispatches this build explicitly instead.)
   push:
     tags:
       - "v*.*.*"
     branches:
       - "main"
-    paths:
-      - ".github/workflows/hermetic-build.yml"
-      - "crates/**"
-      - "tools/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - "images/**"
-      - "scripts/**"
-      - "Makefile"
-      - ".dockerignore"
   pull_request:
     # Run on every PR update *while* the `stagex` label is present, not just at
     # the moment the label is applied -- otherwise the check goes stale against
