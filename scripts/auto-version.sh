@@ -85,12 +85,16 @@ else
 fi
 
 # Treat the build as a default-branch build only when we know the ref is
-# actually the canonical default branch. `pull_request` events always
-# represent a non-default ref by definition, so even a fork PR opened from
-# a branch literally named `main`/`master` falls through to the merge-base
-# path below.
+# actually the canonical default branch. PR events always represent a
+# non-default ref by definition, so even a fork PR opened from a branch
+# literally named `main`/`master` must fall through to the merge-base path
+# below. Both `pull_request` and `pull_request_target` set GITHUB_HEAD_REF, so a
+# non-empty GITHUB_HEAD_REF is the reliable "this is a PR" signal; the explicit
+# event-name checks are belt-and-suspenders.
 if { [ "$RAW_BRANCH" = "main" ] || [ "$RAW_BRANCH" = "master" ]; } \
-   && [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]; then
+   && [ -z "${GITHUB_HEAD_REF:-}" ] \
+   && [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ] \
+   && [ "${GITHUB_EVENT_NAME:-}" != "pull_request_target" ]; then
   HEIGHT=$(git rev-list --count HEAD)
   echo "$BASE_VERSION.$HEIGHT+${BRANCH_META}$SHORT_HASH"
   exit 0
