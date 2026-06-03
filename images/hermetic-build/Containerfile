@@ -1,0 +1,43 @@
+# Hermetic, verify-only build of the SQIsign library crates.
+#
+# Builds and tests `sqisign-verify` and `sqisign-rs` offline inside a pinned
+# stagex toolchain. The build is hermetic: a digest-pinned toolchain image,
+# `--locked` dependencies, and `--network=none` after the fetch. There is no
+# shipped artifact -- this is a verification gate proving the workspace builds
+# and its tests pass under a locked, offline toolchain. The final stage just
+# carries the resolved `Cargo.lock`.
+FROM stagex/pallet-rust:1.88.0@sha256:b9021d2b75eac64fe8b931d96dde63ef11792e5023cee77c3471ccc34a95a377 AS build
+
+# Build for musl with a statically linked CRT. We set RUSTFLAGS explicitly
+# rather than inheriting .cargo/config.toml: its `target-cpu=native` is scoped
+# to the gnu target and would not apply to this musl build anyway, and pinning
+# RUSTFLAGS here keeps the result host-independent.
+ENV RUSTFLAGS='-C target-feature=+crt-static'
+
+# Version injected at build time via --build-arg (set by `make VERSION=...`).
+# Recorded as an OCI label so the verify image is traceable to a build version.
+ARG VERSION
+LABEL org.opencontainers.image.version=$VERSION
+
+# Load the full workspace (the workspace root is the repo root; there is no
+# `src/` subdirectory). .dockerignore keeps the context small.
+ADD . /src
+WORKDIR /src
+
+# Pre-fetch all workspace deps so the build/test below can run with
+# `--network=none` (offline, hermetic). `--locked` makes a stale committed
+# Cargo.lock fail here rather than being silently updated.
+RUN cargo fetch --locked
+
+RUN --network=none <<-EOF
+	set -eu
+	# Plain shell variable (not a Dockerfile ENV) so the flags are word-split by
+	# the shell here, with no ambiguity about embedded quotes.
+	cargoflags="--target x86_64-unknown-linux-musl --locked --release"
+	cargo build $cargoflags -p sqisign-verify -p sqisign-rs
+	cargo test  $cargoflags -p sqisign-verify -p sqisign-rs
+EOF
+
+# Minimal final stage: carry the resolved lockfile as a reproducibility marker.
+FROM stagex/core-busybox:1.36.1@sha256:cac5d773db1c69b832d022c469ccf5f52daf223b91166e6866d42d6983a3b374 AS package
+COPY --from=build /src/Cargo.lock /Cargo.lock
