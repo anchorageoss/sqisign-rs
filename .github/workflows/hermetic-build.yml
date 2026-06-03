@@ -1,0 +1,153 @@
+name: hermetic-build
+
+# Hermetic, verify-only build of the SQIsign library crates via stagex.
+# Builds + tests the workspace offline in a digest-pinned toolchain
+# (--locked, --network=none) -- a verification gate, not an artifact build.
+# On release tags it also emits a CycloneDX SBOM and a SLSA provenance
+# attestation and attaches the SBOM to the GitHub release. Nothing is shipped.
+on:
+  # No `paths:` filter: a `paths` filter combined with `tags:` can suppress the
+  # workflow on release-tag pushes (tag pushes often have no changed-file list
+  # to evaluate), which would skip SBOM/provenance. Run on all main pushes and
+  # all release tags. (release.yml's tag push uses GITHUB_TOKEN, which doesn't
+  # re-trigger workflows, so it dispatches this build explicitly instead.)
+  push:
+    tags:
+      - "v*.*.*"
+    branches:
+      - "main"
+  pull_request:
+    # Run on every PR update *while* the `stagex` label is present, not just at
+    # the moment the label is applied -- otherwise the check goes stale against
+    # later commits. The `if` below gates on the label actually being present.
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch: # Allows manual invocation
+
+jobs:
+  build:
+    name: Hermetic build
+    # On pull_request, only run when the `stagex` label is present (the build is
+    # expensive and not needed on every PR). Checking the label set (rather than
+    # github.event.label) means synchronize/reopen events also run while labeled.
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'stagex')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Read-only: this job just builds + tests. SBOM/provenance live in the
+    # separate `sbom` job, which is the only one that needs write scopes.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history so auto-version.sh can compute commit heights and
+          # merge-bases for non-tag builds.
+          fetch-depth: 0
+          # The reference submodule carries the KAT vectors the verify crate's
+          # tests include_str! at compile time.
+          submodules: recursive
+
+      - name: Compute version
+        id: version
+        shell: bash
+        env:
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$GH_REF_TYPE" == "tag" && "$GH_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${GH_REF_NAME#v}"
+          else
+            VERSION=$(scripts/auto-version.sh)
+          fi
+          # Validate semver shape so a malformed VERSION fails the build instead
+          # of silently producing garbage downstream.
+          SEMVER="${VERSION%%+*}"
+          if [[ ! "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: VERSION='$VERSION' produced non-semver SEMVER='$SEMVER'" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Build + test (hermetic, offline)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # `make verify` builds + tests the crates inside the pinned stagex
+          # toolchain with --locked and --network=none; a non-zero exit fails
+          # the job. This is the verification gate -- no artifact is produced.
+          make VERSION="$VERSION" verify
+          {
+            echo "## Hermetic build"
+            echo ""
+            echo "- **Version**: \`${VERSION}\`"
+            echo "- Built + tested \`sqisign-verify\` and \`sqisign-rs\` offline (\`--locked\`, \`--network=none\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  sbom:
+    name: SBOM + provenance
+    # Release tags only. Runs after a green hermetic build. This is the only job
+    # that needs write scopes, so they're confined here (not the PR build path).
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # provenance attestation (OIDC)
+      attestations: write   # provenance attestation
+      contents: write       # upload SBOM to the release
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Resolve release version
+        id: version
+        env:
+          GH_REF_NAME: ${{ github.ref_name }}
+        run: |
+          SEMVER="${GH_REF_NAME#v}"
+          if [[ ! "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: tag '$GH_REF_NAME' is not a vX.Y.Z release tag" >&2
+            exit 1
+          fi
+          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "tag=$GH_REF_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable, pinned
+
+      - name: Generate CycloneDX SBOM
+        env:
+          SEMVER: ${{ steps.version.outputs.semver }}
+        run: |
+          cargo install cargo-cyclonedx --version 0.5.9 --locked
+          cargo cyclonedx --all --format json
+          # cargo-cyclonedx writes <crate>/bom.json per package. Publish the main
+          # crate's SBOM from its known path; fail loudly if it's missing rather
+          # than guessing among the per-crate files.
+          src="crates/sqisign-rs/bom.json"
+          if [ ! -f "$src" ]; then
+            echo "ERROR: expected SBOM not found at $src" >&2
+            exit 1
+          fi
+          sbom="sqisign-rs-${SEMVER}.cdx.json"
+          cp "$src" "$sbom"
+          echo "sbom=$sbom" >> "$GITHUB_ENV"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1, pinned
+        with:
+          subject-path: ${{ env.sbom }}
+
+      - name: Upload SBOM to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$sbom" --clobber
+            echo "Uploaded $sbom to release $RELEASE_TAG."
+          else
+            echo "No release $RELEASE_TAG yet; skipping SBOM upload."
+          fi

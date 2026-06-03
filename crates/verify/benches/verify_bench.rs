@@ -10,6 +10,14 @@ type L1 = Level1;
 
 const SIGNATURE_BYTES: usize = 148;
 
+// Level-1 KAT response file, embedded once at compile time. Path anchored to the
+// crate manifest dir (CARGO_MANIFEST_DIR) so it doesn't depend on this file's
+// location.
+const KAT_LVL1: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp"
+));
+
 fn hex_to_bytes(hex: &str) -> Vec<u8> {
     (0..hex.len())
         .step_by(2)
@@ -45,7 +53,7 @@ fn parse_first_kat_entry(content: &str) -> KatEntry {
 }
 
 fn bench_verify_standard(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = KAT_LVL1;
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -61,7 +69,7 @@ fn bench_verify_standard(c: &mut Criterion) {
 }
 
 fn bench_verify_expanded(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = KAT_LVL1;
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -79,7 +87,7 @@ fn bench_verify_expanded(c: &mut Criterion) {
 }
 
 fn bench_hash_to_challenge(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = KAT_LVL1;
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -94,7 +102,7 @@ fn bench_hash_to_challenge(c: &mut Criterion) {
 }
 
 fn bench_verify_compressed(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = KAT_LVL1;
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
@@ -113,7 +121,7 @@ fn bench_verify_compressed(c: &mut Criterion) {
 }
 
 fn bench_basis_from_hint(c: &mut Criterion) {
-    let content = include_str!("../../../reference/KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+    let content = KAT_LVL1;
     let entry = parse_first_kat_entry(content);
 
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
