@@ -1,0 +1,65 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/verify",
+    "crates/sqisign-rs",
+    "crates/kat",
+    "tools/demo-sign",
+]
+exclude = [
+    "crates/alloc",
+    "crates/verify/fuzz",
+]
+
+[workspace.package]
+version = "0.3.0"
+authors = ["Dustin Ray <dustin.ray@anchorlabs.com>"]
+edition = "2021"
+rust-version = "1.80"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/anchorageoss/sqisign-rs"
+keywords = ["sqisign", "post-quantum", "isogeny", "signature", "cryptography"]
+categories = ["cryptography", "no-std"]
+
+[workspace.dependencies]
+# Type-level array sizes (bridges typenum and const generics on stable)
+hybrid-array = "0.4"
+typenum = "1.17"
+
+# Cryptographic big integers (constant-time, stack-allocated, no_std).
+# default-features off so getrandom (which is not no_std-friendly on bare
+# metal) does not leak into the verification path.
+crypto-bigint = { version = "0.6", default-features = false }
+
+# Temporary quaternion layer big integers (to be replaced)
+num-bigint = { version = "0.4", features = ["rand"] }
+num-traits = "0.2"
+num-integer = "0.1"
+
+# Random number generation (quaternion layer)
+rand = "0.8"
+
+# Secret material hygiene
+zeroize = { version = "1", default-features = false, features = ["derive"] }
+subtle = { version = "2", default-features = false }
+
+# AES (RustCrypto), used for the NIST AES-256-CTR-DRBG in KAT testing
+aes = { version = "0.8", default-features = false }
+
+# Hashing (RustCrypto). default-features disabled here so individual crates
+# opt back into std explicitly via their own `std` feature.
+sha3 = { version = "0.10", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+
+# Randomness
+rand_core = { version = "0.6", default-features = false }
+
+# Signature traits (RustCrypto). Defaults disabled for the same reason as above.
+signature = { version = "2", default-features = false }
+
+# Test-only deps
+hex-literal = "0.4"
+
+# Internal workspace crates
+sqisign-verify = { path = "crates/verify" }
+sqisign-rs = { path = "crates/sqisign-rs" }

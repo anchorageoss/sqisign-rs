@@ -1,0 +1,17 @@
+[package]
+name = "sqisign-kat"
+description = "KAT test harness for SQIsign (dev-only, not published)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+sqisign-rs = { path = "../sqisign-rs" }
+sqisign-verify = { path = "../verify" }
+aes = { workspace = true }
+rand_core = { workspace = true }
+hex = "0.4"
+rayon = "1.10"

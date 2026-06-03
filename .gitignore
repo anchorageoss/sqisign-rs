@@ -1,0 +1,71 @@
+target/
+bin/
+.vscode/
+
+# Deterministic build OCI output (stagex)
+out/
+
+# Fuzz artifacts (corpus, crashes, and auto-generated seeds are machine-local)
+crates/verify/fuzz/corpus/
+crates/verify/fuzz/artifacts/
+crates/verify/fuzz/seeds/**
+!crates/verify/fuzz/seeds/**/*.bin
+
+# Profiling artifacts
+flamegraph.svg
+dhat-heap.json
+
+# AI tools
+.claude/
+.cursor/
+.aider*
+.copilot/
+.codeium/
+.continue/
+.windsurf/
+CLAUDE.md
+
+reference/build_bench/
+reference/build_bench_native/
+reference/build_sign/
+
+# C cross-validation harness build artifacts
+# Binaries produced by build_*.sh
+tools/c-validate/*_cval
+tools/c-validate/intbig_expected.txt
+# Benchmark binaries
+tools/c-validate/bench_verify_lvl1
+tools/c-validate/bench_verify_lvl1_native
+
+# C sources copied from the reference by build scripts (keep *_validate.c)
+tools/c-validate/fp_p5248_64.c
+tools/c-validate/fp_p5248_64_static.c
+tools/c-validate/fp_select.c
+tools/c-validate/fp2.c
+tools/c-validate/mp.c
+tools/c-validate/ec.c
+tools/c-validate/ec_jac.c
+tools/c-validate/ec_params.c
+tools/c-validate/e0_basis.c
+tools/c-validate/basis.c
+tools/c-validate/biextension.c
+tools/c-validate/xisog.c
+tools/c-validate/xeval.c
+tools/c-validate/isog_chains.c
+tools/c-validate/hd.c
+tools/c-validate/hd_splitting_transforms.c
+tools/c-validate/theta_structure.c
+tools/c-validate/theta_isogenies.c
+tools/c-validate/fips202.c
+tools/c-validate/encode_verification.c
+tools/c-validate/common.c
+tools/c-validate/aes_c.c
+
+# Sage auto-generated Python files
+*.sage.py
+
+# Sage precomp dependencies (cloned repos, not tracked)
+scripts/precomp/deps/
+
+# Sage precomp logs
+scripts/precomp/logs/

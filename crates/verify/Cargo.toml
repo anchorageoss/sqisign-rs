@@ -1,0 +1,33 @@
+[package]
+name = "sqisign-verify"
+description = "SQIsign signature verification (no_std, zero allocation, pure Rust)"
+readme = "README.md"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+hybrid-array = { workspace = true }
+typenum = { workspace = true }
+subtle = { workspace = true }
+zeroize = { workspace = true }
+sha3 = { workspace = true }
+rand_core = { workspace = true }
+signature = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+hex-literal = { workspace = true }
+
+[[bench]]
+name = "verify_bench"
+harness = false
+
+[features]
+default = []
+std = ["sha3/std"]

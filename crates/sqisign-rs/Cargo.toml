@@ -1,0 +1,40 @@
+[package]
+name = "sqisign-rs"
+description = "SQIsign post-quantum signatures: keygen, sign, verify in pure Rust"
+readme = "../../README.md"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+sqisign-verify = { version = "0.3.0", path = "../verify" }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+num-integer = { workspace = true }
+crypto-bigint = { workspace = true }
+zeroize = { workspace = true }
+rand = { workspace = true }
+rand_core = { workspace = true }
+sha3 = { workspace = true }
+subtle = { workspace = true }
+hybrid-array = { workspace = true }
+signature = { workspace = true, features = ["rand_core"] }
+paste = "1"
+
+[features]
+default = ["zeroize-alloc"]
+zeroize-alloc = []
+std = ["sqisign-verify/std"]
+
+[dev-dependencies]
+rand = { workspace = true }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "sign_bench"
+harness = false

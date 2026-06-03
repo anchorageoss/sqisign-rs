@@ -1,0 +1,15 @@
+[workspace]
+
+[package]
+name = "bench-zeroalloc"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+sqisign-rs = { path = "../../crates/sqisign-rs" }
+rand = "0.8"
+
+[features]
+default = []
+zero-alloc = []
