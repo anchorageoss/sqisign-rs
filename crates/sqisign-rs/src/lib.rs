@@ -3,19 +3,32 @@
 //! Additional Signatures, Round 2/3 candidate).
 //!
 //! This crate provides key generation, signing, and re-exports everything
-//! from `sqisign-verify` for verification. For verify-only usage (no_std,
-//! no heap), depend on `sqisign-verify` directly.
+//! from `sqisign-verify` for verification. For verify-only usage (`no_std`),
+//! depend on `sqisign-verify` directly.
+//!
+//! Two signature schemes are available, chosen at keygen time: the dimension-2
+//! formats ([`generate`]) and the **compact** 108-byte format
+//! ([`generate_compact`]). Verification autodetects the format from byte length
+//! via [`AnySignature`]. At Level 1, dim-2 verification is ~4-7 ms and compact
+//! verification ~33 ms (~20.5 ms with the `parallel` feature).
 //!
 //! ## Quick Start
 //!
 //! ```
-//! use sqisign_rs::{generate, PublicKey, SigningKey, Verifier};
+//! use sqisign_rs::{generate, generate_compact, PublicKey, SigningKey, Verifier};
 //!
 //! # fn main() -> Result<(), sqisign_rs::Error> {
 //! let mut rng = rand::rngs::OsRng;
+//!
+//! // Standard (dimension-2, 148 bytes at Level 1):
 //! let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
 //! let sig = sk.sign(b"hello world", &mut rng)?;
 //! pk.verify(b"hello world", &sig)?;
+//!
+//! // Compact (smallest signature, 108 bytes at Level 1):
+//! let (cpk, csk) = generate_compact(&mut rng);
+//! let csig = csk.sign(b"hello world", &mut rng)?;
+//! cpk.verify(b"hello world", &csig)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -27,11 +40,19 @@ pub mod precomp_signing;
 pub mod quaternion;
 pub mod sign;
 
-// Re-export everything from sqisign-verify.
+// Re-export everything from sqisign-verify, including the unified
+// `AnySignature` (which now autodetects dim-2 *and* dim-4 SQIsignHD by length)
+// and `PublicKey` (which accepts both the 65-byte dim-2 and 64-byte HD key
+// encodings). The dim-4 verifier itself lives in `sqisign_verify::hd`.
 pub use sqisign_verify::*;
 
 // Public API.
 pub use keygen::SecretKey;
+
+// The compact (108-byte-signature) scheme's signing-side entry points. The
+// matching verification types `CompactPublicKey` / `CompactSignature` come from
+// the `pub use sqisign_verify::*` re-export above.
+pub use sign::{generate_compact, CompactSigningKey};
 
 use hybrid_array::typenum::Unsigned;
 use id2iso::sign_precomp::HasSigningPrecomp;

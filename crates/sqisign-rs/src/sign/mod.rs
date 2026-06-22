@@ -17,6 +17,15 @@ use sqisign_verify::types::{PublicKey, Signature};
 #[allow(clippy::module_inception)]
 pub mod sign;
 
+/// The dim-4 signer internals. Not public API - wrapped by the compact API
+/// ([`compact`]) under scheme-neutral names ([`CompactSigningKey`],
+/// [`generate_compact`]).
+pub(crate) mod dim4;
+
+pub mod compact;
+
+pub use compact::{generate_compact, CompactSigningKey};
+
 /// Sign a message using the SQIsign protocol.
 ///
 /// Precomputed constants are constructed automatically from the

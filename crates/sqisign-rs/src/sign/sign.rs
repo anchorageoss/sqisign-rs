@@ -49,7 +49,7 @@ fn ibz_to_scalar(x: &Ibz, nwords: usize) -> [u64; MAX_NWORDS] {
     out
 }
 
-fn commit<L: FpBackend + sqisign_verify::precomp::LevelPrecomp>(
+pub(crate) fn commit<L: FpBackend + sqisign_verify::precomp::LevelPrecomp>(
     e_com: &mut EcCurve<L>,
     basis_even_com: &mut EcBasis<L>,
     lideal_com: &mut QuatLeftIdeal,
