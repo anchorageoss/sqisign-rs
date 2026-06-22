@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "demo-sign"
-version = "0.1.0"
+version = "0.4.14"
 dependencies = [
  "hex",
  "rand",
@@ -673,7 +673,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "sqisign-kat"
-version = "0.4.0"
+version = "0.4.14"
 dependencies = [
  "aes",
  "hex",
@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "sqisign-rs"
-version = "0.4.0"
+version = "0.4.14"
 dependencies = [
  "criterion",
  "crypto-bigint",
@@ -707,7 +707,7 @@ dependencies = [
 
 [[package]]
 name = "sqisign-verify"
-version = "0.4.0"
+version = "0.4.14"
 dependencies = [
  "criterion",
  "crypto-bigint",
