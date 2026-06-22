@@ -237,7 +237,12 @@ fn rnd128(s: &mut u64) -> i128 {
 #[test]
 fn self_contained_gluing_path_never_panics() {
     let doc = load(PHASE0_VECTORS);
-    let owned: Vec<Owned> = doc["test_vectors"].as_array().unwrap().iter().map(owned_of).collect();
+    let owned: Vec<Owned> = doc["test_vectors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(owned_of)
+        .collect();
     let mut s: u64 = 0xdead_beef_cafe_0001;
     let mut checked = 0u64;
     for base in &owned {

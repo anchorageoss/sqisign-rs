@@ -389,10 +389,12 @@ pub(crate) fn dim4_sign(
             ibz_mod(&chal_vec[0], &two_lambda),
             ibz_mod(&chal_vec[1], &two_lambda),
         ]);
-        let lideal_chall = Zeroizing::new(id2iso_kernel_dlogs_to_ideal_even(&vec2, LAMBDA, &precomp));
+        let lideal_chall =
+            Zeroizing::new(id2iso_kernel_dlogs_to_ideal_even(&vec2, LAMBDA, &precomp));
 
         // (3) Response lattice: (challenge ∩ secret) ∩ conj(commitment).
-        let lideal_chall_secret = Zeroizing::new(quat_lideal_inter(&lideal_chall, &sk.secret_ideal));
+        let lideal_chall_secret =
+            Zeroizing::new(quat_lideal_inter(&lideal_chall, &sk.secret_ideal));
         let lat_commit = Zeroizing::new(quat_lattice_conjugate_without_hnf(&lideal_commit.lattice));
         let lattice_hom = Zeroizing::new(quat_lattice_intersect(
             &lideal_chall_secret.lattice,
