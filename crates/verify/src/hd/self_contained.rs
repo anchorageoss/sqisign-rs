@@ -281,16 +281,10 @@ fn build_setup(sig: &HdSignatureL1) -> Option<Setup> {
     let a1 = u256_to_u128(&a1u);
     let a2 = u256_to_u128(&a2u);
     let m = a2.trailing_zeros() as usize;
-    // `q` is an unauthenticated wire field: the Fiat-Shamir challenge binds only
-    // the curves and message, never `q`, so a forged signature can present any
-    // norm-equation solution here. A legitimate response degree yields a nonzero
-    // even `a2`, hence `m = v₂(a2) ≤ F_TORSION - 3 = 67`; both half-chain step
-    // counts derived below are `67 - m` (`k` at the doubling step, and the plain
-    // chain length `E1 - 1 - m`). A degenerate `a2 = 0` (when `2^e - q` is a
-    // perfect square, e.g. `q = 2^e - 1` gives `n = 1`) makes `m` the
-    // trailing-zeros-of-zero sentinel (128), which would wrap those `u32` counts
-    // to ~4.3 billion and drive an effectively unbounded doubling loop (a panic
-    // in debug builds). Reject any out-of-range `m` as malformed up front.
+    // A valid response degree gives a nonzero even `a2`, so `m = v₂(a2) ≤ 67` and
+    // the half-chain step counts below (`67 - m`) stay in range. Reject an
+    // out-of-range `m` (e.g. `a2 = 0` when `2^e - q` is a perfect square) so the
+    // counts cannot underflow.
     if m > (F_TORSION - 3) as usize {
         return None;
     }

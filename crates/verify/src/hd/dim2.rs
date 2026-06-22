@@ -358,13 +358,13 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         n: &[[Fp2<L>; 4]; 4],
         e1: &EcCurve<L>,
         e2: &EcCurve<L>,
-    ) -> Self {
+    ) -> Option<Self> {
         let (base_change_matrix, null_bc) = montgomery_to_theta_matrix_dim2(zero12, n);
         let t_shift = k1_8.double(e1, e2); // 2·K1_8 (4-torsion shift)
         let t1 = apply_mat4(&base_change_matrix, &tuple_product_xz(k1_8));
         let t2 = apply_mat4(&base_change_matrix, &tuple_product_xz(k2_8));
-        let (codomain, precomp, zero_idx) = Self::special_compute_codomain(&t1, &t2);
-        Self {
+        let (codomain, precomp, zero_idx) = Self::special_compute_codomain(&t1, &t2)?;
+        Some(Self {
             base_change_matrix,
             null_bc,
             codomain,
@@ -373,7 +373,7 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
             t_shift,
             e1: e1.clone(),
             e2: e2.clone(),
-        }
+        })
     }
 
     pub fn codomain(&self) -> &ThetaStructureDim2<L> {
@@ -386,13 +386,12 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
     fn special_compute_codomain(
         t1: &[Fp2<L>; 4],
         t2: &[Fp2<L>; 4],
-    ) -> (ThetaStructureDim2<L>, [Fp2<L>; 4], usize) {
+    ) -> Option<(ThetaStructureDim2<L>, [Fp2<L>; 4], usize)> {
         let xa = squared_theta2(t1);
         let za = squared_theta2(t2);
-        let zero_idx = xa
-            .iter()
-            .position(|x| bool::from(x.ct_is_zero()))
-            .expect("gluing: a vanishing index must exist");
+        // The product-point gluing kernel has a vanishing squared-theta
+        // coordinate; treat its absence as a rejection rather than a panic.
+        let zero_idx = xa.iter().position(|x| bool::from(x.ct_is_zero()))?;
 
         let num1 = za[1 ^ zero_idx].clone();
         let num2 = xa[2 ^ zero_idx].clone();
@@ -416,7 +415,7 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         precomp[3 ^ zero_idx] = Fp2::one();
 
         let null = hadamard2(&abcd);
-        (ThetaStructureDim2::new(null), precomp, zero_idx)
+        Some((ThetaStructureDim2::new(null), precomp, zero_idx))
     }
 
     #[allow(clippy::identity_op)] // `0 ^ z0` kept for symmetry with `i ^ z0`.
@@ -596,7 +595,7 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
         m: usize,
         e1: &EcCurve<L>,
         e2: &EcCurve<L>,
-    ) -> Self {
+    ) -> Option<Self> {
         let strategy = optimised_strategy(m, 1.0);
         let mut plain: Vec<ThetaIsogenyDim2<L>> = Vec::with_capacity(m.saturating_sub(1));
 
@@ -631,7 +630,7 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
 
             if k == 0 {
                 let (a, b) = tuple_stack.last().unwrap().clone();
-                let g = GluingThetaIsogenyDim2::new(&a, &b, zero12, n, e1, e2);
+                let g = GluingThetaIsogenyDim2::new(&a, &b, zero12, n, e1, e2)?;
                 let mut cc = g.codomain().clone();
                 cc.precompute();
                 codomain_null = cc.null().clone();
@@ -660,11 +659,12 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
             }
         }
 
-        IsogenyChainDim2 {
-            gluing: gluing.expect("m ≥ 1, so the gluing was built"),
+        Some(IsogenyChainDim2 {
+            // m ≥ 1, so the gluing step (k=0) always runs; `?` avoids an unwrap.
+            gluing: gluing?,
             plain,
             codomain_null,
-        }
+        })
     }
 
     pub fn codomain_null(&self) -> &[Fp2<L>; 4] {

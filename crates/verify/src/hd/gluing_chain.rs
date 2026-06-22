@@ -221,7 +221,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
                 TuplePoint::new(jac_add(&s1q, &s2p.neg(), e1), two_s2.neg()),
             )
         };
-        let isogenies_dim2 = IsogenyChainDim2::new(&tp0, &tp1, zero12, &n_dim2, m, e1, e2);
+        let isogenies_dim2 = IsogenyChainDim2::new(&tp0, &tp1, zero12, &n_dim2, m, e1, e2)?;
 
         // the dim-4 gluing kernel B_K_dim4 = kernel_basis(M1, m+1, …)
         let two_mp3 = 1u128 << (m + 3);

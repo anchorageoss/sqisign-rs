@@ -187,14 +187,10 @@ fn self_contained_rejects_tampering() {
     println!("self-contained verify rejects tampered message / challenge / q / response scalar for all {n} vectors");
 }
 
-/// Regression (CWE-191): the response degree `q` is unauthenticated (the
-/// Fiat-Shamir challenge binds only the curves and message), so a forged
-/// signature can choose `q` to make the Kani norm `n = 2^e - q` a perfect square
-/// (here `q = 2^136 - 1` → `n = 1`), giving a degenerate `a2 = 0`. That makes
-/// `m = v₂(a2)` the trailing-zeros-of-zero sentinel (128), which without the
-/// bound-check underflows the half-chain step counts (`67 - m`) into a
-/// multi-billion-iteration doubling loop. The verifier must reject such a `q`
-/// promptly instead of hanging (or panicking in a debug build).
+/// A degenerate response degree `q` (one where `2^e - q` is a perfect square,
+/// e.g. `q = 2^136 - 1` gives `n = 1`) yields `a2 = 0` and an out-of-range `m`.
+/// The verifier must reject it promptly rather than run an out-of-range step
+/// count.
 #[test]
 fn self_contained_rejects_underflow_q() {
     let doc = load(PHASE0_VECTORS);
@@ -223,6 +219,56 @@ fn self_contained_rejects_underflow_q() {
     println!(
         "self-contained verify rejects degenerate-q (a2 = 0) underflow input for all {n} vectors"
     );
+}
+
+fn lcg(s: &mut u64) -> u64 {
+    *s = s
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    *s
+}
+fn rnd128(s: &mut u64) -> i128 {
+    ((lcg(s) as u128) | ((lcg(s) as u128) << 64)) as i128
+}
+
+/// Fuzz the dim-4 gluing path with random response scalars (and random `q`) on
+/// the genuine commitment curves, which reach the gluing-codomain step. Every
+/// verification must complete without panicking and reject the forgery.
+#[test]
+fn self_contained_gluing_path_never_panics() {
+    let doc = load(PHASE0_VECTORS);
+    let owned: Vec<Owned> = doc["test_vectors"].as_array().unwrap().iter().map(owned_of).collect();
+    let mut s: u64 = 0xdead_beef_cafe_0001;
+    let mut checked = 0u64;
+    for base in &owned {
+        for i in 0..16 {
+            let mut o = base.clone();
+            o.a = rnd128(&mut s);
+            o.b = rnd128(&mut s);
+            o.c_or_d = rnd128(&mut s);
+            if i >= 8 {
+                // Also randomize q (kept odd so the norm equation can solve).
+                let mut qb = [0u8; 32];
+                for chunk in qb[..16].chunks_mut(8) {
+                    chunk.copy_from_slice(&lcg(&mut s).to_le_bytes());
+                }
+                qb[16] = lcg(&mut s) as u8;
+                qb[0] |= 1;
+                o.q = U256::from_le_bytes(qb);
+            }
+            // Must complete without panicking, and reject the forgery.
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                hd_verify_l1(&sig_of(&o, &MSG))
+            }));
+            assert!(r.is_ok(), "compact verify must not panic on crafted input");
+            assert!(
+                r.unwrap().is_err(),
+                "crafted response scalars / q must be rejected"
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 80);
 }
 
 impl Owned {

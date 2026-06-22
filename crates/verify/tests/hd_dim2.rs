@@ -295,7 +295,8 @@ fn dim2_chain_matches_oracle() {
                 )
             };
 
-            let chain = IsogenyChainDim2::new(&tp0, &tp1, &zero12, &n_dim2, m, &e_com, &e_chal);
+            let chain = IsogenyChainDim2::new(&tp0, &tp1, &zero12, &n_dim2, m, &e_com, &e_chal)
+                .expect("oracle vector: dim-2 gluing chain is well-formed");
 
             let want: [F; 4] = core::array::from_fn(|i| parse_fp2(&hc["dim2_codomain_null"][i]));
             let tag = if dual { "F2_dual" } else { "F1" };
