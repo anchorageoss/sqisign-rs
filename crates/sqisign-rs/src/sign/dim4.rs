@@ -35,7 +35,7 @@ extern crate alloc;
 
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crypto_bigint::U256;
 
@@ -106,14 +106,28 @@ pub(crate) struct Dim4PublicKey {
 /// Internal: wrapped by [`crate::sign::compact::CompactSigningKey`].
 #[derive(Clone)]
 pub(crate) struct Dim4SecretKey {
-    /// The public curve `E_pk`. Retained so the key is self-contained (the
-    /// public key is derivable from it); the signer reads only `secret_ideal`
-    /// and `mat_ba_can_to_ba0_two`.
-    #[allow(dead_code)]
-    pub(crate) curve: EcCurve<Level1>,
     pub(crate) secret_ideal: QuatLeftIdeal,
     pub(crate) mat_ba_can_to_ba0_two: IbzMat2x2,
 }
+
+impl Zeroize for Dim4SecretKey {
+    fn zeroize(&mut self) {
+        // Scrub the secret material: the secret ideal and the basis-change
+        // matrix. (As elsewhere on the signing side, num-bigint heap copies are
+        // scrubbed only with a zeroizing allocator; the logical values are
+        // cleared here.)
+        self.secret_ideal.zeroize();
+        self.mat_ba_can_to_ba0_two.zeroize();
+    }
+}
+
+impl Drop for Dim4SecretKey {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for Dim4SecretKey {}
 
 // key generation
 
@@ -209,7 +223,6 @@ pub(crate) fn dim4_keygen(
             hint_pk_q: hq,
         };
         let sk = Dim4SecretKey {
-            curve,
             secret_ideal,
             mat_ba_can_to_ba0_two: mat,
         };
@@ -483,4 +496,37 @@ pub(crate) fn dim4_sign(
     }
 
     Err(Error::InternalError)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dim4_secret_key_zeroizes_all_secret_material() {
+        let mut sk = Dim4SecretKey {
+            secret_ideal: QuatLeftIdeal::default(),
+            mat_ba_can_to_ba0_two: IbzMat2x2([
+                [Ibz::from(3), Ibz::from(5)],
+                [Ibz::from(7), Ibz::from(9)],
+            ]),
+        };
+        sk.secret_ideal.norm = Ibz::from(13);
+        assert!(!sk.secret_ideal.norm.is_zero());
+        assert!(sk
+            .mat_ba_can_to_ba0_two
+            .0
+            .iter()
+            .flatten()
+            .any(|v| !v.is_zero()));
+
+        sk.zeroize();
+
+        assert!(sk.secret_ideal.norm.is_zero(), "secret ideal not scrubbed");
+        for row in sk.mat_ba_can_to_ba0_two.0.iter() {
+            for v in row.iter() {
+                assert!(v.is_zero(), "basis-change matrix entry not scrubbed");
+            }
+        }
+    }
 }

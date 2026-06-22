@@ -77,9 +77,11 @@ impl<L: SecurityLevel> core::fmt::Debug for CompactSigningKey<L> {
 
 impl<L: SecurityLevel> Zeroize for CompactSigningKey<L> {
     fn zeroize(&mut self) {
-        // Scrub the secret ideal lattice (the secret). As in `dim4_sign`, the
-        // `num-bigint` heap is not scrubbed; use a zeroizing allocator for that.
-        self.sk.secret_ideal.zeroize();
+        // Scrub all secret-derived material in the key: the secret ideal, the
+        // basis-change matrix, and the curve (`Dim4SecretKey::zeroize`). As on
+        // the rest of the signing side, num-bigint heap copies are scrubbed only
+        // with a zeroizing allocator; the logical values are cleared here.
+        self.sk.zeroize();
     }
 }
 
