@@ -14,7 +14,7 @@
 mod hd_common;
 use hd_common::{load, parse_fp2, PHASE0_VECTORS};
 
-use crypto_bigint::U256;
+use crypto_bigint::{Encoding, U256};
 use serde_json::Value;
 use sqisign_verify::hd::{hd_verify_l1, hd_verify_l1_bool, HdReject, HdSignatureL1};
 use std::hint::black_box;
@@ -185,6 +185,44 @@ fn self_contained_rejects_tampering() {
     }
     assert_eq!(n, 5);
     println!("self-contained verify rejects tampered message / challenge / q / response scalar for all {n} vectors");
+}
+
+/// Regression (CWE-191): the response degree `q` is unauthenticated (the
+/// Fiat-Shamir challenge binds only the curves and message), so a forged
+/// signature can choose `q` to make the Kani norm `n = 2^e - q` a perfect square
+/// (here `q = 2^136 - 1` → `n = 1`), giving a degenerate `a2 = 0`. That makes
+/// `m = v₂(a2)` the trailing-zeros-of-zero sentinel (128), which without the
+/// bound-check underflows the half-chain step counts (`67 - m`) into a
+/// multi-billion-iteration doubling loop. The verifier must reject such a `q`
+/// promptly instead of hanging (or panicking in a debug build).
+#[test]
+fn self_contained_rejects_underflow_q() {
+    let doc = load(PHASE0_VECTORS);
+    // The maximal 17-byte (136-bit) wire value for q: all ones = 2^136 - 1.
+    let mut qb = [0u8; 32];
+    for byte in qb[..17].iter_mut() {
+        *byte = 0xFF;
+    }
+    let q_underflow = U256::from_le_bytes(qb);
+    let mut n = 0;
+    for v in doc["test_vectors"].as_array().unwrap() {
+        let vi = v["index"].as_u64().unwrap();
+        let mut o = owned_of(v);
+        o.q = q_underflow;
+        // This reaches build_setup (challenge binding and response recovery do
+        // not depend on q); the norm equation yields a2 = 0 there, and the m
+        // bound must reject it rather than underflow a loop count.
+        assert_eq!(
+            hd_verify_l1(&sig_of(&o, &MSG)),
+            Err(HdReject::ChainFailed),
+            "vec {vi}: degenerate-q (a2 = 0) signature must be rejected, not loop"
+        );
+        n += 1;
+    }
+    assert_eq!(n, 5);
+    println!(
+        "self-contained verify rejects degenerate-q (a2 = 0) underflow input for all {n} vectors"
+    );
 }
 
 impl Owned {
