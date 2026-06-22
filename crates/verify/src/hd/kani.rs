@@ -509,8 +509,20 @@ pub fn starting_two_symplectic_matrices(
 /// The four `4×4` blocks of an `8×8` matrix: `(A, B, C, D)` with
 /// `A = M[0..4][0..4]`, `B = M[4..8][0..4]`, `C = M[0..4][4..8]`, `D = M[4..8][4..8]`.
 #[allow(clippy::type_complexity)] // four 4×4 blocks (A, B, C, D).
-fn blocks8(m: &[[u128; 8]; 8]) -> ([[u128; 4]; 4], [[u128; 4]; 4], [[u128; 4]; 4], [[u128; 4]; 4]) {
-    (block(m, 0, 0), block(m, 4, 0), block(m, 0, 4), block(m, 4, 4))
+fn blocks8(
+    m: &[[u128; 8]; 8],
+) -> (
+    [[u128; 4]; 4],
+    [[u128; 4]; 4],
+    [[u128; 4]; 4],
+    [[u128; 4]; 4],
+) {
+    (
+        block(m, 0, 0),
+        block(m, 4, 0),
+        block(m, 0, 4),
+        block(m, 4, 4),
+    )
 }
 
 /// `gluing_base_change_matrix_dim2_dim4_F1(a1, a2, q, m, M1)` - the dim-4 gluing
@@ -619,11 +631,23 @@ fn gluing_bc_dim4(
 }
 
 /// `gluing_base_change_matrix_dim2_dim4_F1`.
-pub fn gluing_bc_dim4_f1(a1: u128, a2: u128, q: u128, m: usize, m1: &[[u128; 8]; 8]) -> [[i64; 8]; 8] {
+pub fn gluing_bc_dim4_f1(
+    a1: u128,
+    a2: u128,
+    q: u128,
+    m: usize,
+    m1: &[[u128; 8]; 8],
+) -> [[i64; 8]; 8] {
     gluing_bc_dim4(a1, a2, q, m, m1, true)
 }
 
 /// `gluing_base_change_matrix_dim2_dim4_F2`.
-pub fn gluing_bc_dim4_f2(a1: u128, a2: u128, q: u128, m: usize, m2: &[[u128; 8]; 8]) -> [[i64; 8]; 8] {
+pub fn gluing_bc_dim4_f2(
+    a1: u128,
+    a2: u128,
+    q: u128,
+    m: usize,
+    m2: &[[u128; 8]; 8],
+) -> [[i64; 8]; 8] {
     gluing_bc_dim4(a1, a2, q, m, m2, false)
 }

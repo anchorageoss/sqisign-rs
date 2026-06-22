@@ -11,13 +11,13 @@ mod hd_common;
 use hd_common::{le32, load, parse_coords, parse_fp2, Pt, PHASE0_VECTORS};
 
 use serde_json::Value;
-use sqisign_verify::Level1;
-use std::hint::black_box;
-use std::time::Instant;
 use sqisign_verify::hd::{
     hd_challenge_from_curves, hd_challenge_len, hd_verify, hd_verify_checked, recover_response_cd,
     HdReject, HdVerifyInputs, ThetaPointDim4,
 };
+use sqisign_verify::Level1;
+use std::hint::black_box;
+use std::time::Instant;
 
 const CHAIN_VECTORS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/chain_vectors.json");
 
@@ -201,7 +201,10 @@ fn end_to_end_accept_and_reject() {
             f1_kernels: &l.f1,
             f2_dual_kernels: &l.f2,
         };
-        assert_eq!(hd_verify_checked(&inp_chal), Err(HdReject::ChallengeMismatch));
+        assert_eq!(
+            hd_verify_checked(&inp_chal),
+            Err(HdReject::ChallengeMismatch)
+        );
 
         // Tamper the LAST F1 kernel (the one that determines F1's last
         // codomain) -> the middle-codomain check fails.
@@ -260,13 +263,22 @@ fn verify_timing_report() {
     let th = Instant::now();
     let mut out = [0u8; 64];
     for _ in 0..bn {
-        black_box(hd_challenge_from_curves(&l.a_com, &l.a_pk, &MSG, &mut out[..n]));
+        black_box(hd_challenge_from_curves(
+            &l.a_com,
+            &l.a_pk,
+            &MSG,
+            &mut out[..n],
+        ));
     }
     let hash_us = th.elapsed().as_secs_f64() / bn as f64 * 1e6;
 
     println!("\n=========== PHASE 5 END-TO-END VERIFY TIMING (Level 1, unoptimized) ===========");
-    println!("full hd_verify (challenge + dim-4 chain + middle check): {per_sig_ms:.3} ms/signature");
-    println!("  of which hash-to-challenge (j-invariants + SHAKE256): {hash_us:.1} us (negligible)");
+    println!(
+        "full hd_verify (challenge + dim-4 chain + middle check): {per_sig_ms:.3} ms/signature"
+    );
+    println!(
+        "  of which hash-to-challenge (j-invariants + SHAKE256): {hash_us:.1} us (negligible)"
+    );
     println!("  the dim-4 chain dominates (see Phase 3 chain timing).");
     println!("NOTE: stages 1-3 kernel derivation and stage 6 HD-image are not yet computed;");
     println!("      the per-step kernels are supplied from the oracle (see NOTES Phase 5).");

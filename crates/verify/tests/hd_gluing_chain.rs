@@ -19,18 +19,24 @@ use serde_json::Value;
 use sqisign_verify::ec::jacobian::{jac_add, jac_dbl};
 use sqisign_verify::ec::pairing::weil;
 use sqisign_verify::ec::{EcCurve, JacPoint};
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{
     jac_mul_u128, make_canonical, point_matrix_product_k, product_theta_dim2, recover_challenge_l1,
     recover_response_l1, KaniGluingChainHalf, ResponseScalars, ThetaStructureDim1, TuplePoint4,
 };
+use sqisign_verify::Level1;
 
-const PRODUCT_THETA: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/product_theta_l1.json");
-const KANI: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/kani_matrices_l1.json");
-const STRATEGY: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/strategy_vectors.json");
+const PRODUCT_THETA: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/product_theta_l1.json"
+);
+const KANI: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/kani_matrices_l1.json"
+);
+const STRATEGY: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/strategy_vectors.json"
+);
 
 const TO_4TORSION: u32 = 68;
 const F_EXP: u32 = 70; // 2^f-torsion exponent; e1 = e2 = 68 ⇒ modulus 2^(e_i+2) = 2^70.
@@ -100,7 +106,9 @@ fn m0_from_canon(mt: &[[u8; 2]; 2], mu: &[[u8; 2]; 2]) -> [[u8; 4]; 4] {
 }
 fn dim1_null(u1: &JacPoint<Level1>) -> [F; 2] {
     let (x, _) = sqisign_verify::hd::jac_to_affine(u1);
-    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one()).null().clone()
+    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one())
+        .null()
+        .clone()
 }
 
 /// Everything the gluing chain consumes, self-derived from stages 2-3 plus the
@@ -246,8 +254,9 @@ fn gluing_chain_matches_oracle_with_oracle_matrices() {
         let mg1 = parse_m8_i64(&vk["M_gluing_1"]);
         let mg2 = parse_m8_i64(&vk["M_gluing_2"]);
 
-        for (hc_idx, (dual, m_full, m_glue)) in
-            [(false, &m1, &mg1), (true, &m2, &mg2)].into_iter().enumerate()
+        for (hc_idx, (dual, m_full, m_glue)) in [(false, &m1, &mg1), (true, &m2, &mg2)]
+            .into_iter()
+            .enumerate()
         {
             let chain = KaniGluingChainHalf::new(
                 &setup.points_m,

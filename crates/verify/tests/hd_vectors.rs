@@ -16,8 +16,10 @@ use hd_common::{fp2_eq, lambda, load, parse_coords, parse_node, F, PHASE0_VECTOR
 
 use sqisign_verify::hd::{act_point, hadamard, ThetaPointDim4, ThetaStructureDim4};
 
-const THETA_ARITH_VECTORS: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/tests/theta_arith_vectors.json");
+const THETA_ARITH_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/theta_arith_vectors.json"
+);
 
 // 1. Projective equality (build and test this first)
 
@@ -83,7 +85,8 @@ fn hadamard_slow(p: &[F; 16]) -> [F; 16] {
 #[test]
 fn hadamard_fast_matches_slow() {
     let p: [F; 16] = core::array::from_fn(|k| {
-        F::from_small((3 * k as u64 + 1) ^ 0xa5).add(&F::i_element().mul(&F::from_small(k as u64 + 7)))
+        F::from_small((3 * k as u64 + 1) ^ 0xa5)
+            .add(&F::i_element().mul(&F::from_small(k as u64 + 7)))
     });
     let fast = hadamard(&p);
     let slow = hadamard_slow(&p);
@@ -115,7 +118,10 @@ fn hadamard_middle_codomain() {
         // C1.zero() equals the last F1 chain codomain (same structure).
         let f1 = s4["F1"]["chain_codomains"].as_array().unwrap();
         let last_f1 = parse_node(f1.last().unwrap());
-        assert!(c1_zero.projective_eq(&last_f1), "C1.zero() == last F1 codomain");
+        assert!(
+            c1_zero.projective_eq(&last_f1),
+            "C1.zero() == last F1 codomain"
+        );
 
         // HC2.zero() == Hadamard(last F2_dual codomain), projectively.
         let f2 = s4["F2_dual"]["chain_codomains"].as_array().unwrap();
@@ -211,12 +217,18 @@ fn doubling_oracle() {
         assert!(two_p.projective_eq(&expect_2p), "case {n}: double(P) != 2P");
 
         let four_p = st.double_iter(&p, 2);
-        assert!(four_p.projective_eq(&expect_4p), "case {n}: double_iter(P,2) != 4P");
+        assert!(
+            four_p.projective_eq(&expect_4p),
+            "case {n}: double_iter(P,2) != 4P"
+        );
 
         // double_iter(P, 1) == double(P)
         assert!(st.double_iter(&p, 1).projective_eq(&two_p));
         // double(2P) == 4P
-        assert!(st.double(&two_p).projective_eq(&expect_4p), "case {n}: double(2P) != 4P");
+        assert!(
+            st.double(&two_p).projective_eq(&expect_4p),
+            "case {n}: double(2P) != 4P"
+        );
     }
 }
 

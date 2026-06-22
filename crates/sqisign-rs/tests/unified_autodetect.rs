@@ -144,7 +144,10 @@ fn hd_autodetects_and_verifies() {
         assert_eq!(p.len(), 64, "HD public key must be 64 bytes");
 
         let any = AnySignature::<Level1>::from_bytes(s).expect("HD signature parse");
-        assert!(is_compact(&any), "vec {i}: 108 B must route to the compact arm");
+        assert!(
+            is_compact(&any),
+            "vec {i}: 108 B must route to the compact arm"
+        );
 
         // The 64-byte compact public key is verified by a `CompactPublicKey`.
         let cpk = CompactPublicKey::<Level1>::from_bytes(p).expect("compact pk parse");
@@ -232,7 +235,9 @@ fn dimension_mismatch_rejects() {
     let sk_msg = b"mismatch test";
     let (pk2, sk2) = keypair::<Level1>(&mut rng);
     let dim2_sig = AnySignature::<Level1>::from_bytes(
-        &sign::<Level1>(&sk2, &pk2, sk_msg, &mut rng).unwrap().to_bytes(),
+        &sign::<Level1>(&sk2, &pk2, sk_msg, &mut rng)
+            .unwrap()
+            .to_bytes(),
     )
     .unwrap();
     assert!(

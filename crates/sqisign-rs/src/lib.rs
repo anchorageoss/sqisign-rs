@@ -9,8 +9,9 @@
 //! Two signature schemes are available, chosen at keygen time: the dimension-2
 //! formats ([`generate`]) and the **compact** 108-byte format
 //! ([`generate_compact`]). Verification autodetects the format from byte length
-//! via [`AnySignature`]. At Level 1, dim-2 verification is ~4-7 ms and compact
-//! verification ~33 ms (~20.5 ms with the `parallel` feature).
+//! via [`AnySignature`]. At Level 1, dim-2 verification is about 1.4 ms (Apple
+//! M4 Pro, at parity with the C reference) and compact verification ~33 ms
+//! (~20.5 ms with the `parallel` feature).
 //!
 //! ## Quick Start
 //!

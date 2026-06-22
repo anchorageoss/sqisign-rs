@@ -26,17 +26,21 @@ use serde_json::Value;
 use sqisign_verify::ec::jacobian::{jac_add, jac_dbl};
 use sqisign_verify::ec::pairing::weil;
 use sqisign_verify::ec::{EcCurve, JacPoint};
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{
     base_change_theta_dim2, gluing_dim2_f1, gluing_dim2_f2, jac_to_affine, make_canonical,
-    product_theta_dim2, recover_challenge_l1, recover_response_l1, IsogenyChainDim2, ResponseScalars,
-    ThetaStructureDim1, TuplePoint,
+    product_theta_dim2, recover_challenge_l1, recover_response_l1, IsogenyChainDim2,
+    ResponseScalars, ThetaStructureDim1, TuplePoint,
 };
+use sqisign_verify::Level1;
 
-const PRODUCT_THETA: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/product_theta_l1.json");
-const KANI: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/kani_matrices_l1.json");
+const PRODUCT_THETA: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/product_theta_l1.json"
+);
+const KANI: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/kani_matrices_l1.json"
+);
 
 /// f - 2 = 70 - 2 doublings take an order-2^70 point to the 4-torsion.
 const TO_4TORSION: u32 = 68;
@@ -99,7 +103,11 @@ fn jac_mul(p: &JacPoint<Level1>, k: u64, curve: &EcCurve<Level1>) -> JacPoint<Le
 }
 
 #[inline]
-fn jac_sub(a: &JacPoint<Level1>, b: &JacPoint<Level1>, curve: &EcCurve<Level1>) -> JacPoint<Level1> {
+fn jac_sub(
+    a: &JacPoint<Level1>,
+    b: &JacPoint<Level1>,
+    curve: &EcCurve<Level1>,
+) -> JacPoint<Level1> {
     jac_add(a, &b.neg(), curve)
 }
 
@@ -151,7 +159,9 @@ fn proj_eq4(a: &[F; 4], b: &[F; 4]) -> bool {
 /// The dim-1 theta null `(x+1, x-1)` of a canonical 4-torsion point (affine).
 fn dim1_null(u1: &JacPoint<Level1>) -> [F; 2] {
     let (x, _) = jac_to_affine(u1);
-    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one()).null().clone()
+    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one())
+        .null()
+        .clone()
 }
 
 #[test]

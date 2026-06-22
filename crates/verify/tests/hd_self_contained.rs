@@ -16,9 +16,9 @@ use hd_common::{load, parse_fp2, PHASE0_VECTORS};
 
 use crypto_bigint::U256;
 use serde_json::Value;
+use sqisign_verify::hd::{hd_verify_l1, hd_verify_l1_bool, HdReject, HdSignatureL1};
 use std::hint::black_box;
 use std::time::Instant;
-use sqisign_verify::hd::{hd_verify_l1, hd_verify_l1_bool, HdReject, HdSignatureL1};
 
 /// The fixed signed message used by the reference test harness (32 zero bytes).
 const MSG: [u8; 32] = [0u8; 32];

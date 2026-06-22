@@ -36,7 +36,10 @@ fn parse_dirs(v: &Value) -> [usize; 5] {
 fn gluing_from(entry: &Value) -> GluingIsogenyDim4<sqisign_verify::Level1> {
     let k8: [Pt; 5] = parse_points(&entry["L_K_8"]);
     let dirs = parse_dirs(&entry["L_K_8_ind"]);
-    assert_eq!(dirs, GLUING_KERNEL_DIRS, "kernel directions must be [1,2,4,8,3]");
+    assert_eq!(
+        dirs, GLUING_KERNEL_DIRS,
+        "kernel directions must be [1,2,4,8,3]"
+    );
     GluingIsogenyDim4::from_kernel(&k8, &dirs).expect("gluing codomain computable")
 }
 
@@ -60,7 +63,10 @@ fn gluing_codomain_matches_oracle() {
                 entry["dual_zero_count"].as_u64().unwrap() as usize,
                 "dual zero count mismatch"
             );
-            assert!(iso.dual_zero_count() > 0, "gluing codomain must have zero dual coords");
+            assert!(
+                iso.dual_zero_count() > 0,
+                "gluing codomain must have zero dual coords"
+            );
 
             // Matches the oracle's recorded codomain null point.
             let expected = parse_coords(&entry["codomain_null"]);
@@ -130,11 +136,15 @@ fn full_chain_with_gluing() {
     let mut total_codomains = 0usize;
     for gvec in glu["vectors"].as_array().unwrap() {
         let vi = gvec["index"].as_u64().unwrap() as usize;
-        let cvec = chain_vecs.iter().find(|c| c["index"].as_u64().unwrap() as usize == vi).unwrap();
+        let cvec = chain_vecs
+            .iter()
+            .find(|c| c["index"].as_u64().unwrap() as usize == vi)
+            .unwrap();
 
         let mut last: [Option<Pt>; 2] = [None, None]; // [F1, F2_dual]
-        for (ci, (chain, plain_key)) in
-            [("F1", "F1_kernels"), ("F2_dual", "F2_dual_kernels")].iter().enumerate()
+        for (ci, (chain, plain_key)) in [("F1", "F1_kernels"), ("F2_dual", "F2_dual_kernels")]
+            .iter()
+            .enumerate()
         {
             let gentry = gvec["gluings"]
                 .as_array()
@@ -181,10 +191,16 @@ fn full_chain_with_gluing() {
         );
         // Tie to the recorded middle codomains.
         let c1 = parse_node(&main["test_vectors"][vi]["stage5_codomain_check"]["C1_zero"]);
-        assert!(f1_last.projective_eq(&c1), "vector {vi}: F1 last != C1.zero()");
+        assert!(
+            f1_last.projective_eq(&c1),
+            "vector {vi}: F1 last != C1.zero()"
+        );
         let hc2 = parse_node(&main["test_vectors"][vi]["stage5_codomain_check"]["HC2_zero"]);
         let my_hc2 = ThetaPointDim4::new(sqisign_verify::hd::hadamard(f2_last.coords()));
-        assert!(my_hc2.projective_eq(&hc2), "vector {vi}: H(F2 last) != HC2.zero()");
+        assert!(
+            my_hc2.projective_eq(&hc2),
+            "vector {vi}: H(F2 last) != HC2.zero()"
+        );
     }
     println!(
         "FULL chain (gluing + plain) reproduced {total_codomains} codomains and the \

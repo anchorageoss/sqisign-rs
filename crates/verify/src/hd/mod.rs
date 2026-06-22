@@ -44,8 +44,8 @@
 pub mod arith;
 pub mod basis;
 pub mod canonical;
-pub mod challenge;
 pub mod chain;
+pub mod challenge;
 pub mod dim2;
 pub mod dim4;
 pub mod field;
@@ -54,6 +54,9 @@ pub mod gluing_chain;
 pub mod hd_verify;
 pub mod isogeny;
 pub mod kani;
+mod nqr_tables_l1;
+mod nqr_tables_l3;
+mod nqr_tables_l5;
 pub mod point;
 pub mod product_theta;
 pub mod response;
@@ -61,9 +64,6 @@ pub mod self_contained;
 pub mod strategy;
 pub mod structure;
 pub mod wire;
-mod nqr_tables_l1;
-mod nqr_tables_l3;
-mod nqr_tables_l5;
 
 pub use arith::{act_point, hadamard, pointwise_square, to_squared_theta};
 pub use basis::{
@@ -71,17 +71,15 @@ pub use basis::{
     torsion_basis_2f_from_hint, HdNqr,
 };
 pub use canonical::make_canonical;
+pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};
 pub use challenge::{recover_challenge_l1, ChallengeRecovery};
 pub use dim2::{
     apply_mat4, base_change_theta_dim2, hadamard2, squared_theta2, GluingThetaIsogenyDim2,
     IsogenyChainDim2, ThetaIsogenyDim2, ThetaStructureDim2, TuplePoint,
 };
-pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};
 pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
-pub use gluing_chain::{
-    jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4,
-};
+pub use gluing_chain::{jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4};
 pub use hd_verify::{
     hd_challenge, hd_challenge_from_curves, hd_challenge_len, hd_verify, hd_verify_checked,
     recover_response_cd, HdReject, HdVerifyInputs,
@@ -99,10 +97,10 @@ pub use product_theta::{
 };
 pub use response::{recover_response_l1, ResponseRecovery, ResponseScalars};
 pub use self_contained::{hd_image_l1, hd_verify_l1, hd_verify_l1_bool, HdSignatureL1};
+pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
+pub use structure::ThetaStructureDim4;
 pub use wire::{
     encode_public_key, encode_signature, hd_verify_bytes_l1, hd_verify_bytes_l1_bool,
     hd_verify_l1_parsed, parse_public_key, parse_signature, ParsedPublicKey, ParsedSignature,
     PK_WIRE_BYTES, SIG_WIRE_BYTES,
 };
-pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
-pub use structure::ThetaStructureDim4;

@@ -19,8 +19,10 @@ use sqisign_verify::hd::{IsogenyDim4, ThetaStructureDim4};
 use std::hint::black_box;
 use std::time::Instant;
 
-const ISOGENY_STEP_VECTORS: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/tests/isogeny_step_vectors.json");
+const ISOGENY_STEP_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/isogeny_step_vectors.json"
+);
 
 fn parse_k8(v: &Value) -> [Pt; 4] {
     let arr = v.as_array().expect("K_8 array");
@@ -74,7 +76,10 @@ fn primitive_cost_microbench() {
     println!("  from_kernel   : {fk_ns:8.0} ns");
     println!("  image         : {img_ns:8.0} ns");
     println!("  mul_c = doubling/image = {mul_c:.3}   (strategy currently uses 1.000)");
-    println!("  (from_kernel/image = {:.3}, fixed per step, not in the trade-off)", fk_ns / img_ns);
+    println!(
+        "  (from_kernel/image = {:.3}, fixed per step, not in the trade-off)",
+        fk_ns / img_ns
+    );
     println!("=================================================================\n");
     assert!(dbl_ns > 0.0 && img_ns > 0.0 && fk_ns > 0.0);
 
@@ -128,4 +133,3 @@ fn walk_counts(strategy: &[u32], l: usize) -> (u64, u64) {
     }
     (doublings, images)
 }
-

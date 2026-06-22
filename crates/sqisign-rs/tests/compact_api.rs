@@ -19,8 +19,13 @@ fn compact_clean_api() {
     let (pk, sk) = generate_compact(&mut rng);
     let msg = b"hello compact";
     let sig = sk.sign(msg, &mut rng).expect("signing must succeed");
-    assert_eq!(sig.to_bytes().len(), 108, "compact signatures are 108 bytes");
-    pk.verify(msg, &sig).expect("a fresh compact signature must verify");
+    assert_eq!(
+        sig.to_bytes().len(),
+        108,
+        "compact signatures are 108 bytes"
+    );
+    pk.verify(msg, &sig)
+        .expect("a fresh compact signature must verify");
 }
 
 /// One key, several messages: every fresh compact signature verifies.
@@ -38,7 +43,8 @@ fn compact_roundtrip_multiple_messages() {
     for (i, msg) in messages.iter().enumerate() {
         let sig = sk.sign(msg, &mut rng).expect("signing must succeed");
         assert_eq!(sig.to_bytes().len(), 108, "sig {i}: wire size");
-        pk.verify(msg, &sig).unwrap_or_else(|_| panic!("sig {i} must verify"));
+        pk.verify(msg, &sig)
+            .unwrap_or_else(|_| panic!("sig {i} must verify"));
     }
 }
 
@@ -67,8 +73,12 @@ fn compact_anysignature_autodetect() {
     let bytes = sig.to_bytes();
     assert_eq!(bytes.len(), 108);
     let any = AnySignature::<Level1>::from_bytes(&bytes).expect("must autodetect compact format");
-    assert!(matches!(any, AnySignature::Compact(_)), "108 B must route to the compact arm");
-    pk.verify(msg, &any).expect("compact pk must verify the compact AnySignature");
+    assert!(
+        matches!(any, AnySignature::Compact(_)),
+        "108 B must route to the compact arm"
+    );
+    pk.verify(msg, &any)
+        .expect("compact pk must verify the compact AnySignature");
 }
 
 /// Tampering the message, the signature bytes, or the public key all reject.
@@ -103,7 +113,10 @@ fn compact_rejects_tampering() {
 
     // A different compact public key.
     let (pk2, _sk2) = generate_compact(&mut rng);
-    assert!(pk2.verify(msg, &sig).is_err(), "wrong public key must reject");
+    assert!(
+        pk2.verify(msg, &sig).is_err(),
+        "wrong public key must reject"
+    );
 }
 
 /// Cross-scheme rules: a compact key verifies compact signatures only; a dim-2
@@ -125,10 +138,13 @@ fn cross_scheme_verification() {
     let dsig_any = AnySignature::<Level1>::from_bytes(&dsig.to_bytes()).unwrap();
 
     // Native verification works for each scheme.
-    cpk.verify(msg, &csig).expect("compact pk verifies compact sig");
-    cpk.verify(msg, &csig_any).expect("compact pk verifies compact AnySignature");
+    cpk.verify(msg, &csig)
+        .expect("compact pk verifies compact sig");
+    cpk.verify(msg, &csig_any)
+        .expect("compact pk verifies compact AnySignature");
     dpk.verify(msg, &dsig).expect("dim-2 pk verifies dim-2 sig");
-    dpk.verify(msg, &dsig_any).expect("dim-2 pk verifies dim-2 AnySignature");
+    dpk.verify(msg, &dsig_any)
+        .expect("dim-2 pk verifies dim-2 AnySignature");
 
     // Cross-scheme verification is rejected (right format, wrong key scheme).
     assert!(
@@ -162,6 +178,9 @@ fn compact_measure() {
         let dt = t.elapsed();
         let t2 = Instant::now();
         let ok = pk.verify(msg, &sig).is_ok();
-        eprintln!("[compact] sign #{i}: {dt:?}   verify: {:?}  (ok={ok})", t2.elapsed());
+        eprintln!(
+            "[compact] sign #{i}: {dt:?}   verify: {:?}  (ok={ok})",
+            t2.elapsed()
+        );
     }
 }

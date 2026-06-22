@@ -36,7 +36,10 @@ fn add4(i: &[i64; 4], j: &[i64; 4]) -> [i64; 4] {
 /// `base_change_theta_dim4(M, zeta)`: the `16×16` theta-coordinate change `N`
 /// induced by a symplectic `M ∈ Sp₈(Z/4)` (stored as an `8×8` array of `i64`,
 /// entries taken mod 4) and a primitive 4th root of unity `zeta`. `(Nᵢ) = N·(θᵢ)`.
-pub fn base_change_theta_dim4<L: FpBackend>(m: &[[i64; 8]; 8], zeta: &Fp2<L>) -> [[Fp2<L>; 16]; 16] {
+pub fn base_change_theta_dim4<L: FpBackend>(
+    m: &[[i64; 8]; 8],
+    zeta: &Fp2<L>,
+) -> [[Fp2<L>; 16]; 16] {
     // Blocks mod 4: A = M[0..4][0..4], B = M[4..8][0..4], C = M[0..4][4..8],
     // D = M[4..8][4..8].
     let blk = |r0: usize, c0: usize| -> [[i64; 4]; 4] {
@@ -91,8 +94,7 @@ pub fn base_change_theta_dim4<L: FpBackend>(m: &[[i64; 8]; 8], zeta: &Fp2<L>) ->
             let dj = mat_prod_vect(&d, &jj);
             let aicj = add4(&ai, &cj);
             let bidj = add4(&bi, &dj);
-            let e =
-                scal_prod(&ii, &jj) - scal_prod(&aicj, &bidj) - 2 * scal_prod(&i0_ref, &bidj);
+            let e = scal_prod(&ii, &jj) - scal_prod(&aicj, &bidj) - 2 * scal_prod(&i0_ref, &bidj);
             let col = red2_index(&add4(&aicj, &i0_ref));
             n[ibits as usize][col] = n[ibits as usize][col].add(&zpow(e));
         }

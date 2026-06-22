@@ -7,15 +7,17 @@
 #![allow(dead_code)]
 
 use serde_json::Value;
-use sqisign_verify::{Fp2, Level1};
 use sqisign_verify::hd::{ThetaPointDim4, THETA_DIM4_N};
+use sqisign_verify::{Fp2, Level1};
 
 pub type F = Fp2<Level1>;
 pub type Pt = ThetaPointDim4<Level1>;
 
 /// The Phase 0 ground-truth vectors (per-step codomain theta null points).
-pub const PHASE0_VECTORS: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/test_vectors_l1.json");
+pub const PHASE0_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/test_vectors_l1.json"
+);
 
 /// Read and parse a JSON file, panicking with context on failure.
 pub fn load(path: &str) -> Value {

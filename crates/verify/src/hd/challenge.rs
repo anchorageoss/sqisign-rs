@@ -165,13 +165,7 @@ pub fn recover_challenge_l1(
     let basis_lamb = ec_dbl_iter_basis(&basis_rplamb, RESCALE2_BITS, &mut e_pk);
 
     // Kernel K = B_pk_lamb[0] + [chal]·B_pk_lamb[1], then the 2^λ-isogeny.
-    let kernel = ec_ladder3pt(
-        chal,
-        &basis_lamb.p,
-        &basis_lamb.q,
-        &basis_lamb.pmq,
-        &e_pk,
-    )?;
+    let kernel = ec_ladder3pt(chal, &basis_lamb.p, &basis_lamb.q, &basis_lamb.pmq, &e_pk)?;
     let phi = EcIsogEven {
         curve: e_pk.clone(),
         kernel,

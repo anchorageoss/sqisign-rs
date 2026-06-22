@@ -14,14 +14,16 @@ use hd_common::{load, parse_fp2, F};
 use serde_json::Value;
 use sqisign_verify::ec::jacobian::{jac_add, jac_dbl};
 use sqisign_verify::ec::{EcCurve, JacPoint};
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{
-    jac_to_affine, make_canonical, recover_challenge_l1, recover_response_l1, ThetaStructureDim1,
-    ResponseScalars,
+    jac_to_affine, make_canonical, recover_challenge_l1, recover_response_l1, ResponseScalars,
+    ThetaStructureDim1,
 };
+use sqisign_verify::Level1;
 
-const PRODUCT_THETA: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/product_theta_l1.json");
+const PRODUCT_THETA: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/product_theta_l1.json"
+);
 
 /// f - 2 = 70 - 2 doublings take an order-2^70 point to the 4-torsion.
 const TO_4TORSION: u32 = 68;
@@ -68,7 +70,10 @@ fn check_canonical(u1: &JacPoint<Level1>, oracle_null: &Value, label: &str) {
     let (x, _) = jac_to_affine(u1);
     let s = ThetaStructureDim1::from_torsion(&x, &F::one());
     let want = [parse_fp2(&oracle_null[0]), parse_fp2(&oracle_null[1])];
-    assert!(proj_eq2(s.null(), &want), "{label}: canonical dim-1 null mismatch");
+    assert!(
+        proj_eq2(s.null(), &want),
+        "{label}: canonical dim-1 null mismatch"
+    );
 }
 
 #[test]

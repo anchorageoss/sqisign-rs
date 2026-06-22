@@ -165,7 +165,10 @@ pub fn run_strategy_chain<L: FpBackend>(
         }
 
         // The descended top-of-stack is the order-8 kernel of this step.
-        let ker = kernel_elements.last().expect("non-empty kernel stack").clone();
+        let ker = kernel_elements
+            .last()
+            .expect("non-empty kernel stack")
+            .clone();
         let iso = IsogenyDim4::from_kernel(&ker)?;
         kernels.push(ker);
         codomains.push(iso.codomain_null().clone());

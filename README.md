@@ -9,7 +9,7 @@ A pure Rust implementation of SQIsign v2.0.
 
 SQIsign is a post-quantum digital signature scheme based on isogenies between supersingular elliptic curves. It was proposed for NIST PQC standardization and produces the smallest signatures of any post-quantum candidate at comparable security levels.
 
-This implementation passes all 300 NIST KAT vectors (100 per level) across Level 1, Level 3, and Level 5. Verification is observed to be 29% faster than the C reference implementation. See performance numbers below for more details.
+This implementation passes all 300 NIST KAT vectors (100 per level) across Level 1, Level 3, and Level 5. Verification is competitive with the C reference: at parity on portable builds with maximal LTO. See the benchmarks below.
 
 > **This library has not been audited.** The verification path is designed to be constant-time, but no formal verification or third-party audit has been performed. The signing path is inherently variable-time due to SQIsign's algorithmic structure. See [SECURITY.md](SECURITY.md) for details. Use at your own discretion.
 
@@ -158,30 +158,48 @@ The dropped coefficient is recovered via det(M) = dlog(ω_aux⁻¹, ω_f⁻¹) w
 
 ## Performance
 
-Dimension-2 operations, Intel Xeon @ 2.80 GHz, `--release`, `target-cpu=native`:
+### Dim-2 (standard SQIsign) verification
 
-| Operation | L1 | vs C reference |
-|---|---|---|
-| Verify (expanded) | 3.82 ms | 41% faster |
-| Verify (standard) | 4.65 ms | 29% faster |
-| Verify (compressed) | 6.83 ms | comparable |
-| Key generation | ~185 ms | ~2.5x slower |
-| Signing | ~185 ms | ~2.5x slower |
+Apple M4 Pro, single thread, portable builds, maximal (fat) LTO:
 
-Compact (dimension-4, Level 1), measured on the development machine:
+| Level | Rust | C reference |
+|---|---:|---:|
+| L1 | 1.37 ms | 1.53 ms |
+| L3 | 4.13 ms | 4.13 ms |
+| L5 | 8.06 ms | 8.66 ms |
 
-| Operation | Compact |
-|---|---|
-| Key generation | ~47 ms |
-| Signing | ~51 ms |
-| Verify (serial) | ~33 ms |
-| Verify (`parallel` feature) | ~20.5 ms |
+Verification is at parity with the C reference on portable ARM builds with
+maximal LTO. Differences under ~4% are within thermal noise. (An earlier report
+of Rust verification being faster came from comparing against a thin-LTO C
+build; with fat LTO on the C side the two are level.)
 
-The two tables use different reference machines, so compare within a table, not
-across. The compact `parallel` feature runs the two independent dim-4
-half-chains on separate threads; the result is bit-identical to the serial path.
+### Dim-4 (compact, 108-byte signatures)
 
-We observe that dim-2 verification in this library outperforms the C reference, likely because LLVM aggressively inlines field arithmetic across crate boundaries. Signing and keygen are slower than the C reference because the quaternion algebra layer uses `num-bigint` (heap-allocated arbitrary precision integers) instead of GMP. We explicitly pay this performance tax in order to keep the library pure-rust and avoid an FFI dependency through `rug`. `crypto-bigint` was evaluated as a replacement but would have degraded performance further and requires signed operations which are currently unsupported. Future work targets improvements to the big-integer arithmetic performance in the quaternion crate and elsewhere.
+Measured on the development environment (not the M4 Pro above) and unoptimized
+(portable Rust, no platform-specific assembly), so these are not comparable to
+the dim-2 table:
+
+| Operation (L1) | Serial | Parallel (multi-core) |
+|---|---:|---:|
+| Verify | ~33 ms | ~20.5 ms |
+| Sign | ~51 ms | - |
+| Keygen | ~47 ms | - |
+
+The `parallel` feature runs the two independent dim-4 half-chains on separate
+threads; the result is bit-identical to the serial path. A Broadwell x86-64 asm
+backend (in progress) is expected to improve these numbers significantly.
+
+### Signing and keygen
+
+Signing and key generation are roughly 3-4x slower than the C reference. This is
+the deliberate cost of a pure-Rust `num-bigint` quaternion/KLPT stack instead of
+GMP (avoiding an FFI dependency), and it affects only client-side operations,
+never verification.
+
+### Parallel throughput
+
+Dim-2 verification across all 12 cores reaches roughly 5,000 to 5,400 L1
+verifications per second.
 
 ## Memory security
 

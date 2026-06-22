@@ -11,9 +11,11 @@
 //! module; a compact signature is just another arm of
 //! [`AnySignature`], auto-detected by length and verified
 //! with a [`CompactPublicKey`] through the same [`Verifier`] trait. Compact
-//! verification is ~33 ms (~20.5 ms with the `parallel` feature) at Level 1; the
-//! dim-2 formats verify in ~4-7 ms. (The dim-4 chain loop uses a small, bounded
-//! heap allocation off the constant-time path; the dim-2 path remains heap-free.)
+//! verification is ~33 ms (~20.5 ms with the `parallel` feature) at Level 1;
+//! dim-2 verification is a few milliseconds (about 1.4 ms at L1 on Apple M4
+//! Pro, at parity with the C reference). (The dim-4 chain loop uses a small,
+//! bounded heap allocation off the constant-time path; the dim-2 path remains
+//! heap-free.)
 //!
 //! # Verify a signature
 //!

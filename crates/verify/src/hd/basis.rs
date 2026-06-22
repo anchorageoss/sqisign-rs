@@ -129,8 +129,18 @@ pub fn torsion_basis_2f_from_hint<L: FpBackend>(
     let xq = xq_base.mul(&alpha);
 
     // Clear the odd cofactor (x-only), then normalise to affine x (z = 1).
-    let mut kp = ec_mul(&EcPoint::new(xp, Fp2::one()), cofactor, cofactor_bits, &mut curve);
-    let mut kq = ec_mul(&EcPoint::new(xq, Fp2::one()), cofactor, cofactor_bits, &mut curve);
+    let mut kp = ec_mul(
+        &EcPoint::new(xp, Fp2::one()),
+        cofactor,
+        cofactor_bits,
+        &mut curve,
+    );
+    let mut kq = ec_mul(
+        &EcPoint::new(xq, Fp2::one()),
+        cofactor,
+        cofactor_bits,
+        &mut curve,
+    );
     kp.normalize();
     kq.normalize();
 

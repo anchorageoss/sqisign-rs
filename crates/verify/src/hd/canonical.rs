@@ -32,12 +32,7 @@ fn last_four_torsion<L: FpBackend>(a: &Fp2<L>) -> JacPoint<L> {
 /// Discrete log to base `i` modulo 4: the `e ∈ {0,1,2,3}` with `iᵉ = w`.
 fn dlog_base_i<L: FpBackend>(w: &Fp2<L>) -> Option<u8> {
     let i = Fp2::<L>::i_element();
-    let pows = [
-        Fp2::<L>::one(),
-        i.clone(),
-        Fp2::<L>::one().neg(),
-        i.neg(),
-    ];
+    let pows = [Fp2::<L>::one(), i.clone(), Fp2::<L>::one().neg(), i.neg()];
     pows.iter()
         .position(|p| bool::from(w.ct_equal(p)))
         .map(|e| e as u8)

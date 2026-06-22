@@ -14,8 +14,10 @@ use hd_common::{fp2_eq, load, parse_fp2, F, PHASE0_VECTORS};
 
 use serde_json::Value;
 use sqisign_verify::ec::JacPoint;
+use sqisign_verify::hd::{
+    jac_to_affine, recover_challenge_l1, recover_response_l1, ResponseScalars,
+};
 use sqisign_verify::Level1;
-use sqisign_verify::hd::{jac_to_affine, recover_challenge_l1, recover_response_l1, ResponseScalars};
 
 const R_LVL1: u32 = 70;
 
@@ -91,7 +93,10 @@ fn response_images_match_oracle() {
         // (2) The KEY check: the discrete log matches the oracle EXACTLY,
         // confirming the w_chal inverse convention cancels.
         let k_oracle = dec_u128(&s3["k"]);
-        assert_eq!(rsp.k, k_oracle, "vec {vi}: k mismatch (convention did NOT cancel)");
+        assert_eq!(
+            rsp.k, k_oracle,
+            "vec {vi}: k mismatch (convention did NOT cancel)"
+        );
 
         // w_com is the oracle's inverse (same convention as w_chal).
         let w_com_oracle: F = parse_fp2(&s3["w_com"]);
@@ -110,13 +115,25 @@ fn response_images_match_oracle() {
         let ad = ((a as u128) & mask).wrapping_mul(rsp.d) & mask;
         let bc = ((b as u128) & mask).wrapping_mul(rsp.c) & mask;
         let kq = (rsp.k & mask).wrapping_mul(q & mask) & mask;
-        assert_eq!(ad.wrapping_sub(bc) & mask, kq, "vec {vi}: determinant relation");
+        assert_eq!(
+            ad.wrapping_sub(bc) & mask,
+            kq,
+            "vec {vi}: determinant relation"
+        );
 
         // Response images and rescaled commitment basis (full points).
         check_point(&rsp.r_com, &s3["R_com"], &format!("vec {vi} R_com"));
         check_point(&rsp.s_com, &s3["S_com"], &format!("vec {vi} S_com"));
-        check_point(&rsp.phi_rsp_r_com, &s3["phi_rsp_R_com"], &format!("vec {vi} phi_rsp_R_com"));
-        check_point(&rsp.phi_rsp_s_com, &s3["phi_rsp_S_com"], &format!("vec {vi} phi_rsp_S_com"));
+        check_point(
+            &rsp.phi_rsp_r_com,
+            &s3["phi_rsp_R_com"],
+            &format!("vec {vi} phi_rsp_R_com"),
+        );
+        check_point(
+            &rsp.phi_rsp_s_com,
+            &s3["phi_rsp_S_com"],
+            &format!("vec {vi} phi_rsp_S_com"),
+        );
 
         n += 1;
     }

@@ -77,12 +77,12 @@ are detected purely by length - each combination has a unique byte count, so
 `AnySignature::from_bytes` selects the right one with no tag byte. (Compact is
 implemented at Level 1; its L3/L5 sizes are listed for the collision-free table.)
 
-| Format | L1 | L3 | L5 | Verify (L1) |
+| Format | L1 | L3 | L5 | Relative verify cost |
 |---|---|---|---|---|
-| Compact (dim-4) | 108 bytes | 161 bytes | 213 bytes | ~33 ms serial · ~20.5 ms (`parallel`) |
-| Compressed | 129 bytes | 196 bytes | 257 bytes | 6.83 ms |
-| Standard | 148 bytes | 224 bytes | 292 bytes | 4.65 ms |
-| Expanded | 212 bytes | 316 bytes | 420 bytes | 3.82 ms |
+| Compact (dim-4) | 108 bytes | 161 bytes | 213 bytes | dim-4 (see Performance) |
+| Compressed | 129 bytes | 196 bytes | 257 bytes | slowest dim-2 |
+| Standard | 148 bytes | 224 bytes | 292 bytes | baseline dim-2 |
+| Expanded | 212 bytes | 316 bytes | 420 bytes | fastest dim-2 |
 
 Compact signatures are the smallest (108 bytes at L1). They verify through the
 same `Verifier` trait, but with a **compact public key** (`CompactPublicKey`):
@@ -96,19 +96,24 @@ public key is 64 bytes (L1).
 
 ## Performance
 
-Dim-2 verification, Intel Xeon @ 2.80 GHz, `--release`, `target-cpu=native`:
+Dim-2 (standard) verification, Apple M4 Pro, single thread, portable build,
+maximal (fat) LTO:
 
-| Operation | L1 | vs C reference |
-|---|---|---|
-| Verify (expanded) | 3.82 ms | 41% faster |
-| Verify (standard) | 4.65 ms | 29% faster |
-| Verify (compressed) | 6.83 ms | comparable |
+| Level | Rust | C reference |
+|---|---:|---:|
+| L1 | 1.37 ms | 1.53 ms |
+| L3 | 4.13 ms | 4.13 ms |
+| L5 | 8.06 ms | 8.66 ms |
 
-Dim-2 verification outperforms the C reference because LLVM aggressively inlines field arithmetic across crate boundaries.
+Verification is at parity with the C reference on portable ARM builds with
+maximal LTO; differences under ~4% are within thermal noise. (An earlier
+faster-than-C result came from comparing against a thin-LTO C build.)
 
-Compact (dim-4, Level 1) verification is **~33 ms serial**. With the `parallel`
-feature the two independent dim-4 half-chains run on separate threads, bringing
-this to **~20.5 ms**; the result is bit-identical to the serial path.
+Compact (dim-4, Level 1) verification is **~33 ms serial**, or **~20.5 ms** with
+the `parallel` feature (the two independent half-chains run on separate threads;
+the result is bit-identical to the serial path). These compact numbers are from
+the development environment, not the M4 Pro above, and are unoptimized portable
+Rust.
 
 ## Features
 

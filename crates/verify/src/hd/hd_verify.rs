@@ -22,10 +22,10 @@
 //! message to signature), then runs the dimension-4 chain and the
 //! middle-codomain check.
 
-use sha3::digest::{ExtendableOutput, Update, XofReader};
-use sha3::Shake256;
 use crate::ec::EcCurve;
 use crate::{Fp2, FpBackend};
+use sha3::digest::{ExtendableOutput, Update, XofReader};
+use sha3::Shake256;
 use typenum::Unsigned as _;
 
 use crate::hd::chain::{middle_codomain_matches, run_half_chain};
@@ -45,12 +45,7 @@ pub fn hd_challenge_len<L: FpBackend>() -> usize {
 /// Compute the SQIsignHD challenge into `out` (sized by the caller to
 /// [`hd_challenge_len`]): `SHAKE256(encode(j_com) || encode(j_pk) || message)`.
 #[inline]
-pub fn hd_challenge<L: FpBackend>(
-    j_com: &Fp2<L>,
-    j_pk: &Fp2<L>,
-    message: &[u8],
-    out: &mut [u8],
-) {
+pub fn hd_challenge<L: FpBackend>(j_com: &Fp2<L>, j_pk: &Fp2<L>, message: &[u8], out: &mut [u8]) {
     let mut hasher = Shake256::default();
     hasher.update(j_com.encode().as_ref());
     hasher.update(j_pk.encode().as_ref());
@@ -124,7 +119,14 @@ fn inv_2r(a: u128, r: u32) -> u128 {
 /// if `a` is odd then `c = c_or_d`, `d = a⁻¹(k·q + b·c)`; otherwise
 /// `d = c_or_d`, `c = b⁻¹(a·d - k·q)`. (`a·d - b·c ≡ k·q (mod 2^r)`.)
 #[inline]
-pub fn recover_response_cd(a: i128, b: i128, c_or_d: i128, q: u128, k: u128, r: u32) -> (u128, u128) {
+pub fn recover_response_cd(
+    a: i128,
+    b: i128,
+    c_or_d: i128,
+    q: u128,
+    k: u128,
+    r: u32,
+) -> (u128, u128) {
     let a_r = red_i(a, r);
     let b_r = red_i(b, r);
     let cod = red_i(c_or_d, r);

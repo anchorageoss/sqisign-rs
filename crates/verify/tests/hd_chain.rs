@@ -11,12 +11,12 @@ mod hd_common;
 use hd_common::{load, parse_coords, parse_node, zero_point, Pt, PHASE0_VECTORS};
 
 use serde_json::Value;
-use std::hint::black_box;
-use std::time::Instant;
 use sqisign_verify::hd::{
     hadamard, middle_codomain_matches, run_half_chain, run_half_chain_collect, IsogenyDim4,
     ThetaPointDim4, ThetaStructureDim4,
 };
+use std::hint::black_box;
+use std::time::Instant;
 
 const CHAIN_VECTORS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/chain_vectors.json");
 
@@ -27,7 +27,11 @@ fn parse_k8(v: &Value) -> [Pt; 4] {
 }
 
 fn parse_kernels(v: &Value) -> Vec<[Pt; 4]> {
-    v.as_array().expect("kernels array").iter().map(parse_k8).collect()
+    v.as_array()
+        .expect("kernels array")
+        .iter()
+        .map(parse_k8)
+        .collect()
 }
 
 /// Deliverable 2: both half-chains reproduce the oracle per-step codomains,
@@ -89,11 +93,18 @@ fn middle_codomain_matches_for_all_vectors() {
 
         // Matches the oracle's recorded accept result.
         let s5 = &main["test_vectors"][vi]["stage5_codomain_check"];
-        assert_eq!(s5["match"].as_bool(), Some(true), "oracle match must be accept");
+        assert_eq!(
+            s5["match"].as_bool(),
+            Some(true),
+            "oracle match must be accept"
+        );
 
         // Tie the computed codomains to the oracle's recorded C1/HC2.
         let c1 = parse_node(&s5["C1_zero"]);
-        assert!(f1_last.projective_eq(&c1), "vector {vi}: F1 last != recorded C1.zero()");
+        assert!(
+            f1_last.projective_eq(&c1),
+            "vector {vi}: F1 last != recorded C1.zero()"
+        );
         let hc2 = parse_node(&s5["HC2_zero"]);
         let my_hc2 = ThetaPointDim4::new(hadamard(f2_last.coords()));
         assert!(
@@ -181,7 +192,8 @@ fn chain_timing_report() {
         0.0
     };
 
-    let avg_doublings = parsed.iter().map(|s| s.doublings).sum::<u64>() as f64 / parsed.len() as f64;
+    let avg_doublings =
+        parsed.iter().map(|s| s.doublings).sum::<u64>() as f64 / parsed.len() as f64;
     let avg_images = parsed.iter().map(|s| s.images).sum::<u64>() as f64 / parsed.len() as f64;
     let est_full_ms =
         (avg_steps * t_from_kernel + avg_doublings * t_double + avg_images * t_image) * 1e3;
@@ -201,7 +213,9 @@ fn chain_timing_report() {
     println!("reference per-signature counts: ~{avg_doublings:.0} dim-4 doublings, ~{avg_images:.0} plain image-evals");
     println!("MODELED full plain-chain time (codomain + doublings + pushforwards):");
     println!("            ~{est_full_ms:.1} ms/signature");
-    println!("ORDER OF MAGNITUDE: TENS of milliseconds per signature (plain steps; excludes gluing).");
+    println!(
+        "ORDER OF MAGNITUDE: TENS of milliseconds per signature (plain steps; excludes gluing)."
+    );
     println!("=============================================================================\n");
 
     assert!(per_sig_ms > 0.0);

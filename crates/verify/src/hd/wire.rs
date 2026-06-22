@@ -66,7 +66,7 @@
 //!   two bits of the 9th byte must be zero);
 //! * all failures return `Err`; nothing panics.
 
-use crypto_bigint::U256;
+use crypto_bigint::{Encoding, U256};
 
 use crate::{Fp2, Level1};
 
@@ -147,25 +147,25 @@ pub struct ParsedPublicKey {
     pub hint_pk_q: u32,
 }
 
-/// Read a 17-byte little-endian value into `U256` (`q < 2¹³⁶`, so words 3 and
-/// the high bytes of word 2 are zero).
+/// Read a 17-byte little-endian value into `U256` (`q < 2¹³⁶`). Byte-oriented
+/// so it is independent of the `crypto-bigint` word size (u64 on 64-bit, u32 on
+/// 32-bit/`no_std` targets such as `thumbv7em`).
 fn read_q(b: &[u8]) -> U256 {
-    let w0 = u64::from_le_bytes(b[0..8].try_into().unwrap());
-    let w1 = u64::from_le_bytes(b[8..16].try_into().unwrap());
-    let w2 = b[16] as u64;
-    U256::from_words([w0, w1, w2, 0])
+    let mut buf = [0u8; 32];
+    buf[..Q_BYTES].copy_from_slice(&b[..Q_BYTES]);
+    U256::from_le_bytes(buf)
 }
 
 /// Encode `q` (`< 2¹³⁶`) into 17 little-endian bytes. Returns `None` if `q`
-/// does not fit (a programming error on the encode side).
+/// does not fit (a programming error on the encode side). Byte-oriented, so it
+/// is independent of the `crypto-bigint` word size.
 fn write_q(q: &U256, out: &mut [u8]) -> Option<()> {
-    let w = q.to_words();
-    if w[3] != 0 || w[2] > 0xFF {
+    let bytes = q.to_le_bytes();
+    // q must fit in Q_BYTES (< 2¹³⁶): every higher byte must be zero.
+    if bytes[Q_BYTES..].iter().any(|&x| x != 0) {
         return None;
     }
-    out[0..8].copy_from_slice(&w[0].to_le_bytes());
-    out[8..16].copy_from_slice(&w[1].to_le_bytes());
-    out[16] = w[2] as u8;
+    out[..Q_BYTES].copy_from_slice(&bytes[..Q_BYTES]);
     Some(())
 }
 

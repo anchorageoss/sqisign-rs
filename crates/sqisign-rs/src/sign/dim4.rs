@@ -193,11 +193,11 @@ pub(crate) fn dim4_keygen(
         let canonical_basis = EcBasis::new(p_can.to_xz(), q_can.to_xz(), pmq.to_xz());
 
         // 5. Change-of-basis matrix (HD canonical basis → E0-image basis).
-        let mat = match change_of_basis_matrix_tate(&canonical_basis, &b0_two, &mut curve, f, &precomp)
-        {
-            Some(m) => m,
-            None => continue,
-        };
+        let mat =
+            match change_of_basis_matrix_tate(&canonical_basis, &b0_two, &mut curve, f, &precomp) {
+                Some(m) => m,
+                None => continue,
+            };
 
         // Scrub the secret E0 basis image (no longer needed).
         let mut b0z = b0_two;
@@ -368,10 +368,8 @@ pub(crate) fn dim4_sign(
 
         // (2) Challenge ideal (norm 2^λ): pull the kernel back through the
         // secret key, reduce mod 2^λ, translate to an ideal of degree 2^λ.
-        let chal_vec = ibz_mat_2x2_eval(
-            &sk.mat_ba_can_to_ba0_two,
-            &IbzVec2([Ibz::one(), k.clone()]),
-        );
+        let chal_vec =
+            ibz_mat_2x2_eval(&sk.mat_ba_can_to_ba0_two, &IbzVec2([Ibz::one(), k.clone()]));
         let vec2 = IbzVec2([
             ibz_mod(&chal_vec[0], &two_lambda),
             ibz_mod(&chal_vec[1], &two_lambda),
@@ -425,7 +423,8 @@ pub(crate) fn dim4_sign(
         for i in 0..2 {
             mat.0[i][i] = &mat.0[i][i] + &coeffs[0];
             for j in 0..2 {
-                let g = &(&(&action.gen2.0[i][j] * &coeffs[1]) + &(&action.gen3.0[i][j] * &coeffs[2]))
+                let g = &(&(&action.gen2.0[i][j] * &coeffs[1])
+                    + &(&action.gen3.0[i][j] * &coeffs[2]))
                     + &(&action.gen4.0[i][j] * &coeffs[3]);
                 mat.0[i][j] = &mat.0[i][j] + &g;
                 mat.0[i][j] = &mat.0[i][j] * &content;

@@ -11,13 +11,13 @@
 //! (by `x`-coordinate, i.e. up to `±`). `F(T)[3]` must be the identity.
 
 mod hd_common;
-use hd_common::{load, parse_fp2, PHASE0_VECTORS, F};
+use hd_common::{load, parse_fp2, F, PHASE0_VECTORS};
 
 use crypto_bigint::U256;
 use serde_json::Value;
 use sqisign_verify::ec::JacPoint;
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{hd_image_l1, hd_verify_l1, jac_to_affine, HdSignatureL1};
+use sqisign_verify::Level1;
 
 const MSG: [u8; 32] = [0u8; 32];
 
@@ -122,7 +122,10 @@ fn stage6_matches_oracle() {
     for v in doc["test_vectors"].as_array().unwrap() {
         let vi = v["index"].as_u64().unwrap();
         let s6 = &v["stage6_image_check"];
-        assert!(s6["correct"].as_bool().unwrap(), "oracle vec {vi}: correct must be true");
+        assert!(
+            s6["correct"].as_bool().unwrap(),
+            "oracle vec {vi}: correct must be true"
+        );
 
         let o = owned_of(v);
         let (ft, a1p, a2p) = hd_image_l1(&sig_of(&o)).expect("HD image computable");
@@ -145,7 +148,10 @@ fn stage6_matches_oracle() {
         );
 
         // (c) F(T)[3] is the identity on E_chal (oracle records {inf: true}).
-        assert!(s6["FT"][3]["inf"].as_bool().unwrap_or(false), "oracle FT[3] should be inf");
+        assert!(
+            s6["FT"][3]["inf"].as_bool().unwrap_or(false),
+            "oracle FT[3] should be inf"
+        );
         assert!(
             bool::from(ft.c[3].z.ct_is_zero()),
             "vec {vi}: F(T)[3] is not the identity"
@@ -161,7 +167,11 @@ fn stage6_matches_oracle() {
         );
 
         // (e) The full verifier (with stage 6) accepts.
-        assert_eq!(hd_verify_l1(&sig_of(&o)), Ok(()), "vec {vi}: full verify must accept");
+        assert_eq!(
+            hd_verify_l1(&sig_of(&o)),
+            Ok(()),
+            "vec {vi}: full verify must accept"
+        );
         n += 1;
     }
     assert_eq!(n, 5);

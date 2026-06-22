@@ -861,9 +861,9 @@ impl<L: FpBackend> AnySignature<L> {
             )?))
         } else if len == crate::hd::SIG_WIRE_BYTES {
             let parsed = crate::hd::parse_signature(bytes).map_err(|_| Error::MalformedInput)?;
-            Ok(AnySignature::Compact(crate::compact::CompactSignature::from_parsed(
-                parsed,
-            )))
+            Ok(AnySignature::Compact(
+                crate::compact::CompactSignature::from_parsed(parsed),
+            ))
         } else {
             Err(Error::MalformedInput)
         }

@@ -17,12 +17,14 @@ mod hd_common;
 use hd_common::{load, parse_coords, parse_node, Pt, PHASE0_VECTORS};
 
 use serde_json::Value;
+use sqisign_verify::hd::{middle_codomain_matches, run_strategy_chain, ThetaStructureDim4};
 use std::hint::black_box;
 use std::time::Instant;
-use sqisign_verify::hd::{middle_codomain_matches, run_strategy_chain, ThetaStructureDim4};
 
-const STRATEGY_VECTORS: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/strategy_vectors.json");
+const STRATEGY_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/strategy_vectors.json"
+);
 const CHAIN_VECTORS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/chain_vectors.json");
 
 /// Parse `[K0, K1, K2, K3]` (four 16-coord theta points) into a `[Pt; 4]`.
@@ -165,11 +167,17 @@ fn tampered_basis_breaks_middle_match() {
             },
             None => false, // a step became uncomputable - also a rejection
         };
-        assert!(!bad_matches, "vec {}: tampered basis still matched", vm["index"]);
+        assert!(
+            !bad_matches,
+            "vec {}: tampered basis still matched",
+            vm["index"]
+        );
         n += 1;
     }
     assert_eq!(n, 5);
-    println!("tampering the derived-chain input breaks the middle-codomain match for all {n} vectors");
+    println!(
+        "tampering the derived-chain input breaks the middle-codomain match for all {n} vectors"
+    );
 }
 
 #[test]
@@ -203,7 +211,9 @@ fn strategy_chain_timing() {
 
     println!("\n=========== PHASE 5b.6 STRATEGY-LOOP TIMING (Level 1, unoptimized) ===========");
     println!("per-signature kernel derivation (both half-chains, strategy walk +");
-    println!("  ~938 doublings + ~1882 pushforwards + the plain (2,2,2,2) steps): {per_sig_ms:.1} ms");
+    println!(
+        "  ~938 doublings + ~1882 pushforwards + the plain (2,2,2,2) steps): {per_sig_ms:.1} ms"
+    );
     println!("NOTE: this is the chain-derivation cost from the gluing output. The full");
     println!("      self-contained verify additionally needs stages 1-3 (done) and the");
     println!("      gluing-chain self-derivation (the remaining 5b.6 piece; see NOTES).");

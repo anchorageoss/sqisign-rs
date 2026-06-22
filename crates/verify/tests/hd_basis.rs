@@ -10,12 +10,15 @@ mod hd_common;
 use hd_common::{fp2_eq, load, parse_fp2, F, PHASE0_VECTORS};
 
 use serde_json::Value;
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{hd_torsion_basis_l1, jac_to_affine};
+use sqisign_verify::Level1;
 
 /// Assert that the lifted point matches the oracle's affine `{x, y}` node.
 fn check(jac: &sqisign_verify::ec::JacPoint<Level1>, node: &Value, label: &str) {
-    assert!(node.get("inf").is_none(), "{label}: oracle point is identity?");
+    assert!(
+        node.get("inf").is_none(),
+        "{label}: oracle point is identity?"
+    );
     let (x, y) = jac_to_affine(jac);
     let ex: F = parse_fp2(&node["x"]);
     let ey: F = parse_fp2(&node["y"]);

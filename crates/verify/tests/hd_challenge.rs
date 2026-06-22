@@ -17,8 +17,8 @@ mod hd_common;
 use hd_common::{fp2_eq, load, parse_fp2, F, PHASE0_VECTORS};
 
 use serde_json::Value;
-use sqisign_verify::Level1;
 use sqisign_verify::hd::{jac_to_affine, recover_challenge_l1};
+use sqisign_verify::Level1;
 
 /// Parse a non-negative decimal string into little-endian u64 limbs (4 limbs
 /// cover the Level-1 challenge, which is < 2^256).
@@ -65,11 +65,22 @@ fn challenge_recovery_matches_oracle() {
 
         // Codomain Montgomery coefficient (e_chal is normalised, so a == A/C).
         let e_chal_a: F = parse_fp2(&s2["E_chal_A"]);
-        assert!(fp2_eq(&rec.e_chal.a, &e_chal_a), "vec {vi}: E_chal_A mismatch");
+        assert!(
+            fp2_eq(&rec.e_chal.a, &e_chal_a),
+            "vec {vi}: E_chal_A mismatch"
+        );
 
         // Rescaled image basis (full points; FESTA-sign sensitive).
-        check_point(&rec.p_chal_resc, &s2["P_chal_resc"], &format!("vec {vi} P_chal_resc"));
-        check_point(&rec.q_chal_resc, &s2["Q_chal_resc"], &format!("vec {vi} Q_chal_resc"));
+        check_point(
+            &rec.p_chal_resc,
+            &s2["P_chal_resc"],
+            &format!("vec {vi} P_chal_resc"),
+        );
+        check_point(
+            &rec.q_chal_resc,
+            &s2["Q_chal_resc"],
+            &format!("vec {vi} Q_chal_resc"),
+        );
 
         // Image pairing, up to the global Weil convention (value or inverse).
         let w_oracle: F = parse_fp2(&s2["w_chal"]);

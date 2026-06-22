@@ -30,13 +30,12 @@ type ThetaPair<L> = ([Fp2<L>; 4], [Fp2<L>; 4]);
 /// Inverse of an `N×N` matrix over `Fp2` by Gauss-Jordan elimination with
 /// pivoting. Returns `None` if singular. Used for the dual base changes `N⁻¹`
 /// (4×4 dim-2 gluing split, 16×16 dim-4 split).
-pub fn mat_inverse<L: FpBackend, const N: usize>(
-    m: &[[Fp2<L>; N]; N],
-) -> Option<[[Fp2<L>; N]; N]> {
+pub fn mat_inverse<L: FpBackend, const N: usize>(m: &[[Fp2<L>; N]; N]) -> Option<[[Fp2<L>; N]; N]> {
     let mut a: [[Fp2<L>; N]; N] =
         core::array::from_fn(|i| core::array::from_fn(|j| m[i][j].clone()));
-    let mut inv: [[Fp2<L>; N]; N] =
-        core::array::from_fn(|i| core::array::from_fn(|j| if i == j { Fp2::one() } else { Fp2::zero() }));
+    let mut inv: [[Fp2<L>; N]; N] = core::array::from_fn(|i| {
+        core::array::from_fn(|j| if i == j { Fp2::one() } else { Fp2::zero() })
+    });
     for col in 0..N {
         // Find a nonzero pivot in this column at or below `col`.
         let piv = (col..N).find(|&r| !bool::from(a[r][col].ct_is_zero()))?;
@@ -151,8 +150,10 @@ impl<L: FpBackend> ThetaStructureDim2<L> {
 
     /// `2·P` (`ThetaPointDim2.double`); requires [`Self::precompute`].
     pub fn double(&self, p: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
-        let [y0, z0, t0, big_y0, big_z0, big_t0] =
-            self.prec.as_ref().expect("ThetaStructureDim2::double needs precompute()");
+        let [y0, z0, t0, big_y0, big_z0, big_t0] = self
+            .prec
+            .as_ref()
+            .expect("ThetaStructureDim2::double needs precompute()");
         let st = squared_theta2(p);
         let xp = st[0].sqr();
         let yp = big_y0.mul(&st[1].sqr());
@@ -259,7 +260,8 @@ pub fn montgomery_to_theta_matrix_dim2<L: FpBackend>(
     n: &[[Fp2<L>; 4]; 4],
 ) -> ([[Fp2<L>; 4]; 4], [Fp2<L>; 4]) {
     // M[i,j] = N[i,j] * zero12[j]
-    let mm: [[Fp2<L>; 4]; 4] = core::array::from_fn(|i| core::array::from_fn(|j| n[i][j].mul(&zero12[j])));
+    let mm: [[Fp2<L>; 4]; 4] =
+        core::array::from_fn(|i| core::array::from_fn(|j| n[i][j].mul(&zero12[j])));
     // M2[i] = (m0+m1+m2+m3, -m0-m1+m2+m3, -m0+m1-m2+m3, m0-m1-m2+m3)
     let m2: [[Fp2<L>; 4]; 4] = core::array::from_fn(|i| {
         let r = &mm[i];
@@ -270,9 +272,8 @@ pub fn montgomery_to_theta_matrix_dim2<L: FpBackend>(
             r[0].add(&r[3]).sub(&r[1]).sub(&r[2]),
         ]
     });
-    let null: [Fp2<L>; 4] = core::array::from_fn(|i| {
-        mm[i][0].add(&mm[i][1]).add(&mm[i][2]).add(&mm[i][3])
-    });
+    let null: [Fp2<L>; 4] =
+        core::array::from_fn(|i| mm[i][0].add(&mm[i][1]).add(&mm[i][2]).add(&mm[i][3]));
     (m2, null)
 }
 
@@ -304,7 +305,10 @@ impl<L: FpBackend> TuplePoint<L> {
     }
     #[inline]
     pub fn add(&self, other: &Self, e1: &EcCurve<L>, e2: &EcCurve<L>) -> Self {
-        Self::new(jac_add(&self.p1, &other.p1, e1), jac_add(&self.p2, &other.p2, e2))
+        Self::new(
+            jac_add(&self.p1, &other.p1, e1),
+            jac_add(&self.p2, &other.p2, e2),
+        )
     }
 }
 
@@ -474,10 +478,16 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
             )
         } else if bool::from(z1x2.ct_is_zero()) && !bool::from(x1z2.ct_is_zero()) {
             let x2 = x1x2.mul(&crate::hd::field::inv(&x1z2));
-            (JacPoint::identity(), lift_kummer(&self.e2, &x2, &Fp2::one()))
+            (
+                JacPoint::identity(),
+                lift_kummer(&self.e2, &x2, &Fp2::one()),
+            )
         } else if !bool::from(z1x2.ct_is_zero()) && bool::from(x1z2.ct_is_zero()) {
             let x1 = x1x2.mul(&crate::hd::field::inv(&z1x2));
-            (lift_kummer(&self.e1, &x1, &Fp2::one()), JacPoint::identity())
+            (
+                lift_kummer(&self.e1, &x1, &Fp2::one()),
+                JacPoint::identity(),
+            )
         } else {
             (JacPoint::identity(), JacPoint::identity())
         };
@@ -502,7 +512,12 @@ impl<L: FpBackend> ThetaIsogenyDim2<L> {
         let st1 = squared_theta2(t1_8);
         let st2 = squared_theta2(t2_8);
         let (xa, xb) = (st1[0].clone(), st1[1].clone());
-        let (za, tb, zc, td) = (st2[0].clone(), st2[1].clone(), st2[2].clone(), st2[3].clone());
+        let (za, tb, zc, td) = (
+            st2[0].clone(),
+            st2[1].clone(),
+            st2[2].clone(),
+            st2[3].clone(),
+        );
 
         // One batched inversion of (xA, zA, tB, xB, zC, tD) instead of six.
         let mut inv = [
@@ -622,7 +637,10 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
                 codomain_null = cc.null().clone();
                 tuple_stack.pop();
                 level.pop();
-                theta_stack = tuple_stack.iter().map(|(x, y)| (g.eval(x), g.eval(y))).collect();
+                theta_stack = tuple_stack
+                    .iter()
+                    .map(|(x, y)| (g.eval(x), g.eval(y)))
+                    .collect();
                 cur = Some(cc);
                 gluing = Some(g);
             } else {
@@ -633,7 +651,10 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
                 codomain_null = cc.null().clone();
                 theta_stack.pop();
                 level.pop();
-                theta_stack = theta_stack.iter().map(|(x, y)| (iso.eval(x), iso.eval(y))).collect();
+                theta_stack = theta_stack
+                    .iter()
+                    .map(|(x, y)| (iso.eval(x), iso.eval(y)))
+                    .collect();
                 cur = Some(cc);
                 plain.push(iso);
             }

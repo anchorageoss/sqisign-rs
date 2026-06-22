@@ -20,8 +20,10 @@ use hd_common::{fp2_eq, load, parse_fp2, F, PHASE0_VECTORS};
 use serde_json::Value;
 use sqisign_verify::hd::{product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1};
 
-const PRODUCT_THETA: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/product_theta_l1.json");
+const PRODUCT_THETA: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/product_theta_l1.json"
+);
 
 /// Parse a list of `[re, im]` pairs into `Vec<Fp2>`.
 fn parse_vec(node: &Value) -> Vec<F> {
@@ -65,14 +67,26 @@ fn product_theta_structures_match_oracle() {
             let r2 = parse_vec(&hc["conv_pt_2_xz"]);
             let ct1 = s1.montgomery_to_theta(&r1[0], &r1[1]);
             let ct2 = s2.montgomery_to_theta(&r2[0], &r2[1]);
-            assert!(proj_eq(&ct1, &parse_vec(&hc["conv_theta_1"])), "{tag}: conv_theta_1");
-            assert!(proj_eq(&ct2, &parse_vec(&hc["conv_theta_2"])), "{tag}: conv_theta_2");
+            assert!(
+                proj_eq(&ct1, &parse_vec(&hc["conv_theta_1"])),
+                "{tag}: conv_theta_1"
+            );
+            assert!(
+                proj_eq(&ct2, &parse_vec(&hc["conv_theta_2"])),
+                "{tag}: conv_theta_2"
+            );
 
             // dim-2 product: Theta12 null and the product of the two images.
             let th12 = product_theta_dim2(s1.null(), s2.null());
-            assert!(proj_eq(&th12, &parse_vec(&hc["theta12_null"])), "{tag}: theta12_null");
+            assert!(
+                proj_eq(&th12, &parse_vec(&hc["theta12_null"])),
+                "{tag}: theta12_null"
+            );
             let prod_conv = product_theta_dim2(&ct1, &ct2);
-            assert!(proj_eq(&prod_conv, &parse_vec(&hc["conv_prod"])), "{tag}: conv_prod");
+            assert!(
+                proj_eq(&prod_conv, &parse_vec(&hc["conv_prod"])),
+                "{tag}: conv_prod"
+            );
 
             // dim-4 product: domain_product = dim2_codomain ⊗ dim2_codomain.
             let cod = parse_vec(&hc["dim2_codomain_null"]);

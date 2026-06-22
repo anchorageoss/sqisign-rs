@@ -20,11 +20,14 @@ use hd_common::{load, PHASE0_VECTORS};
 use crypto_bigint::{Integer, U256};
 use serde_json::Value;
 use sqisign_verify::hd::{
-    complete_symplectic_dim4, gluing_dim2_f1, gluing_dim2_f2, is_symplectic_dim4,
-    kernel_matrix_f1, kernel_matrix_f2_dual, matrix_f, matrix_f_dual, norm_equation_2f_minus_q,
+    complete_symplectic_dim4, gluing_dim2_f1, gluing_dim2_f2, is_symplectic_dim4, kernel_matrix_f1,
+    kernel_matrix_f2_dual, matrix_f, matrix_f_dual, norm_equation_2f_minus_q,
 };
 
-const KANI_VECTORS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../sqisignhd-harness/kani_matrices_l1.json");
+const KANI_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../sqisignhd-harness/kani_matrices_l1.json"
+);
 const MASK70: u128 = (1u128 << 70) - 1;
 
 /// Decimal string -> U256 (values < 2^256).
@@ -112,7 +115,10 @@ fn kani_matrices_match_oracle() {
         let n_val = U256::ONE.shl(136).wrapping_sub(&q);
         let chk = ra1.wrapping_mul(&ra1).wrapping_add(&ra2.wrapping_mul(&ra2));
         assert_eq!(chk, n_val, "vec {vi}: a1²+a2² != N");
-        assert!(bool::from(ra1.is_odd()) && !bool::from(ra2.is_odd()), "vec {vi}: parity");
+        assert!(
+            bool::from(ra1.is_odd()) && !bool::from(ra2.is_odd()),
+            "vec {vi}: parity"
+        );
 
         // Reduced inputs for the matrices.
         let a1m = u256_to_u128(&a1);
@@ -120,27 +126,57 @@ fn kani_matrices_match_oracle() {
         let qm70 = low_u128(&q) & MASK70;
 
         // (2) matrix_F, matrix_F_dual (8×8 over Z/2^70).
-        eq_mat8(&matrix_f(a1m, a2m, qm70), &parse_mat(&v["matrix_F"]), &format!("vec {vi} matrix_F"));
-        eq_mat8(&matrix_f_dual(a1m, a2m, qm70), &parse_mat(&v["matrix_F_dual"]), &format!("vec {vi} matrix_F_dual"));
+        eq_mat8(
+            &matrix_f(a1m, a2m, qm70),
+            &parse_mat(&v["matrix_F"]),
+            &format!("vec {vi} matrix_F"),
+        );
+        eq_mat8(
+            &matrix_f_dual(a1m, a2m, qm70),
+            &parse_mat(&v["matrix_F_dual"]),
+            &format!("vec {vi} matrix_F_dual"),
+        );
 
         // (3) kernel blocks C, D (the kernel_basis columns).
         let (c1, d1) = kernel_matrix_f1(a1m, a2m, qm70);
         eq_mat4(&c1, &parse_mat(&v["ckm_F1_C"]), &format!("vec {vi} F1_C"));
         eq_mat4(&d1, &parse_mat(&v["ckm_F1_D"]), &format!("vec {vi} F1_D"));
         let (c2, d2) = kernel_matrix_f2_dual(a1m, a2m, qm70);
-        eq_mat4(&c2, &parse_mat(&v["ckm_F2dual_C"]), &format!("vec {vi} F2dual_C"));
-        eq_mat4(&d2, &parse_mat(&v["ckm_F2dual_D"]), &format!("vec {vi} F2dual_D"));
+        eq_mat4(
+            &c2,
+            &parse_mat(&v["ckm_F2dual_C"]),
+            &format!("vec {vi} F2dual_C"),
+        );
+        eq_mat4(
+            &d2,
+            &parse_mat(&v["ckm_F2dual_D"]),
+            &format!("vec {vi} F2dual_D"),
+        );
 
         // (4) gluing dim-2 matrices (4×4 over Z/4).
-        eq_mat4_u8(&gluing_dim2_f1(a1m, a2m, qm70), &parse_mat(&v["gluing_dim2_F1"]), &format!("vec {vi} gluing_F1"));
-        eq_mat4_u8(&gluing_dim2_f2(a1m, a2m, qm70), &parse_mat(&v["gluing_dim2_F2"]), &format!("vec {vi} gluing_F2"));
+        eq_mat4_u8(
+            &gluing_dim2_f1(a1m, a2m, qm70),
+            &parse_mat(&v["gluing_dim2_F1"]),
+            &format!("vec {vi} gluing_F1"),
+        );
+        eq_mat4_u8(
+            &gluing_dim2_f2(a1m, a2m, qm70),
+            &parse_mat(&v["gluing_dim2_F2"]),
+            &format!("vec {vi} gluing_F2"),
+        );
 
         // (5) The symplectic completion is a valid completion of the real
         // kernel blocks (property check; PARI byte-match deferred - see NOTES).
         let m1 = complete_symplectic_dim4(&c1, &d1, MASK70).expect("F1 completion");
-        assert!(is_symplectic_dim4(&m1, MASK70), "vec {vi}: F1 completion not symplectic");
+        assert!(
+            is_symplectic_dim4(&m1, MASK70),
+            "vec {vi}: F1 completion not symplectic"
+        );
         let m2 = complete_symplectic_dim4(&c2, &d2, MASK70).expect("F2_dual completion");
-        assert!(is_symplectic_dim4(&m2, MASK70), "vec {vi}: F2_dual completion not symplectic");
+        assert!(
+            is_symplectic_dim4(&m2, MASK70),
+            "vec {vi}: F2_dual completion not symplectic"
+        );
 
         n += 1;
     }

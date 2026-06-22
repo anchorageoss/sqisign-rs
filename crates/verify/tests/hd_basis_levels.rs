@@ -57,7 +57,8 @@ fn check_level<L: FpBackend + LevelPrecomp + sqisign_verify::hd::HdNqr>(
     let curve = EcCurve::<L>::from_a(&a).expect("A_pk must be a valid Montgomery coefficient");
 
     // (1) Recomputed canonical hints match the reference public key's hints.
-    let (hp, hq) = canonical_hints::<L>(&a).expect("canonical hints must be found in the NQR table");
+    let (hp, hq) =
+        canonical_hints::<L>(&a).expect("canonical hints must be found in the NQR table");
     assert_eq!(
         (hp, hq),
         ref_hints,
@@ -83,7 +84,10 @@ fn check_level<L: FpBackend + LevelPrecomp + sqisign_verify::hd::HdNqr>(
         }
         assert!(!is_identity(&acc), "order must exceed 2^(f-1)");
         acc = jac_dbl(&acc, &curve);
-        assert!(is_identity(&acc), "order must divide 2^f (so it is exactly 2^f)");
+        assert!(
+            is_identity(&acc),
+            "order must divide 2^f (so it is exactly 2^f)"
+        );
     }
 }
 

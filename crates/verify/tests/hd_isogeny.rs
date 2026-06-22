@@ -14,8 +14,10 @@ use hd_common::{load, parse_coords, parse_node, Pt, PHASE0_VECTORS};
 use serde_json::Value;
 use sqisign_verify::hd::IsogenyDim4;
 
-const ISOGENY_STEP_VECTORS: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/tests/isogeny_step_vectors.json");
+const ISOGENY_STEP_VECTORS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/isogeny_step_vectors.json"
+);
 
 /// Parse the four kernel 8-torsion theta points.
 fn parse_k8(v: &Value) -> [Pt; 4] {
@@ -74,7 +76,10 @@ fn isogeny_step_codomain_matches_oracle() {
     }
 
     // The step must work for both half-chains (Phase 0 builds F1 and F2_dual).
-    assert!(from_f1 > 0 && from_f2 > 0, "need steps from both half-chains");
+    assert!(
+        from_f1 > 0 && from_f2 > 0,
+        "need steps from both half-chains"
+    );
     assert!(checked >= 5, "expected at least 5 validated steps");
     println!(
         "validated {checked} isogeny-step codomains ({from_f1} F1, {from_f2} F2_dual), \

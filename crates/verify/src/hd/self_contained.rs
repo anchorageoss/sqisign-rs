@@ -30,9 +30,11 @@ use crate::{Fp2, Level1};
 use crate::hd::arith::{hadamard, pointwise_square};
 use crate::hd::basis::hd_torsion_basis_l1;
 use crate::hd::canonical::make_canonical;
-use crate::hd::challenge::recover_challenge_l1;
 use crate::hd::chain::middle_codomain_matches;
-use crate::hd::gluing_chain::{jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4};
+use crate::hd::challenge::recover_challenge_l1;
+use crate::hd::gluing_chain::{
+    jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4,
+};
 use crate::hd::hd_verify::{hd_challenge_from_curves, hd_challenge_len, HdReject, MAX_CHAL_BYTES};
 use crate::hd::isogeny::apply_plain_image;
 use crate::hd::kani::{
@@ -107,17 +109,20 @@ fn m0_from_canon(mt: &[[u8; 2]; 2], mu: &[[u8; 2]; 2]) -> [[u8; 4]; 4] {
 
 fn dim1_null(u1: &JacPoint<Level1>) -> [F; 2] {
     let (x, _) = crate::hd::basis::jac_to_affine(u1);
-    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one()).null().clone()
+    ThetaStructureDim1::<Level1>::from_torsion(&x, &F::one())
+        .null()
+        .clone()
 }
 
+// Low 128 bits of a `U256`. Byte-oriented so it does not depend on the
+// `crypto-bigint` word size (u64 on 64-bit, u32 on 32-bit/`no_std` targets).
 fn low_u128(x: &U256) -> u128 {
-    let w = x.to_words();
-    (w[0] as u128) | ((w[1] as u128) << 64)
+    let b = x.to_le_bytes();
+    u128::from_le_bytes(b[..16].try_into().unwrap())
 }
 
 fn u256_to_u128(x: &U256) -> u128 {
-    let w = x.to_words();
-    (w[0] as u128) | ((w[1] as u128) << 64)
+    low_u128(x)
 }
 
 /// The self-derived gluing-chain inputs (all completion-independent).
@@ -159,8 +164,19 @@ fn run_half(
     dual: bool,
 ) -> Option<(KaniGluingChainHalf<Level1>, StrategyChain<Level1>)> {
     let chain = KaniGluingChainHalf::new(
-        &s.points_m, &s.zero12, &s.m0, &s.e4, s.a1, s.a2, s.q4, s.m, m_full, m_glue, dual,
-        &s.e_com, &s.e_chal,
+        &s.points_m,
+        &s.zero12,
+        &s.m0,
+        &s.e4,
+        s.a1,
+        s.a2,
+        s.q4,
+        s.m,
+        m_full,
+        m_glue,
+        dual,
+        &s.e_com,
+        &s.e_chal,
     )?;
     let basis = b_kpp(s, m_full);
     let post: [ThetaPointDim4<Level1>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
@@ -245,8 +261,7 @@ fn hd_image_check(
 /// Returns `None` if challenge/response recovery fails or the norm equation has
 /// no solution (a malformed/forged `q`).
 fn build_setup(sig: &HdSignatureL1) -> Option<Setup> {
-    let chal =
-        recover_challenge_l1(&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q, sig.chal_limbs)?;
+    let chal = recover_challenge_l1(&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q, sig.chal_limbs)?;
     let q4 = low_u128(&sig.q);
     let rsp = recover_response_l1(
         &chal,
@@ -364,8 +379,8 @@ fn run_both_halves(
 /// 6 (HD-image). Accept only if BOTH pass.
 fn self_derived_check(s: &Setup) -> Result<(), HdReject> {
     let mask = (1u128 << F_TORSION) - 1;
-    let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)
-        .ok_or(HdReject::ChainFailed)?;
+    let (m1, m2) =
+        starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask).ok_or(HdReject::ChainFailed)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
 

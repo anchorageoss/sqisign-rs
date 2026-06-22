@@ -362,7 +362,10 @@ mod tests {
             carry = c as u64;
         }
         assert_eq!(carry, 0, "p must fit in 4 limbs");
-        assert_eq!(P_L1, p, "hardcoded P_L1 disagrees with backend-derived modulus");
+        assert_eq!(
+            P_L1, p,
+            "hardcoded P_L1 disagrees with backend-derived modulus"
+        );
     }
 
     /// The vartime inverse agrees with the constant-time inverse for a spread

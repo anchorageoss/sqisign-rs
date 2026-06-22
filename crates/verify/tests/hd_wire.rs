@@ -11,7 +11,7 @@
 //!    elements, and non-canonical scalars all return `Err` (never panic).
 
 mod hd_common;
-use hd_common::{load, parse_fp2, PHASE0_VECTORS, F};
+use hd_common::{load, parse_fp2, F, PHASE0_VECTORS};
 
 use crypto_bigint::U256;
 use serde_json::Value;
@@ -188,7 +188,10 @@ fn bytes_path_rejects_tampering() {
         let sig = sig_wire(&f);
         let pk = pk_wire(&f);
 
-        assert!(hd_verify_bytes_l1(&sig, &pk, &MSG).is_ok(), "vec {vi}: valid must accept");
+        assert!(
+            hd_verify_bytes_l1(&sig, &pk, &MSG).is_ok(),
+            "vec {vi}: valid must accept"
+        );
 
         // Tamper a response-scalar byte (low byte of `a`): wrong response.
         let mut bad_sig = sig;
@@ -250,37 +253,67 @@ fn strict_deserialization() {
     // Trailing byte: too long.
     let mut long = sig.to_vec();
     long.push(0);
-    assert!(matches!(parse_signature(&long), Err(HdReject::MalformedInput)));
-    assert_eq!(hd_verify_bytes_l1(&long, &pk, &MSG), Err(HdReject::MalformedInput));
+    assert!(matches!(
+        parse_signature(&long),
+        Err(HdReject::MalformedInput)
+    ));
+    assert_eq!(
+        hd_verify_bytes_l1(&long, &pk, &MSG),
+        Err(HdReject::MalformedInput)
+    );
 
     // Truncated: one byte short.
-    assert!(matches!(parse_signature(&sig[..SIG_WIRE_BYTES - 1]), Err(HdReject::MalformedInput)));
-    assert!(matches!(parse_public_key(&pk[..PK_WIRE_BYTES - 1]), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_signature(&sig[..SIG_WIRE_BYTES - 1]),
+        Err(HdReject::MalformedInput)
+    ));
+    assert!(matches!(
+        parse_public_key(&pk[..PK_WIRE_BYTES - 1]),
+        Err(HdReject::MalformedInput)
+    ));
 
     // Empty.
-    assert!(matches!(parse_signature(&[]), Err(HdReject::MalformedInput)));
-    assert!(matches!(parse_public_key(&[]), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_signature(&[]),
+        Err(HdReject::MalformedInput)
+    ));
+    assert!(matches!(
+        parse_public_key(&[]),
+        Err(HdReject::MalformedInput)
+    ));
 
     // Out-of-range A_com (all 0xFF ≥ p): Fp2::decode must reject.
     let mut bad_fp2 = sig;
     for b in bad_fp2[..64].iter_mut() {
         *b = 0xFF;
     }
-    assert!(matches!(parse_signature(&bad_fp2), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_signature(&bad_fp2),
+        Err(HdReject::MalformedInput)
+    ));
 
     // Out-of-range A_pk in the public key.
     let mut bad_pk_fp2 = pk;
     for b in bad_pk_fp2[..64].iter_mut() {
         *b = 0xFF;
     }
-    assert!(matches!(parse_public_key(&bad_pk_fp2), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_public_key(&bad_pk_fp2),
+        Err(HdReject::MalformedInput)
+    ));
 
     // Non-canonical scalar: top two bits of the 9th byte of `a` set (value ≥ 2^r).
     let mut bad_scalar = sig;
     bad_scalar[F2_OFFSET_A + 8] |= 0x40;
-    assert!(matches!(parse_signature(&bad_scalar), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_signature(&bad_scalar),
+        Err(HdReject::MalformedInput)
+    ));
     bad_scalar[F2_OFFSET_A + 8] = 0x80;
-    assert!(matches!(parse_signature(&bad_scalar), Err(HdReject::MalformedInput)));
+    assert!(matches!(
+        parse_signature(&bad_scalar),
+        Err(HdReject::MalformedInput)
+    ));
 
     println!("strict deserialization: trailing/truncated/empty/out-of-range/non-canonical all rejected (no panic)");
 }
@@ -296,13 +329,27 @@ fn hint_packing_roundtrips_and_preserves_curve() {
     for &(hp, hq) in &[(0u32, 0u32), (19, 19), (1, 31), (31, 1), (7, 12)] {
         let sig = encode_signature(&f.a_com, f.a, f.b, f.c_or_d, &f.q, hp, hq).unwrap();
         let ps = parse_signature(&sig).expect("parse");
-        assert_eq!((ps.hint_com_p, ps.hint_com_q), (hp, hq), "sig hints round-trip");
-        assert!(bool::from(ps.a_com.ct_equal(&f.a_com)), "A_com preserved under packing");
+        assert_eq!(
+            (ps.hint_com_p, ps.hint_com_q),
+            (hp, hq),
+            "sig hints round-trip"
+        );
+        assert!(
+            bool::from(ps.a_com.ct_equal(&f.a_com)),
+            "A_com preserved under packing"
+        );
 
         let pk = encode_public_key(&f.a_pk, hp, hq).unwrap();
         let pp = parse_public_key(&pk).expect("parse pk");
-        assert_eq!((pp.hint_pk_p, pp.hint_pk_q), (hp, hq), "pk hints round-trip");
-        assert!(bool::from(pp.a_pk.ct_equal(&f.a_pk)), "A_pk preserved under packing");
+        assert_eq!(
+            (pp.hint_pk_p, pp.hint_pk_q),
+            (hp, hq),
+            "pk hints round-trip"
+        );
+        assert!(
+            bool::from(pp.a_pk.ct_equal(&f.a_pk)),
+            "A_pk preserved under packing"
+        );
     }
 
     // A hint that does not fit in 5 bits is rejected by the encoder.

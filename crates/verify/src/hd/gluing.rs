@@ -144,7 +144,9 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
                 for (k, ind) in l_trans_ind.iter().enumerate() {
                     let ipk = i ^ ind;
                     if !self.dual_null_zero[ipk] {
-                        *ui = self.inv_dual_null[ipk].mul(&hsl[k][ipk]).mul(&lambda_inv[k]);
+                        *ui = self.inv_dual_null[ipk]
+                            .mul(&hsl[k][ipk])
+                            .mul(&lambda_inv[k]);
                         break;
                     }
                 }

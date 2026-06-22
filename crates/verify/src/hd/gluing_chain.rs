@@ -64,7 +64,9 @@ pub struct TuplePoint4<L: FpBackend> {
 impl<L: FpBackend> TuplePoint4<L> {
     #[inline]
     pub fn new(c0: JacPoint<L>, c1: JacPoint<L>, c2: JacPoint<L>, c3: JacPoint<L>) -> Self {
-        Self { c: [c0, c1, c2, c3] }
+        Self {
+            c: [c0, c1, c2, c3],
+        }
     }
     #[inline]
     pub fn add(&self, o: &Self, e1: &EcCurve<L>, e2: &EcCurve<L>) -> Self {
@@ -226,7 +228,8 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         let mask_mp3 = two_mp3 - 1;
         let lamb = crate::hd::kani::inverse_mod_pow2(q, mask_mp3); // inverse_mod(q, 2^{m+3})
         let lamb_s2 = jac_mul_u128(s2_m, lamb, e2);
-        let b_k_dim4 = point_matrix_product_k(m1_full, p1_m, q1_m, r2_m, &lamb_s2, mask_mp3, e1, e2);
+        let b_k_dim4 =
+            point_matrix_product_k(m1_full, p1_m, q1_m, r2_m, &lamb_s2, mask_mp3, e1, e2);
 
         // L_K_dim4 = B_K_dim4 + [B_K_dim4[0] + B_K_dim4[1]] (5 kernel directions).
         let mut l_k: Vec<TuplePoint4<L>> = b_k_dim4.to_vec();
@@ -241,10 +244,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         let gluing_dim4 = GluingIsogenyDim4::from_kernel(&k8_arr, &GLUING_KERNEL_DIRS)?;
 
         // Translates for special_image: 2·B_K_dim4[0], 2·B_K_dim4[1], indices 1,2.
-        let l_trans = [
-            b_k_dim4[0].double(e1, e2),
-            b_k_dim4[1].double(e1, e2),
-        ];
+        let l_trans = [b_k_dim4[0].double(e1, e2), b_k_dim4[1].double(e1, e2)];
 
         Some(Self {
             isogenies_dim2,
