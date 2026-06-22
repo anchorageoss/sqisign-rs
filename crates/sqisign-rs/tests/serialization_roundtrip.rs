@@ -141,6 +141,30 @@ fn sk_from_bytes_rejects_short_input() {
     );
 }
 
+#[test]
+fn sk_from_bytes_rejects_non_invertible_matrix() {
+    use sqisign_rs::quaternion::types::IbzMat2x2;
+    let mut rng = rand::thread_rng();
+    let (_pk, mut sk) = keypair::<L>(&mut rng);
+
+    // A genuine key deserializes.
+    let good = sk.to_bytes().expect("sk encoding must succeed");
+    assert!(
+        sqisign_rs::sign::SecretKey::<L>::from_bytes(&good).is_ok(),
+        "a valid secret key must deserialize"
+    );
+
+    // The basis-change matrix must be invertible mod 2^TORSION_EVEN_POWER. A
+    // zero (non-invertible) matrix must be rejected at deserialization rather
+    // than accepted and then failing when the key is first used to sign.
+    sk.mat_ba_can_to_ba0_two = IbzMat2x2::default();
+    let bad = sk.to_bytes().expect("sk encoding must succeed");
+    assert!(
+        sqisign_rs::sign::SecretKey::<L>::from_bytes(&bad).is_err(),
+        "a non-invertible basis-change matrix must be rejected"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Full end-to-end: keygen → serialize → deserialize → sign → verify
 // ---------------------------------------------------------------------------
