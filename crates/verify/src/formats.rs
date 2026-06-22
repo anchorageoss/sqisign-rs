@@ -44,6 +44,8 @@ pub enum SignatureFormat {
     Expanded,
     Standard,
     Compressed,
+    /// The compact scheme (108 bytes at Level 1).
+    Compact,
 }
 
 /// Expanded signature with pre-evaluated kernel points.
@@ -77,7 +79,7 @@ pub struct ExpandedSignature<L: SecurityLevel = Level1> {
     pub(crate) e_aux_a: Fp2<L>,
     /// Number of backtracking steps in the response isogeny.
     /// Wire encoding packs flags into the high bits of this byte:
-    /// bit 7 = kernel_is_q, bit 6 = pmq_sign_hint, bits 0–5 = backtracking.
+    /// bit 7 = kernel_is_q, bit 6 = pmq_sign_hint, bits 0-5 = backtracking.
     pub(crate) backtracking: u8,
     /// Length of the initial 2-isogeny chain in the response.
     pub(crate) two_resp_length: u8,
@@ -422,7 +424,7 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 /// - **M₀₀ odd**: drop M₁₁, store M₁₀ as `mat_var`.
 ///   Recover M₁₁ = (det + M₀₁·M₁₀) · M₀₀⁻¹.
 /// - **M₀₀ even**: drop M₁₀, store M₁₁ as `mat_var`.
-///   Recover M₁₀ = (M₀₀·M₁₁ − det) · M₀₁⁻¹.
+///   Recover M₁₀ = (M₀₀·M₁₁ - det) · M₀₁⁻¹.
 ///
 /// The Weil pairing determinant gives `E_RSP - bt` bits of precision,
 /// leaving exactly 2 unknown bits (HD_EXTRA_TORSION). These are packed
@@ -453,7 +455,7 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 pub struct CompressedSignature<L: SecurityLevel = Level1> {
     /// Montgomery A-coefficient of the auxiliary curve E_aux.
     pub(crate) e_aux_a: Fp2<L>,
-    /// Number of backtracking steps (0–3).
+    /// Number of backtracking steps (0-3).
     pub(crate) backtracking: u8,
     /// Length of the initial 2-isogeny chain in the response.
     pub(crate) two_resp_length: u8,
@@ -514,8 +516,8 @@ impl<L: FpBackend> CompressedSignature<L> {
     /// Layout: `Fp2 (e_aux) | packed_meta |
     ///          3 × matrix_entry_bytes | LAMBDA/8 (challenge)`
     ///
-    /// The packed metadata byte holds backtracking (bits 0–1),
-    /// det_hint (bits 2–3), and two_resp_length (bits 4–7).
+    /// The packed metadata byte holds backtracking (bits 0-1),
+    /// det_hint (bits 2-3), and two_resp_length (bits 4-7).
     /// Canonical basis hints are not stored.
     pub const WIRE_BYTES: usize = <L as SecurityLevel>::Fp2EncodedBytes::USIZE
         + 3 * ((<L as SecurityLevel>::E_RSP as usize + 9) / 8)
@@ -795,6 +797,10 @@ impl<L: FpBackend + LevelPrecomp> signature::Verifier<AnySignature<L>> for Publi
             AnySignature::Standard(s) => crate::verify::protocols_verify(self, msg, s),
             AnySignature::Expanded(s) => verify_expanded(self, msg, s),
             AnySignature::Compressed(s) => verify_compressed(self, msg, s),
+            // A dim-2 public key does not verify a compact (dim-4) signature:
+            // the schemes use different torsion-basis conventions. Use a
+            // `CompactPublicKey` for the compact arm (see [`crate::compact`]).
+            AnySignature::Compact(_) => Err(Error::InvalidSignature),
         }
         .map_err(|_| signature::Error::new())
     }
@@ -806,17 +812,23 @@ impl<L: FpBackend> core::fmt::Display for CompressedSignature<L> {
     }
 }
 
-/// Any signature format, auto-detected from wire length.
+/// Any signature format or dimension, auto-detected from wire length.
 ///
-/// Each format has a unique wire size at every security level, so no
-/// prefix byte is needed. Use [`AnySignature::from_bytes`] to parse a
-/// signature of unknown format, then verify with
-/// [`pk.verify(msg, &sig)`](signature::Verifier::verify).
+/// Each format has a unique wire size at every security level - including the
+/// dimension-4 SQIsignHD format (108 bytes at Level 1) - so no prefix byte is
+/// needed. Use [`AnySignature::from_bytes`] to parse a signature of unknown
+/// format, then verify with
+/// [`pk.verify(msg, &sig)`](signature::Verifier::verify):
+/// 108 = HD, 129 = compressed, 148 = standard, 212 = expanded (Level 1).
 #[derive(Clone)]
 pub enum AnySignature<L: SecurityLevel = Level1> {
     Expanded(ExpandedSignature<L>),
     Standard(Signature<L>),
     Compressed(CompressedSignature<L>),
+    /// A compact signature (108 bytes at Level 1). This arm verifies only
+    /// against a [`CompactPublicKey`](crate::compact::CompactPublicKey) (see
+    /// [`crate::compact`]); a dim-2 [`PublicKey`] rejects it.
+    Compact(crate::compact::CompactSignature<L>),
 }
 
 impl<L: FpBackend> core::fmt::Debug for AnySignature<L> {
@@ -825,12 +837,15 @@ impl<L: FpBackend> core::fmt::Debug for AnySignature<L> {
             AnySignature::Expanded(s) => core::fmt::Debug::fmt(s, f),
             AnySignature::Standard(s) => core::fmt::Debug::fmt(s, f),
             AnySignature::Compressed(s) => core::fmt::Debug::fmt(s, f),
+            AnySignature::Compact(s) => core::fmt::Debug::fmt(s, f),
         }
     }
 }
 
 impl<L: FpBackend> AnySignature<L> {
-    /// Parse a signature, detecting the format from its byte length.
+    /// Parse a signature, detecting the format (and dimension) from its byte
+    /// length. The HD length (108 at Level 1) is collision-free against every
+    /// dim-2 size at every level, so length alone is an unambiguous selector.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let len = bytes.len();
         if len == ExpandedSignature::<L>::WIRE_BYTES {
@@ -844,6 +859,11 @@ impl<L: FpBackend> AnySignature<L> {
             Ok(AnySignature::Compressed(CompressedSignature::from_bytes(
                 bytes,
             )?))
+        } else if len == crate::hd::SIG_WIRE_BYTES {
+            let parsed = crate::hd::parse_signature(bytes).map_err(|_| Error::MalformedInput)?;
+            Ok(AnySignature::Compact(
+                crate::compact::CompactSignature::from_parsed(parsed),
+            ))
         } else {
             Err(Error::MalformedInput)
         }
@@ -855,6 +875,7 @@ impl<L: FpBackend> AnySignature<L> {
             AnySignature::Expanded(_) => SignatureFormat::Expanded,
             AnySignature::Standard(_) => SignatureFormat::Standard,
             AnySignature::Compressed(_) => SignatureFormat::Compressed,
+            AnySignature::Compact(_) => SignatureFormat::Compact,
         }
     }
 }
@@ -865,6 +886,7 @@ impl<L: FpBackend> core::fmt::Display for AnySignature<L> {
             AnySignature::Expanded(s) => core::fmt::Display::fmt(s, f),
             AnySignature::Standard(s) => core::fmt::Display::fmt(s, f),
             AnySignature::Compressed(s) => core::fmt::Display::fmt(s, f),
+            AnySignature::Compact(s) => core::fmt::Display::fmt(s, f),
         }
     }
 }
@@ -943,6 +965,14 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
     /// the dropped entry. The remaining 2 bits are stored as `det_hint`,
     /// packed into the backtracking byte on the wire.
     pub fn compress(&self) -> CompressedSignature<L> {
+        // Invariant: a Signature reaching here has in-range response parameters
+        // (Signature::from_bytes rejects two_resp_length + backtracking >= E_RSP,
+        // and the signer never produces them), so this subtraction cannot
+        // underflow.
+        debug_assert!(
+            (L::E_RSP as usize) > self.two_resp_length as usize + self.backtracking as usize,
+            "invariant: E_RSP > two_resp_length + backtracking"
+        );
         let pow_dim2 =
             L::E_RSP as usize - self.two_resp_length as usize - self.backtracking as usize;
         let det_precision = pow_dim2 + self.two_resp_length as usize;
@@ -1118,6 +1148,24 @@ mod tests {
         let bytes = sig.to_bytes();
         let decoded = Signature::<Level1>::from_bytes(&bytes);
         assert!(decoded.is_ok());
+    }
+
+    #[test]
+    fn standard_from_bytes_rejects_out_of_range_response_params() {
+        // A decoded signature with two_resp_length + backtracking >= E_RSP would
+        // underflow pow_dim2 = E_RSP - two_resp_length - backtracking (e.g. in
+        // compress()). from_bytes must reject it at decode.
+        let valid = Signature::<Level1>::default().to_bytes();
+        assert!(Signature::<Level1>::from_bytes(&valid).is_ok());
+
+        // Metadata layout: Fp2 (Fp2EncodedBytes) | backtracking | two_resp_length.
+        let trl_idx = <Level1 as SecurityLevel>::Fp2EncodedBytes::USIZE + 1;
+        let mut bad = valid;
+        bad[trl_idx] = 200; // E_RSP = 126 at Level 1, so 200 > E_RSP
+        assert!(
+            Signature::<Level1>::from_bytes(&bad).is_err(),
+            "out-of-range two_resp_length must be rejected at decode"
+        );
     }
 
     #[test]

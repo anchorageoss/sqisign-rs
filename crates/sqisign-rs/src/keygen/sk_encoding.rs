@@ -4,6 +4,7 @@
 
 use crate::id2iso::sign_precomp::HasSigningPrecomp;
 use crate::quaternion::algebra::quat_alg_elem_is_zero;
+use crate::quaternion::dim2::ibz_mat_2x2_inv_mod;
 use crate::quaternion::ideal::{quat_lideal_create, quat_lideal_generator};
 use crate::quaternion::intbig::Ibz;
 use crate::quaternion::types::{IbzMat2x2, QuatAlgElem};
@@ -139,6 +140,12 @@ impl<L: HasSigningPrecomp + LevelPrecomp> SecretKey<L> {
         let secret_ideal = quat_lideal_create(&gen, &norm, &parent_order, &precomp.algebra)
             .ok_or(sqisign_verify::Error::MalformedInput)?;
 
+        // The recomputed ideal norm must match the decoded norm; a mismatch is
+        // a malformed key.
+        if secret_ideal.norm != norm {
+            return Err(sqisign_verify::Error::MalformedInput);
+        }
+
         // 2. Basis-change matrix
         let t2p_bytes = precomp.torsion_2power_bytes;
         let mut mat = IbzMat2x2::default();
@@ -147,6 +154,14 @@ impl<L: HasSigningPrecomp + LevelPrecomp> SecretKey<L> {
                 *entry = ibz_from_bytes(&enc[pos..], t2p_bytes, false);
                 pos += t2p_bytes;
             }
+        }
+
+        // The basis-change matrix must be invertible mod 2^TORSION_EVEN_POWER
+        // (signing inverts it); reject a non-invertible one here rather than
+        // letting it surface later in the signing path.
+        let (_, invertible) = ibz_mat_2x2_inv_mod(&mat, &precomp.torsion_plus_2power);
+        if !invertible {
+            return Err(sqisign_verify::Error::MalformedInput);
         }
 
         debug_assert!(pos <= L::SkLen::USIZE);

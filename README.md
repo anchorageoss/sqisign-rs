@@ -9,33 +9,50 @@ A pure Rust implementation of SQIsign v2.0.
 
 SQIsign is a post-quantum digital signature scheme based on isogenies between supersingular elliptic curves. It was proposed for NIST PQC standardization and produces the smallest signatures of any post-quantum candidate at comparable security levels.
 
-This implementation passes all 300 NIST KAT vectors (100 per level) across Level 1, Level 3, and Level 5. Verification is observed to be 29% faster than the C reference implementation. See performance numbers below for more details.
+This implementation passes all 300 NIST KAT vectors (100 per level) across Level 1, Level 3, and Level 5. Verification is competitive with the C reference: at parity on portable builds with maximal LTO. See the benchmarks below.
 
 > **This library has not been audited.** The verification path is designed to be constant-time, but no formal verification or third-party audit has been performed. The signing path is inherently variable-time due to SQIsign's algorithmic structure. See [SECURITY.md](SECURITY.md) for details. Use at your own discretion.
 
-For verify-only usage (`no_std`, no heap), depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify) directly.
+For verify-only usage (`no_std`), depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify) directly. Its dim-2 verification path is heap-free; the compact (dim-4) verifier needs only `alloc`.
 
 ## Quick start
 
-Generate a keypair, sign, and verify:
+Generate a keypair, sign, and verify - choose the scheme at keygen time:
 
 ```rust
-use sqisign_rs::{generate, PublicKey, SigningKey, Verifier};
+use sqisign_rs::{generate, generate_compact, AnySignature, PublicKey, SigningKey, Verifier};
 
 let mut rng = rand::rngs::OsRng;
+
+// Standard (dimension-2, 148 bytes at Level 1):
 let (pk, sk): (PublicKey, SigningKey) = generate(&mut rng);
 let sig = sk.sign(b"hello world", &mut rng)?;
 pk.verify(b"hello world", &sig)?;
+
+// Compact - the smallest post-quantum signature (108 bytes at Level 1):
+let (cpk, csk) = generate_compact(&mut rng);
+let csig = csk.sign(b"hello world", &mut rng)?;
+cpk.verify(b"hello world", &csig)?;
 ```
 
-Compress a signature for minimal wire size (129 bytes at Level 1):
+Verification autodetects the format from its byte length. The public key must
+match the scheme: standard keys verify standard/compressed/expanded signatures,
+compact keys verify compact signatures (they are not interchangeable).
+
+```rust
+let any = AnySignature::from_bytes(&sig_bytes)?;
+pk.verify(b"hello world", &any)?;       // 129/148/212-byte dim-2 formats
+// cpk.verify(b"hello world", &any)?;   // 108-byte compact format
+```
+
+Compress a standard signature for a smaller wire size (129 bytes at Level 1):
 
 ```rust
 let compressed = sig.compress();
 pk.verify(b"hello world", &compressed)?;
 ```
 
-Use a higher security level:
+Use a higher security level (dim-2; the compact scheme is Level 1):
 
 ```rust
 use sqisign_rs::{generate, Level3, Verifier};
@@ -48,17 +65,54 @@ pk.verify(b"hello world", &sig)?;
 
 ## Signature formats
 
-There are three wire formats available with different size and speed tradeoffs. The verifier determines the format from the byte length.
+Four wire formats are available across two dimensions, with different size and
+speed tradeoffs. The verifier determines both the format and the dimension from
+the byte length alone (no tag byte) - `AnySignature::from_bytes` autodetects,
+and the same `pk.verify(msg, &any)` call handles all of them.
 
 ### Sizes
 
 | Format | L1 | L3 | L5 |
 |---|---|---|---|
+| Compact (dim-4) | 108 bytes | 161 bytes | 213 bytes |
 | Compressed | 129 bytes | 196 bytes | 257 bytes |
 | Standard | 148 bytes | 224 bytes | 292 bytes |
 | Expanded | 212 bytes | 316 bytes | 420 bytes |
 
-Public keys are 65 bytes (L1), 97 bytes (L3), 129 bytes (L5) across all formats.
+The compact (dimension-4) format produces the smallest signatures (108 bytes at
+Level 1, autodetected and verified through the same API) and is implemented at
+Level 1 today; the dim-2 formats are available at Levels 1/3/5. Public keys are
+65 bytes (L1 dim-2), 97 bytes (L3), 129 bytes (L5); a compact public key is 64
+bytes (L1).
+
+### Two distinct key schemes
+
+Standard and compact keys are **separate, non-interchangeable** cryptographic
+objects (different torsion-basis conventions and precomputed data). You choose
+the scheme at keygen time - `generate` for standard keys, `generate_compact` for
+compact keys - and verify with the matching public-key type:
+
+- a `PublicKey` verifies `Signature` / `CompressedSignature` / `ExpandedSignature`;
+- a `CompactPublicKey` verifies `CompactSignature`.
+
+`AnySignature::from_bytes` autodetects the wire format by length, but the public
+key must belong to the right scheme; a mismatched key is rejected.
+
+### Compact (108 bytes at L1)
+
+The smallest format. The signer transmits the commitment curve and the response
+isogeny's action as three rescaled scalars plus the response degree; the verifier
+reconstructs and checks the response via a dimension-4 isogeny (the Kani
+embedding). Implemented at Level 1.
+
+| Field | Size (L1) | Description |
+|---|---|---|
+| A_com | 64 bytes | Commitment curve A-coefficient (𝔽p²); basis hints packed into spare bits |
+| q | 17 bytes | Response degree (q < 2¹³⁶) |
+| a, b, c_or_d | 3 × 9 bytes | Response scalars (the 4th is determinant-recovered) |
+
+The challenge is not transmitted - the verifier recomputes it as a Fiat-Shamir
+hash of the curves and message.
 
 ### Standard (148 bytes at L1)
 
@@ -67,8 +121,8 @@ Contains the auxiliary curve, a challenge scalar, the full 2×2 basis-change mat
 | Field | Size (L1) | Description |
 |---|---|---|
 | E_aux(A) | 64 bytes | Auxiliary curve A-coefficient (𝔽p²) |
-| backtracking | 1 byte | Backtracking amount n_bt (0–3) |
-| two_resp_length | 1 byte | Dim-1 response length r′ (0–8) |
+| backtracking | 1 byte | Backtracking amount n_bt (0-3) |
+| two_resp_length | 1 byte | Dim-1 response length r′ (0-8) |
 | M₀₀, M₀₁, M₁₀, M₁₁ | 4 × 16 bytes | Basis-change matrix coefficients |
 | challenge | 16 bytes | Challenge scalar |
 | hint_aux, hint_chall | 2 bytes | Canonical basis selection hints |
@@ -80,7 +134,7 @@ Stores pre-evaluated kernel point x-coordinates instead of the matrix. The verif
 | Field | Size (L1) | Description |
 |---|---|---|
 | E_aux(A) | 64 bytes | Auxiliary curve A-coefficient (𝔽p²) |
-| backtracking + flags | 1 byte | Backtracking, kernel_is_Q flag, P−Q sign hint |
+| backtracking + flags | 1 byte | Backtracking, kernel_is_Q flag, P-Q sign hint |
 | two_resp_length | 1 byte | Dim-1 response length r′ |
 | challenge | 16 bytes | Challenge scalar |
 | P_chl(x) | 64 bytes | Challenge kernel point P x-coordinate (𝔽p²) |
@@ -104,17 +158,48 @@ The dropped coefficient is recovered via det(M) = dlog(ω_aux⁻¹, ω_f⁻¹) w
 
 ## Performance
 
-Intel Xeon @ 2.80 GHz, `--release`, `target-cpu=native`:
+### Dim-2 (standard SQIsign) verification
 
-| Operation | L1 | vs C reference |
-|---|---|---|
-| Verify (expanded) | 3.82 ms | 41% faster |
-| Verify (standard) | 4.65 ms | 29% faster |
-| Verify (compressed) | 6.83 ms | comparable |
-| Key generation | ~185 ms | ~2.5x slower |
-| Signing | ~185 ms | ~2.5x slower |
+Apple M4 Pro, single thread, portable builds, maximal (fat) LTO:
 
-We observe that verification in this library outperforms the C reference, likely because LLVM aggressively inlines field arithmetic across crate boundaries. Signing and keygen are slower than the C reference because the quaternion algebra layer uses `num-bigint` (heap-allocated arbitrary precision integers) instead of GMP. We explicitly pay this performance tax in order to keep the library pure-rust and avoid an FFI dependency through `rug`. `crypto-bigint` was evaluated as a replacement but would have degraded performance further and requires signed operations which are currently unsupported. Future work targets improvements to the big-integer arithmetic performance in the quaternion crate and elsewhere.
+| Level | Rust | C reference |
+|---|---:|---:|
+| L1 | 1.37 ms | 1.53 ms |
+| L3 | 4.13 ms | 4.13 ms |
+| L5 | 8.06 ms | 8.66 ms |
+
+Verification is at parity with the C reference on portable ARM builds with
+maximal LTO. Differences under ~4% are within thermal noise. (An earlier report
+of Rust verification being faster came from comparing against a thin-LTO C
+build; with fat LTO on the C side the two are level.)
+
+### Dim-4 (compact, 108-byte signatures)
+
+Measured on the development environment (not the M4 Pro above) and unoptimized
+(portable Rust, no platform-specific assembly), so these are not comparable to
+the dim-2 table:
+
+| Operation (L1) | Serial | Parallel (multi-core) |
+|---|---:|---:|
+| Verify | ~33 ms | ~20.5 ms |
+| Sign | ~51 ms | - |
+| Keygen | ~47 ms | - |
+
+The `parallel` feature runs the two independent dim-4 half-chains on separate
+threads; the result is bit-identical to the serial path. A Broadwell x86-64 asm
+backend (in progress) is expected to improve these numbers significantly.
+
+### Signing and keygen
+
+Signing and key generation are roughly 3-4x slower than the C reference. This is
+the deliberate cost of a pure-Rust `num-bigint` quaternion/KLPT stack instead of
+GMP (avoiding an FFI dependency), and it affects only client-side operations,
+never verification.
+
+### Parallel throughput
+
+Dim-2 verification across all 12 cores reaches roughly 5,000 to 5,400 L1
+verifications per second.
 
 ## Memory security
 
@@ -124,10 +209,10 @@ Secret key material is protected by a three-tier system:
 2. Intermediate signing values are explicitly zeroed at the end of `protocols_sign`.
 3. A `ZeroizingAllocator` clears all freed heap memory. This catches residual copies left by `num-bigint`'s internal reallocations.
 
-The allocator is enabled by default through the `sqisign-core` facade crate with zero measured overhead. If you use a custom allocator (jemalloc, mimalloc, etc.), disable it:
+The allocator is enabled by default via the `zeroize-alloc` feature of `sqisign-rs` with zero measured overhead. If you use a custom allocator (jemalloc, mimalloc, etc.), disable it:
 
 ```toml
-sqisign-rs = { version = "0.3", default-features = false }
+sqisign-rs = { version = "0.4", default-features = false }
 ```
 
 Disabling the allocator means heap memory freed by `num-bigint` during signing will NOT be zeroed. Ghost copies of secret intermediate values may persist in freed heap pages until the memory is reused. Tier 1 (SecretKey zeroization) and Tier 2 (explicit intermediate zeroization) remain active regardless of allocator choice.
@@ -138,7 +223,7 @@ Disabling the allocator means heap memory freed by `num-bigint` during signing w
 cargo build --release
 cargo test --workspace --release
 cargo bench -p sqisign-verify
-cargo bench -p sqisign-sign
+cargo bench -p sqisign-rs
 ```
 
 For best performance:
@@ -155,23 +240,23 @@ codegen-units = 1
 
 ## Workspace
 
-```
-params        Security level trait and per-level constants
-fp            𝔽p and 𝔽p² field arithmetic (Montgomery form)
-ec            Elliptic curves, isogenies, pairings
-precomp       Precomputed constants for all 3 security levels
-theta         (2,2)-isogenies in the theta model
-quaternion    Quaternion orders, ideals, lattices
-id2iso        Ideal-to-isogeny translation (Deuring correspondence)
-keygen        Key generation and SecretKey type
-sign          Signing protocol
-verify        Verification protocol and signature formats (no_std)
-core          Facade crate with re-exports and ZeroizingAllocator
-alloc         ZeroizingAllocator implementation
-kat           KAT test infrastructure (dev-only)
-```
+Two published crates:
 
-The verification path (verify and its dependencies: ec, fp, theta, precomp, params) compiles for bare-metal `no_std` targets without an allocator. It has zero dependency on the quaternion algebra layer.
+- **`sqisign-verify`** - verification only (`no_std`, `#![forbid(unsafe_code)]`):
+  field arithmetic (`fp`, `params`), elliptic curves and isogenies (`ec`),
+  precomputed constants (`precomp`), the dim-2 (2,2)-theta model (`theta`), the
+  dimension-4 verifier (`hd`), and the verification protocol plus signature
+  formats (`verify`, `formats`, `compact`).
+- **`sqisign-rs`** - key generation and signing, re-exporting everything from
+  `sqisign-verify`: the quaternion layer (`quaternion`), ideal-to-isogeny
+  translation (`id2iso`, Deuring correspondence), key generation (`keygen`), the
+  signing protocols (`sign`, including the compact signer), and the optional
+  `ZeroizingAllocator` (`alloc`).
+
+The verification path (`sqisign-verify` and its dependencies) has zero dependency
+on the quaternion algebra layer. The dim-2 path compiles for bare-metal `no_std`
+without an allocator; the dimension-4 (compact) verifier additionally needs
+`alloc`.
 
 ## References
 

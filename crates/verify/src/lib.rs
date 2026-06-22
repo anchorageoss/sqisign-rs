@@ -1,18 +1,30 @@
 //!
 //! SQIsign signature verification in pure Rust.
 //!
-//! This crate is `no_std`-compatible, heap-free, and independent of the
-//! quaternion algebra stack. It contains all the arithmetic layers needed
-//! for verification: field arithmetic (params, fp), elliptic curves (ec),
-//! theta model (theta), precomputed constants (precomp), and the
-//! verification protocol itself.
+//! This crate is `no_std`-compatible and independent of the quaternion algebra
+//! stack. It contains all the arithmetic layers needed for verification: field
+//! arithmetic (params, fp), elliptic curves (ec), the theta model (theta),
+//! precomputed constants (precomp), and the verification protocol itself.
+//!
+//! Both the **dimension-2** formats and the **compact** 108-byte format
+//! (dimension-4, Level 1) are supported. The dim-4 verifier lives in the [`hd`]
+//! module; a compact signature is just another arm of
+//! [`AnySignature`], auto-detected by length and verified
+//! with a [`CompactPublicKey`] through the same [`Verifier`] trait. Compact
+//! verification is ~33 ms (~20.5 ms with the `parallel` feature) at Level 1;
+//! dim-2 verification is a few milliseconds (about 1.4 ms at L1 on Apple M4
+//! Pro, at parity with the C reference). (The dim-4 chain loop uses a small,
+//! bounded heap allocation off the constant-time path; the dim-2 path remains
+//! heap-free.)
 //!
 //! # Verify a signature
 //!
 //! All verification goes through [`pk.verify(msg, &sig)`](Verifier::verify)
-//! via the RustCrypto [`Verifier`] trait. It accepts any signature type:
-//! [`Signature`], [`ExpandedSignature`], [`CompressedSignature`], or
-//! [`AnySignature`](formats::AnySignature) (auto-detected from raw bytes).
+//! via the RustCrypto [`Verifier`] trait. A [`PublicKey`] accepts any dim-2
+//! signature type: [`Signature`], [`ExpandedSignature`], [`CompressedSignature`],
+//! or [`AnySignature`] (auto-detected from raw bytes -
+//! 108 = compact, 129 = compressed, 148 = standard, 212 = expanded at Level 1);
+//! a compact 108-byte signature is verified with a [`CompactPublicKey`].
 //!
 //! ```
 //! use hex_literal::hex;
@@ -44,7 +56,7 @@
 //! ```
 //!
 //! For raw bytes where the format is unknown, parse into
-//! [`AnySignature`](formats::AnySignature) first:
+//! [`AnySignature`] first:
 //!
 //! ```
 //! use hex_literal::hex;
@@ -77,18 +89,26 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+// The dim-4 SQIsignHD verifier ([`hd`]) keeps a small, data-dependent stack of
+// intermediate kernel bases in heap `Vec`s (the optimal-strategy chain loop).
+// This is the only `alloc` use in the crate and is off the constant-time path.
+extern crate alloc;
+
 pub mod ec;
 pub mod fp;
+pub mod hd;
 pub mod params;
 pub mod precomp;
 pub mod theta;
 
+pub mod compact;
 pub mod formats;
 pub mod hash;
 pub mod types;
 pub mod verify;
 
-pub use formats::{CompressedSignature, ExpandedSignature};
+pub use compact::{CompactPublicKey, CompactSignature};
+pub use formats::{AnySignature, CompressedSignature, ExpandedSignature, SignatureFormat};
 pub use hash::hash_to_challenge;
 pub use types::{PublicKey, Scalar, Signature};
 

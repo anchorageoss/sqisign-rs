@@ -673,7 +673,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "sqisign-kat"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aes",
  "hex",
@@ -685,10 +685,11 @@ dependencies = [
 
 [[package]]
 name = "sqisign-rs"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
  "crypto-bigint",
+ "hex",
  "hybrid-array",
  "num-bigint",
  "num-integer",
@@ -696,6 +697,7 @@ dependencies = [
  "paste",
  "rand",
  "rand_core",
+ "serde_json",
  "sha3",
  "signature",
  "sqisign-verify",
@@ -705,12 +707,15 @@ dependencies = [
 
 [[package]]
 name = "sqisign-verify"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
+ "crypto-bigint",
+ "hex",
  "hex-literal",
  "hybrid-array",
  "rand_core",
+ "serde_json",
  "sha3",
  "signature",
  "subtle",

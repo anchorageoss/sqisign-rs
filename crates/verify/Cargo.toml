@@ -19,10 +19,17 @@ zeroize = { workspace = true }
 sha3 = { workspace = true }
 rand_core = { workspace = true }
 signature = { workspace = true }
+# Fixed-width big integers (no_std) used by the dim-4 SQIsignHD verifier (`hd`)
+# for the sum-of-two-squares (Cornacchia) norm equation N = 2^f - q; off the
+# hot path.
+crypto-bigint = { workspace = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 hex-literal = { workspace = true }
+# The dim-4 (`hd`) oracle/vector tests parse JSON test vectors.
+serde_json = "1"
+hex = "0.4"
 
 [[bench]]
 name = "verify_bench"
@@ -31,3 +38,16 @@ harness = false
 [features]
 default = []
 std = ["sha3/std"]
+# Run the two independent dim-4 SQIsignHD half-chains (F1 and F2_dual) on
+# separate threads, halving their wall-clock latency. std-only and OFF by
+# default - the canonical implementation is the serial no_std path, which is
+# unchanged and bit-identical. Only affects `hd` verification latency, not the
+# total work or any result.
+parallel = ["std"]
+# Verify-only variable-time field inversion for the dim-4 SQIsignHD path
+# (`hd::field`). Verification is on PUBLIC data, so constant-time arithmetic
+# buys no security there; this routes the dominant inversion through a faster
+# binary extended-GCD path. OFF by default (a default build is byte-identical to
+# the constant-time path), and it only affects the `hd` module - the shared
+# constant-time `Fp`/`Fp2` and the dim-2 / signing paths are untouched.
+vartime = []

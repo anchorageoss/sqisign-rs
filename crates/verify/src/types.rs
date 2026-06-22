@@ -457,6 +457,35 @@ impl<L: FpBackend> PublicKey<L> {
     where
         L: LevelPrecomp,
     {
+        // Dimension-4 SQIsignHD public key (Level 1 only): 64 bytes = the curve
+        // coefficient `A_pk` with its two torsion-basis hints packed into the
+        // spare top bits (see [`crate::hd`]). Detected purely by length - HD
+        // exists only at Level 1, identified here by `Fp2EncodedBytes == 64`,
+        // and 64 ≠ any dim-2 `PkLen`. The packed hints are not needed by the
+        // verifier (it recomputes them), so we keep only the curve and set the
+        // dim-2 hint to its canonical value, yielding a `PublicKey` identical to
+        // the 65-byte dim-2 encoding of the same curve.
+        if L::Fp2EncodedBytes::USIZE == 64 && bytes.len() == crate::hd::PK_WIRE_BYTES {
+            let parsed =
+                crate::hd::parse_public_key(bytes).map_err(|_| crate::Error::MalformedInput)?;
+            let a_bytes = parsed.a_pk.encode();
+            let mut pk = PublicKey::<L>::default();
+            proj_from_bytes::<L>(&mut pk.curve.a, &mut pk.curve.c, a_bytes.as_ref())?;
+            let mut check_curve = pk.curve.clone();
+            let (_, canonical_hint) = ec_curve_to_basis_2f_to_hint::<L>(
+                &mut check_curve,
+                L::F_CHR,
+                L::basis_e0_px_bytes(),
+                L::basis_e0_qx_bytes(),
+                L::p_cofactor_for_2f(),
+                L::p_cofactor_for_2f_bitlength() as usize,
+                L::torsion_even_power(),
+            )
+            .map_err(|()| crate::Error::MalformedInput)?;
+            pk.hint_pk = canonical_hint;
+            return Ok(pk);
+        }
+
         if bytes.len() != L::PkLen::USIZE {
             return Err(crate::Error::InvalidLength);
         }
@@ -560,6 +589,17 @@ impl<L: FpBackend> Signature<L> {
         pos += 1;
         sig.two_resp_length = bytes[pos];
         pos += 1;
+
+        // Reject out-of-range response/backtracking parameters at the decode
+        // boundary: pow_dim2 = E_RSP - two_resp_length - backtracking must be
+        // > 1 (the condition expand()/decompress() enforce). Computed as i32 so
+        // an attacker-supplied signature with two_resp_length + backtracking
+        // >= E_RSP is rejected here, rather than underflowing a later unsigned
+        // subtraction (e.g. in compress()).
+        let pow_dim2 = L::E_RSP as i32 - sig.two_resp_length as i32 - sig.backtracking as i32;
+        if pow_dim2 <= 1 {
+            return Err(crate::Error::MalformedInput);
+        }
 
         // 2x2 scalar matrix
         let mat_bytes = Self::matrix_entry_bytes();
