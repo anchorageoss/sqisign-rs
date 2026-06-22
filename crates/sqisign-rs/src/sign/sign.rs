@@ -691,7 +691,7 @@ pub fn protocols_sign<L: FpBackend + HasSigningPrecomp + sqisign_verify::precomp
     set_aux_curve_signature(&mut sig, &mut eaux2_echall2.e1);
 
     // 11. Set basis change matrix
-    compute_and_set_basis_change_matrix(
+    let basis_ok = compute_and_set_basis_change_matrix(
         &mut sig,
         &eaux2_echall2.b1,
         &mut eaux2_echall2.b2,
@@ -700,10 +700,12 @@ pub fn protocols_sign<L: FpBackend + HasSigningPrecomp + sqisign_verify::precomp
         reduced_order,
         &precomp,
     )
-    .ok_or(sqisign_verify::Error::InternalError)?;
+    .is_some();
 
-    // Scrub secret intermediates. BigInt heap allocations are NOT zeroed
-    // here (num-bigint limitation); use ZeroizingAllocator for that.
+    // Scrub secret intermediates on every exit path, including the basis-change
+    // failure above (which previously returned before this ran). BigInt heap
+    // allocations are NOT zeroed here (num-bigint limitation); use
+    // ZeroizingAllocator for that.
     lideal_commit.zeroize();
     lideal_com_resp.zeroize();
     resp_quat.zeroize();
@@ -716,5 +718,9 @@ pub fn protocols_sign<L: FpBackend + HasSigningPrecomp + sqisign_verify::precomp
     eaux2_echall2.b1.zeroize();
     eaux2_echall2.b2.zeroize();
 
-    Ok(sig)
+    if basis_ok {
+        Ok(sig)
+    } else {
+        Err(sqisign_verify::Error::InternalError)
+    }
 }

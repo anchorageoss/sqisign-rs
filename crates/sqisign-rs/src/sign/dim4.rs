@@ -35,7 +35,7 @@ extern crate alloc;
 
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crypto_bigint::U256;
 
@@ -57,8 +57,7 @@ use crate::quaternion::dim2::{ibz_2x2_mul_mod, ibz_mat_2x2_eval, ibz_mat_2x2_inv
 use crate::quaternion::dim4::ibz_mat_4x4_eval;
 use crate::quaternion::ideal::quat_lideal_inter;
 use crate::quaternion::intbig::{
-    ibz_div, ibz_invmod, ibz_mod, ibz_pow, ibz_probab_prime, ibz_rand_interval, ibz_two_adic,
-    ibz_zeroize, Ibz,
+    ibz_div, ibz_invmod, ibz_mod, ibz_pow, ibz_probab_prime, ibz_rand_interval, ibz_two_adic, Ibz,
 };
 use crate::quaternion::lattice::{quat_lattice_conjugate_without_hnf, quat_lattice_intersect};
 use crate::quaternion::lll::{quat_lattice_lll, quat_lideal_prime_norm_reduced_equivalent};
@@ -359,13 +358,16 @@ pub(crate) fn dim4_sign(
 
     for _ in 0..MAX_SIGN_ITERS {
         // (0) Commitment: random secret isogeny E0 → E_com, push E0's basis.
+        // Secret intermediates are wrapped in `Zeroizing` so they are scrubbed
+        // when the iteration scope ends on *every* exit (retry `continue`,
+        // success `return`, and loop exhaustion), not only on the success path.
         let mut e_com = EcCurve::<Level1>::default();
-        let mut b_com0 = EcBasis::new(
+        let mut b_com0 = Zeroizing::new(EcBasis::new(
             EcPoint::identity(),
             EcPoint::identity(),
             EcPoint::identity(),
-        );
-        let mut lideal_commit = QuatLeftIdeal::default();
+        ));
+        let mut lideal_commit = Zeroizing::new(QuatLeftIdeal::default());
         if commit(&mut e_com, &mut b_com0, &mut lideal_commit, &precomp, rng).is_none() {
             continue;
         }
@@ -387,12 +389,15 @@ pub(crate) fn dim4_sign(
             ibz_mod(&chal_vec[0], &two_lambda),
             ibz_mod(&chal_vec[1], &two_lambda),
         ]);
-        let lideal_chall = id2iso_kernel_dlogs_to_ideal_even(&vec2, LAMBDA, &precomp);
+        let lideal_chall = Zeroizing::new(id2iso_kernel_dlogs_to_ideal_even(&vec2, LAMBDA, &precomp));
 
         // (3) Response lattice: (challenge ∩ secret) ∩ conj(commitment).
-        let lideal_chall_secret = quat_lideal_inter(&lideal_chall, &sk.secret_ideal);
-        let lat_commit = quat_lattice_conjugate_without_hnf(&lideal_commit.lattice);
-        let lattice_hom = quat_lattice_intersect(&lideal_chall_secret.lattice, &lat_commit);
+        let lideal_chall_secret = Zeroizing::new(quat_lideal_inter(&lideal_chall, &sk.secret_ideal));
+        let lat_commit = Zeroizing::new(quat_lattice_conjugate_without_hnf(&lideal_commit.lattice));
+        let lattice_hom = Zeroizing::new(quat_lattice_intersect(
+            &lideal_chall_secret.lattice,
+            &lat_commit,
+        ));
         let lattice_content = &lideal_chall_secret.norm * &lideal_commit.norm;
 
         // (4) Sample the response quaternion (the new core).
@@ -406,6 +411,7 @@ pub(crate) fn dim4_sign(
             Some(x) => x,
             None => continue,
         };
+        let resp_quat = Zeroizing::new(resp_quat);
         debug_assert_eq!(ibz_two_adic(&q_big), 0, "response degree q must be odd");
 
         // (5/6/7) HD canonical commitment basis + change of basis B_com0 → B_com_can.
@@ -421,18 +427,18 @@ pub(crate) fn dim4_sign(
         let b_com_can = EcBasis::new(p_can.to_xz(), q_can.to_xz(), pmq.to_xz());
         let mat_bcom0_to_bcom_can =
             match change_of_basis_matrix_tate(&b_com_can, &b_com0, &mut e_com, f, &precomp) {
-                Some(m) => m,
+                Some(m) => Zeroizing::new(m),
                 None => continue,
             };
 
         // (8) Response action matrix: conjugate γ, express it in O0, then act
         // on the torsion basis via the precomputed endomorphism-action matrices.
-        let resp_conj = quat_alg_conj(&resp_quat);
+        let resp_conj = Zeroizing::new(quat_alg_conj(&resp_quat));
         let (coeffs, content) =
             quat_alg_make_primitive(&resp_conj, &precomp.extremal_orders[0].order);
         debug_assert!(ibz_mod(&content, &two).is_one(), "content must be odd");
         let action = &precomp.action_matrices[0];
-        let mut mat = IbzMat2x2::default();
+        let mut mat = Zeroizing::new(IbzMat2x2::default());
         for i in 0..2 {
             mat.0[i][i] = &mat.0[i][i] + &coeffs[0];
             for j in 0..2 {
@@ -450,8 +456,9 @@ pub(crate) fn dim4_sign(
         if !ok {
             continue;
         }
-        let mut m = ibz_2x2_mul_mod(&inv_sk, &mat, &two_f);
-        m = ibz_2x2_mul_mod(&m, &mat_bcom0_to_bcom_can, &two_f);
+        let inv_sk = Zeroizing::new(inv_sk);
+        let mut m = Zeroizing::new(ibz_2x2_mul_mod(&inv_sk, &mat, &two_f));
+        m = Zeroizing::new(ibz_2x2_mul_mod(&m, &mat_bcom0_to_bcom_can, &two_f));
         let nsk_inv = match ibz_invmod(&sk.secret_ideal.norm, &two_f) {
             Some(x) => x,
             None => continue,
@@ -484,13 +491,9 @@ pub(crate) fn dim4_sign(
         let cod_i = ibz_to_i128(&cod_big);
         let q_u = ibz_to_u256(&q_big);
 
-        // Scrub secret intermediates (BigInt heap is not scrubbed; see sign.rs).
-        let mut resp_z = resp_quat;
-        resp_z.zeroize();
-        lideal_commit.zeroize();
-        let mut lc = lattice_content;
-        ibz_zeroize(&mut lc);
-
+        // Secret intermediates are scrubbed by their `Zeroizing` wrappers when
+        // this scope ends (here, on the success return). BigInt heap copies not
+        // wrapped (e.g. lattice_content) are scrubbed by the ZeroizingAllocator.
         return encode_signature(&a_com, a_i, b_i, cod_i, &q_u, hp_com, hq_com)
             .ok_or(Error::InternalError);
     }
