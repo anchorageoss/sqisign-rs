@@ -590,6 +590,17 @@ impl<L: FpBackend> Signature<L> {
         sig.two_resp_length = bytes[pos];
         pos += 1;
 
+        // Reject out-of-range response/backtracking parameters at the decode
+        // boundary: pow_dim2 = E_RSP - two_resp_length - backtracking must be
+        // > 1 (the condition expand()/decompress() enforce). Computed as i32 so
+        // an attacker-supplied signature with two_resp_length + backtracking
+        // >= E_RSP is rejected here, rather than underflowing a later unsigned
+        // subtraction (e.g. in compress()).
+        let pow_dim2 = L::E_RSP as i32 - sig.two_resp_length as i32 - sig.backtracking as i32;
+        if pow_dim2 <= 1 {
+            return Err(crate::Error::MalformedInput);
+        }
+
         // 2x2 scalar matrix
         let mat_bytes = Self::matrix_entry_bytes();
         for row in sig.mat.iter_mut() {

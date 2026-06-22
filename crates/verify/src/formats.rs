@@ -965,6 +965,14 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
     /// the dropped entry. The remaining 2 bits are stored as `det_hint`,
     /// packed into the backtracking byte on the wire.
     pub fn compress(&self) -> CompressedSignature<L> {
+        // Invariant: a Signature reaching here has in-range response parameters
+        // (Signature::from_bytes rejects two_resp_length + backtracking >= E_RSP,
+        // and the signer never produces them), so this subtraction cannot
+        // underflow.
+        debug_assert!(
+            (L::E_RSP as usize) > self.two_resp_length as usize + self.backtracking as usize,
+            "invariant: E_RSP > two_resp_length + backtracking"
+        );
         let pow_dim2 =
             L::E_RSP as usize - self.two_resp_length as usize - self.backtracking as usize;
         let det_precision = pow_dim2 + self.two_resp_length as usize;
@@ -1140,6 +1148,24 @@ mod tests {
         let bytes = sig.to_bytes();
         let decoded = Signature::<Level1>::from_bytes(&bytes);
         assert!(decoded.is_ok());
+    }
+
+    #[test]
+    fn standard_from_bytes_rejects_out_of_range_response_params() {
+        // A decoded signature with two_resp_length + backtracking >= E_RSP would
+        // underflow pow_dim2 = E_RSP - two_resp_length - backtracking (e.g. in
+        // compress()). from_bytes must reject it at decode.
+        let valid = Signature::<Level1>::default().to_bytes();
+        assert!(Signature::<Level1>::from_bytes(&valid).is_ok());
+
+        // Metadata layout: Fp2 (Fp2EncodedBytes) | backtracking | two_resp_length.
+        let trl_idx = <Level1 as SecurityLevel>::Fp2EncodedBytes::USIZE + 1;
+        let mut bad = valid;
+        bad[trl_idx] = 200; // E_RSP = 126 at Level 1, so 200 > E_RSP
+        assert!(
+            Signature::<Level1>::from_bytes(&bad).is_err(),
+            "out-of-range two_resp_length must be rejected at decode"
+        );
     }
 
     #[test]

@@ -55,6 +55,15 @@ const F_TORSION: u32 = 70;
 const E1: u32 = 68;
 type F = Fp2<Level1>;
 
+/// Upper bound on `m = v₂(a2)` accepted by [`build_setup`]. The dim-4 gluing base
+/// change reduces values mod `2^(m+2)` and multiplies them as `i128`, with the
+/// largest products `~2^(3m+5)`; `m ≤ 40` keeps these within `i128` (`2^125`,
+/// well under `i128::MAX`). This is also far below the `F_TORSION - 3 = 67` cap
+/// the half-chain step counts (`67 - m`) require. A legitimate response degree
+/// has a tiny `m` (`v₂` of a random prime norm; `P(m > 40) ~ 2^-40`), so this
+/// rejects only a crafted `q` (or the degenerate `a2 = 0`, `m = 128`).
+const MAX_GLUING_M: usize = 40;
+
 /// Signature-derived inputs to [`hd_verify_l1`] (everything comes from the wire
 /// signature + recovered public-key/commitment curves; no oracle data).
 pub struct HdSignatureL1<'a> {
@@ -281,11 +290,11 @@ fn build_setup(sig: &HdSignatureL1) -> Option<Setup> {
     let a1 = u256_to_u128(&a1u);
     let a2 = u256_to_u128(&a2u);
     let m = a2.trailing_zeros() as usize;
-    // A valid response degree gives a nonzero even `a2`, so `m = v₂(a2) ≤ 67` and
-    // the half-chain step counts below (`67 - m`) stay in range. Reject an
-    // out-of-range `m` (e.g. `a2 = 0` when `2^e - q` is a perfect square) so the
-    // counts cannot underflow.
-    if m > (F_TORSION - 3) as usize {
+    // `m = v₂(a2)` must lie in the protocol's small range. Out-of-range values
+    // would otherwise drive the dim-4 gluing base change's `i128` products past
+    // `i128::MAX` (overflow / panic) and the half-chain step counts (`67 - m`)
+    // below into a `u32` underflow. See [`MAX_GLUING_M`].
+    if m > MAX_GLUING_M {
         return None;
     }
     let lamb4 = q4 & 3;
