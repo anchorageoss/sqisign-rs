@@ -1,23 +1,15 @@
+//! A global-allocator wrapper that zeros all heap memory on deallocation, so
+//! intermediate `BigInt` values from the signing path do not persist in freed
+//! pages. Measured overhead: <1% on signing.
 //!
-//! Zeros ALL heap memory on deallocation, ensuring that intermediate
-//! BigInt values from the signing path do not persist in freed memory.
-//! Measured overhead: <1% on signing operations.
-//!
-//! # Usage
-//!
-//! Enabled by default through `sqisign-core`'s `zeroize-alloc` feature.
-//! No code changes needed, the allocator activates automatically.
-//!
-//! To disable (e.g., if you use jemalloc or mimalloc):
-//!
-//! ```toml
-//! sqisign-core = { version = "0.1", default-features = false, features = ["sign"] }
-//! ```
-//!
-//! For explicit opt-in without default features:
+//! This crate is `no_std` and does not register a `#[global_allocator]` itself
+//! (an embedder supplies its own). A `std` binary can opt in to wrapping the
+//! system allocator with the
+//! [`enable_secure_allocator!`](crate::enable_secure_allocator) macro, placed at
+//! the top of `main.rs`:
 //!
 //! ```rust,ignore
-//! crate::alloc::enable_secure_allocator!();
+//! sqisign_rs::enable_secure_allocator!();
 //! ```
 
 use core::alloc::{GlobalAlloc, Layout};
@@ -29,7 +21,7 @@ use zeroize::Zeroize;
 /// itself register a `#[global_allocator]`: that is the final binary's job, and
 /// a `no_std` embedder must supply its own allocator. A `std` binary can opt in
 /// to the zeroing wrapper around the system allocator with the
-/// [`enable_secure_allocator!`] macro.
+/// [`enable_secure_allocator!`](crate::enable_secure_allocator) macro.
 pub struct ZeroizingAllocator<A: GlobalAlloc>(pub A);
 
 /// Convenience macro for `std` binaries that want the zeroing allocator wrapped
