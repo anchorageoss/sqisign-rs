@@ -27,7 +27,13 @@ signature = { workspace = true, features = ["rand_core"] }
 paste = "1"
 
 [features]
-default = []
+default = ["std"]
+# `std` (on by default) registers the zeroing global allocator so secret-derived
+# heap data is scrubbed on free with no caller action. Turn it off
+# (`default-features = false`) for a `no_std` build; the crate then registers no
+# global allocator and the embedder supplies one (optionally the zeroing wrapper
+# via `enable_secure_allocator!`).
+std = []
 
 [dev-dependencies]
 rand = { workspace = true }
