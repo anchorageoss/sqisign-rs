@@ -22,6 +22,7 @@ use super::rational::{
     IbqMat4x4, IbqVec4,
 };
 use super::types::{IbzMat4x4, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal};
+use zeroize::Zeroize;
 use num_bigint::BigInt;
 use num_traits::{One, Zero};
 use rand::Rng;
@@ -366,7 +367,7 @@ pub fn quat_lideal_prime_norm_reduced_equivalent(
     rng: &mut impl Rng,
 ) -> bool {
     use crate::quaternion::lattice::quat_lattice_contains;
-    let (red, gram) = quat_lideal_reduce_basis(lideal, alg);
+    let (mut red, mut gram) = quat_lideal_reduce_basis(lideal, alg);
 
     let adjusted_norm = &lideal.lattice.denom * &lideal.lattice.denom;
 
@@ -401,10 +402,17 @@ pub fn quat_lideal_prime_norm_reduced_equivalent(
             *lideal = quat_lideal_mul(lideal, &new_alpha, alg);
             debug_assert!(ibz_probab_prime(&lideal.norm, primality_num_iter) > 0);
 
+            // The accepted connecting element generated the new (still secret)
+            // ideal; scrub it now that it is consumed.
+            new_alpha.zeroize();
             found = true;
         }
     }
 
+    // Scrub the reduced basis and Gram matrix of the secret ideal. The reduced
+    // ideal itself lives in `*lideal`, which the caller zeroizes.
+    red.zeroize();
+    gram.zeroize();
     found
 }
 

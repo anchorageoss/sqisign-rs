@@ -23,6 +23,7 @@ use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{One, Zero};
 use rand::Rng;
+use zeroize::Zeroize;
 
 /// Initialize the standard maximal order O₀ lattice.
 ///
@@ -191,7 +192,7 @@ pub fn quat_represent_integer(
             // Create gamma from coefficients
             *gamma = quat_order_elem_create(params.order, &coeffs, params.algebra);
 
-            let (prim_coeffs, content) = quat_alg_make_primitive(gamma, &params.order.order);
+            let (mut prim_coeffs, mut content) = quat_alg_make_primitive(gamma, &params.order.order);
 
             if non_diag || standard_order {
                 found = content == BigInt::from(2);
@@ -205,9 +206,16 @@ pub fn quat_represent_integer(
                 gamma.coord = new_coord;
                 gamma.denom = params.order.order.denom.clone();
             }
+
+            prim_coeffs.zeroize();
+            super::intbig::ibz_zeroize(&mut content);
         }
     }
 
+    // Scrub the accepted secret coordinates; `gamma` (the output) is the
+    // caller's to zeroize. Per-iteration Cornacchia/bound temporaries are left
+    // to the zeroing allocator (Tier 3) on std.
+    coeffs.zeroize();
     found
 }
 
@@ -273,6 +281,12 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
     let lideal = quat_lideal_create(&gen, norm, &params.order.order, params.algebra)
         .expect("invariant: norm-equation ideal has perfect-square index");
     debug_assert_eq!(&lideal.norm, norm);
+
+    // Scrub the secret connecting/rerandomization elements: they determine the
+    // returned ideal (which the caller zeroizes) but are not themselves part of
+    // it. On no_std there is no zeroing allocator to catch them on free.
+    gen.zeroize();
+    gen_rerand.zeroize();
 
     Some(lideal)
 }
