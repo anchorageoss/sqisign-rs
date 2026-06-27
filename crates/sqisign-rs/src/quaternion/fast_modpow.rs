@@ -12,6 +12,7 @@
 //! - `num-bigint` fallback for anything exceeding 1024 bits (safety net)
 
 use super::intbig::{ibz_mod, ibz_mod_ui, Ibz};
+use alloc::vec;
 use crypto_bigint::modular::{MontyForm, MontyParams};
 use crypto_bigint::{Limb, Odd, Uint};
 use num_bigint::{BigInt, Sign};

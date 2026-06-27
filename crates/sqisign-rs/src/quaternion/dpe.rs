@@ -8,6 +8,8 @@
 //! Gram-Schmidt orthogonalization.
 
 use super::intbig::Ibz;
+#[allow(unused_imports)]
+use num_traits::Float;
 use num_traits::{ToPrimitive, Zero};
 
 /// Number of significant bits in the mantissa (IEEE 754 double precision).
@@ -391,7 +393,7 @@ pub fn dpe_frac(y: &Dpe) -> Dpe {
 }
 
 pub fn dpe_swap(x: &mut Dpe, y: &mut Dpe) {
-    std::mem::swap(x, y);
+    core::mem::swap(x, y);
 }
 
 #[cfg(test)]
@@ -505,6 +507,6 @@ mod tests {
 
         let x = dpe_set_d(2.0);
         let s = dpe_sqrt(&x);
-        assert!((dpe_get_d(&s) - std::f64::consts::SQRT_2).abs() < 1e-15);
+        assert!((dpe_get_d(&s) - core::f64::consts::SQRT_2).abs() < 1e-15);
     }
 }

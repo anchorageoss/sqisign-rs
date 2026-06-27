@@ -7,6 +7,7 @@
 
 use super::intbig::{ibz_div, ibz_div_floor, ibz_mod, ibz_xgcd, Ibz};
 use super::types::{IbzMat4x4, IbzVec4};
+use alloc::vec::Vec;
 use num_traits::{One, Signed, Zero};
 
 /// Non-zero modular reduction: `x mod m`, but if the result is zero, returns `m`.

@@ -20,31 +20,31 @@
 //! crate::alloc::enable_secure_allocator!();
 //! ```
 
-use std::alloc::{GlobalAlloc, Layout, System};
+use core::alloc::{GlobalAlloc, Layout};
 use zeroize::Zeroize;
 
 /// A global allocator wrapper that zeros memory before deallocation.
 ///
-/// Generic over the inner allocator so that tests can interpose an
-/// audit layer underneath. Production code uses the default (`System`).
-pub struct ZeroizingAllocator<A: GlobalAlloc = System>(pub A);
+/// Generic over the inner allocator `A`. This crate is `no_std`, so it does not
+/// itself register a `#[global_allocator]`: that is the final binary's job, and
+/// a `no_std` embedder must supply its own allocator. A `std` binary can opt in
+/// to the zeroing wrapper around the system allocator with the
+/// [`enable_secure_allocator!`] macro.
+pub struct ZeroizingAllocator<A: GlobalAlloc>(pub A);
 
-#[cfg(feature = "zeroize-alloc")]
-#[global_allocator]
-static __SQISIGN_ALLOC: ZeroizingAllocator = ZeroizingAllocator(System);
-
-/// Convenience macro for users who disabled default features but still
-/// want the zeroing allocator in a specific binary.
+/// Convenience macro for `std` binaries that want the zeroing allocator wrapped
+/// around the system allocator. Expands in the downstream binary, where `std`
+/// is available.
 ///
 /// Place at the top of `main.rs`:
 /// ```rust,ignore
-/// crate::alloc::enable_secure_allocator!();
+/// sqisign_rs::enable_secure_allocator!();
 /// ```
 #[macro_export]
 macro_rules! enable_secure_allocator {
     () => {
         #[global_allocator]
-        static __SQISIGN_ALLOC: $crate::ZeroizingAllocator =
+        static __SQISIGN_ALLOC: $crate::ZeroizingAllocator<std::alloc::System> =
             $crate::ZeroizingAllocator(std::alloc::System);
     };
 }

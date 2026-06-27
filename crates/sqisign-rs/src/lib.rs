@@ -33,12 +33,19 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! The library is `no_std` (it uses `alloc` for heap, but does not require an
+//! operating system). Unit tests link `std`.
 
-pub mod alloc;
+#![cfg_attr(not(test), no_std)]
+
+extern crate alloc;
+
 pub mod id2iso;
 pub mod keygen;
 pub mod precomp_signing;
 pub mod quaternion;
+pub mod secure_alloc;
 pub mod sign;
 
 // Re-export everything from sqisign-verify, including the unified
@@ -49,12 +56,15 @@ pub use sqisign_verify::*;
 
 // Public API.
 pub use keygen::SecretKey;
+// Crate-root re-export so the `enable_secure_allocator!` macro can name it.
+pub use secure_alloc::ZeroizingAllocator;
 
 // The compact (108-byte-signature) scheme's signing-side entry points. The
 // matching verification types `CompactPublicKey` / `CompactSignature` come from
 // the `pub use sqisign_verify::*` re-export above.
 pub use sign::{generate_compact, CompactSigningKey};
 
+use alloc::vec::Vec;
 use hybrid_array::typenum::Unsigned;
 use id2iso::sign_precomp::HasSigningPrecomp;
 use zeroize::{Zeroize, ZeroizeOnDrop};

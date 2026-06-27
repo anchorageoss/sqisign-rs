@@ -13,12 +13,12 @@ categories.workspace = true
 
 [dependencies]
 sqisign-verify = { version = "0.4.0", path = "../verify" }
-num-bigint = { workspace = true }
-num-traits = { workspace = true }
-num-integer = { workspace = true }
+num-bigint = { version = "0.4", default-features = false, features = ["rand"] }
+num-traits = { version = "0.2", default-features = false, features = ["libm"] }
+num-integer = { version = "0.1", default-features = false }
 crypto-bigint = { workspace = true }
 zeroize = { workspace = true }
-rand = { workspace = true }
+rand = { version = "0.8", default-features = false }
 rand_core = { workspace = true }
 sha3 = { workspace = true }
 subtle = { workspace = true }
@@ -27,9 +27,7 @@ signature = { workspace = true, features = ["rand_core"] }
 paste = "1"
 
 [features]
-default = ["zeroize-alloc"]
-zeroize-alloc = []
-std = ["sqisign-verify/std"]
+default = []
 
 [dev-dependencies]
 rand = { workspace = true }

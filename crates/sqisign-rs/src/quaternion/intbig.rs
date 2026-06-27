@@ -6,6 +6,12 @@
 //!
 //! SECURITY: `num-bigint` is NOT constant-time. Signing path only; not used in verification.
 
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
@@ -37,17 +43,17 @@ mod constants {
 }
 pub use constants::*;
 
-/// Convenience macro for lazily-initialized BigInt constants using
-/// `std::sync::OnceLock` (BigInt is not const-constructible).
+/// Convenience macro for small BigInt constants. `BigInt` is not
+/// const-constructible (it owns a `Vec`), so each constant is an accessor
+/// function that builds the value on call. The values are tiny (0..3), so this
+/// is cheap; it needs no synchronization and no `std`.
 #[doc(hidden)]
 macro_rules! lazy_static_ibz {
     ($($(#[$meta:meta])* pub static $name:ident : $ty:ty = $init:expr;)*) => {
         $(
             $(#[$meta])*
-            pub fn $name() -> &'static $ty {
-                use std::sync::OnceLock;
-                static INSTANCE: OnceLock<$ty> = OnceLock::new();
-                INSTANCE.get_or_init(|| $init)
+            pub fn $name() -> $ty {
+                $init
             }
         )*
     };
@@ -442,13 +448,13 @@ mod tests {
         assert_eq!(a, b);
         assert_ne!(c, b);
 
-        std::mem::swap(&mut b, &mut a);
+        core::mem::swap(&mut b, &mut a);
         // After swap: a=1(old b), b=1(old a), actually same values since both were 1
         // Let's redo with different values
         a = BigInt::from(1);
         b = Ibz::zero();
         let _c = BigInt::from(-1);
-        std::mem::swap(&mut a, &mut b);
+        core::mem::swap(&mut a, &mut b);
         assert!(a.is_zero());
         assert!(b.is_one());
 

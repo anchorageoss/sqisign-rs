@@ -3,8 +3,8 @@
 //! All types default to zero-initialized values.
 
 use super::intbig::Ibz;
+use core::ops::{Index, IndexMut};
 use num_traits::{One, Zero};
-use std::ops::{Index, IndexMut};
 use zeroize::Zeroize;
 
 /// 2-element vector of big integers.
