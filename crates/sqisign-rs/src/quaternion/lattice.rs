@@ -13,6 +13,7 @@ use super::dim4::{
 use super::hnf::ibz_mat_4xn_hnf_mod_core;
 use super::intbig::{ibz_div, ibz_gcd, Ibz};
 use super::types::{IbzMat4x4, IbzVec4, QuatAlg, QuatAlgElem, QuatLattice};
+use alloc::vec::Vec;
 use num_traits::{Signed, Zero};
 
 /// Reduce the denominator of a lattice by dividing out common factors

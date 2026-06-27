@@ -17,13 +17,13 @@ mod level1 {
 
     #[test]
     fn torsion_constants_load() {
-        assert!(!torsion_constants::TWO_TO_SECURITY_BITS.is_zero());
-        assert!(!torsion_constants::TORSION_PLUS_2POWER.is_zero());
-        assert!(!torsion_constants::SEC_DEGREE.is_zero());
-        assert!(!torsion_constants::COM_DEGREE.is_zero());
+        assert!(!torsion_constants::TWO_TO_SECURITY_BITS().is_zero());
+        assert!(!torsion_constants::TORSION_PLUS_2POWER().is_zero());
+        assert!(!torsion_constants::SEC_DEGREE().is_zero());
+        assert!(!torsion_constants::COM_DEGREE().is_zero());
 
         assert_eq!(
-            *torsion_constants::TWO_TO_SECURITY_BITS,
+            torsion_constants::TWO_TO_SECURITY_BITS(),
             BigInt::one() << 128
         );
         assert_ne!(torsion_constants::TORSION_2POWER_BYTES, 0);
@@ -38,27 +38,27 @@ mod level1 {
 
     #[test]
     fn quaternion_data_loads() {
-        assert!(!quaternion_data::QUATALG_P.is_zero());
-        assert!(!quaternion_data::QUAT_PRIME_COFACTOR.is_zero());
+        assert!(!quaternion_data::QUATALG_P().is_zero());
+        assert!(!quaternion_data::QUAT_PRIME_COFACTOR().is_zero());
         assert_eq!(quaternion_data::NUM_ORDERS, 7);
 
         assert_eq!(quaternion_data::EXTREMAL_ORDER_0_Q, 1);
-        assert!(!quaternion_data::EXTREMAL_ORDER_0_DENOM.is_zero());
+        assert!(!quaternion_data::EXTREMAL_ORDER_0_DENOM().is_zero());
 
         assert!(
-            !quaternion_data::EXTREMAL_ORDER_0_BASIS_00.is_zero(),
+            !quaternion_data::EXTREMAL_ORDER_0_BASIS_00().is_zero(),
             "basis[0][0] should be nonzero"
         );
 
-        assert!(!quaternion_data::CONNECTING_IDEAL_0_DENOM.is_zero());
-        assert!(!quaternion_data::CONNECTING_IDEAL_0_NORM.is_zero());
-        assert!(!quaternion_data::CONJUGATING_ELEM_0_DENOM.is_zero());
+        assert!(!quaternion_data::CONNECTING_IDEAL_0_DENOM().is_zero());
+        assert!(!quaternion_data::CONNECTING_IDEAL_0_NORM().is_zero());
+        assert!(!quaternion_data::CONJUGATING_ELEM_0_DENOM().is_zero());
     }
 
     #[test]
     fn quaternion_data_p_matches_torsion() {
-        let p = &*quaternion_data::QUATALG_P;
-        let tors2 = &*torsion_constants::TORSION_PLUS_2POWER;
+        let p = &quaternion_data::QUATALG_P();
+        let tors2 = &torsion_constants::TORSION_PLUS_2POWER();
         assert!(tors2 > &BigInt::zero());
         assert!(
             (p + BigInt::one()) % tors2 == BigInt::zero(),
@@ -76,10 +76,10 @@ mod level1 {
 
     #[test]
     fn endomorphism_action_matrices_load() {
-        for entry in endomorphism_action::ENDOMORPHISM_0_ACTION_I.iter() {
+        for entry in endomorphism_action::ENDOMORPHISM_0_ACTION_I().iter() {
             let _val: &BigInt = entry;
         }
-        for entry in endomorphism_action::ENDOMORPHISM_0_ACTION_J.iter() {
+        for entry in endomorphism_action::ENDOMORPHISM_0_ACTION_J().iter() {
             let _val: &BigInt = entry;
         }
     }
@@ -113,13 +113,13 @@ mod level3 {
 
     #[test]
     fn torsion_constants_load() {
-        assert!(!torsion_constants::TWO_TO_SECURITY_BITS.is_zero());
-        assert!(!torsion_constants::TORSION_PLUS_2POWER.is_zero());
-        assert!(!torsion_constants::SEC_DEGREE.is_zero());
-        assert!(!torsion_constants::COM_DEGREE.is_zero());
+        assert!(!torsion_constants::TWO_TO_SECURITY_BITS().is_zero());
+        assert!(!torsion_constants::TORSION_PLUS_2POWER().is_zero());
+        assert!(!torsion_constants::SEC_DEGREE().is_zero());
+        assert!(!torsion_constants::COM_DEGREE().is_zero());
 
         assert_eq!(
-            *torsion_constants::TWO_TO_SECURITY_BITS,
+            torsion_constants::TWO_TO_SECURITY_BITS(),
             BigInt::one() << 192
         );
     }
@@ -132,15 +132,15 @@ mod level3 {
 
     #[test]
     fn quaternion_data_loads() {
-        assert!(!quaternion_data::QUATALG_P.is_zero());
+        assert!(!quaternion_data::QUATALG_P().is_zero());
         assert_eq!(quaternion_data::NUM_ORDERS, 8);
         assert_eq!(quaternion_data::EXTREMAL_ORDER_0_Q, 1);
     }
 
     #[test]
     fn quaternion_data_p_matches_torsion() {
-        let p = &*quaternion_data::QUATALG_P;
-        let tors2 = &*torsion_constants::TORSION_PLUS_2POWER;
+        let p = &quaternion_data::QUATALG_P();
+        let tors2 = &torsion_constants::TORSION_PLUS_2POWER();
         assert!(
             (p + BigInt::one()) % tors2 == BigInt::zero(),
             "p+1 should be divisible by the 2-power torsion"
@@ -181,13 +181,13 @@ mod level5 {
 
     #[test]
     fn torsion_constants_load() {
-        assert!(!torsion_constants::TWO_TO_SECURITY_BITS.is_zero());
-        assert!(!torsion_constants::TORSION_PLUS_2POWER.is_zero());
-        assert!(!torsion_constants::SEC_DEGREE.is_zero());
-        assert!(!torsion_constants::COM_DEGREE.is_zero());
+        assert!(!torsion_constants::TWO_TO_SECURITY_BITS().is_zero());
+        assert!(!torsion_constants::TORSION_PLUS_2POWER().is_zero());
+        assert!(!torsion_constants::SEC_DEGREE().is_zero());
+        assert!(!torsion_constants::COM_DEGREE().is_zero());
 
         assert_eq!(
-            *torsion_constants::TWO_TO_SECURITY_BITS,
+            torsion_constants::TWO_TO_SECURITY_BITS(),
             BigInt::one() << 256
         );
     }
@@ -200,15 +200,15 @@ mod level5 {
 
     #[test]
     fn quaternion_data_loads() {
-        assert!(!quaternion_data::QUATALG_P.is_zero());
+        assert!(!quaternion_data::QUATALG_P().is_zero());
         assert_eq!(quaternion_data::NUM_ORDERS, 7);
         assert_eq!(quaternion_data::EXTREMAL_ORDER_0_Q, 1);
     }
 
     #[test]
     fn quaternion_data_p_matches_torsion() {
-        let p = &*quaternion_data::QUATALG_P;
-        let tors2 = &*torsion_constants::TORSION_PLUS_2POWER;
+        let p = &quaternion_data::QUATALG_P();
+        let tors2 = &torsion_constants::TORSION_PLUS_2POWER();
         assert!(
             (p + BigInt::one()) % tors2 == BigInt::zero(),
             "p+1 should be divisible by the 2-power torsion"

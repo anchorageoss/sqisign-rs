@@ -4,8 +4,8 @@
 //! size-reduction checks.
 
 use super::intbig::{ibz_div, ibz_gcd, ibz_mod, Ibz};
+use core::ops::{Index, IndexMut};
 use num_traits::{One, Zero};
-use std::ops::{Index, IndexMut};
 
 /// Rational number: `numerator / denominator`.
 #[derive(Clone, Debug, PartialEq, Eq)]

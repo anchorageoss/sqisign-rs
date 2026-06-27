@@ -96,12 +96,12 @@ macro_rules! define_level_builders {
                         paste::paste! {
                             IbzMat2x2([
                                 [
-                                    (*endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>][0]).clone(),
-                                    (*endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>][1]).clone(),
+                                    endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>]()[0].clone(),
+                                    endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>]()[1].clone(),
                                 ],
                                 [
-                                    (*endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>][2]).clone(),
-                                    (*endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>][3]).clone(),
+                                    endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>]()[2].clone(),
+                                    endomorphism_action::[<ENDOMORPHISM_ $i _ACTION_ $gen>]()[3].clone(),
                                 ],
                             ])
                         }
@@ -137,37 +137,37 @@ macro_rules! define_level_builders {
                                 for r in 0..4 {
                                     for c in 0..4 {
                                         basis.0[r][c] = match (r, c) {
-                                            (0, 0) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_00>]).clone(),
-                                            (0, 1) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_01>]).clone(),
-                                            (0, 2) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_02>]).clone(),
-                                            (0, 3) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_03>]).clone(),
-                                            (1, 0) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_10>]).clone(),
-                                            (1, 1) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_11>]).clone(),
-                                            (1, 2) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_12>]).clone(),
-                                            (1, 3) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_13>]).clone(),
-                                            (2, 0) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_20>]).clone(),
-                                            (2, 1) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_21>]).clone(),
-                                            (2, 2) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_22>]).clone(),
-                                            (2, 3) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_23>]).clone(),
-                                            (3, 0) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_30>]).clone(),
-                                            (3, 1) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_31>]).clone(),
-                                            (3, 2) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_32>]).clone(),
-                                            (3, 3) => (*quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_33>]).clone(),
+                                            (0, 0) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_00>]().clone(),
+                                            (0, 1) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_01>]().clone(),
+                                            (0, 2) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_02>]().clone(),
+                                            (0, 3) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_03>]().clone(),
+                                            (1, 0) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_10>]().clone(),
+                                            (1, 1) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_11>]().clone(),
+                                            (1, 2) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_12>]().clone(),
+                                            (1, 3) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_13>]().clone(),
+                                            (2, 0) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_20>]().clone(),
+                                            (2, 1) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_21>]().clone(),
+                                            (2, 2) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_22>]().clone(),
+                                            (2, 3) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_23>]().clone(),
+                                            (3, 0) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_30>]().clone(),
+                                            (3, 1) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_31>]().clone(),
+                                            (3, 2) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_32>]().clone(),
+                                            (3, 3) => quaternion_data::[<EXTREMAL_ORDER_ $i _BASIS_33>]().clone(),
                                             _ => unreachable!(),
                                         };
                                     }
                                 }
                                 let order = QuatLattice {
-                                    denom: (*quaternion_data::[<EXTREMAL_ORDER_ $i _DENOM>]).clone(),
+                                    denom: quaternion_data::[<EXTREMAL_ORDER_ $i _DENOM>]().clone(),
                                     basis,
                                 };
                                 let z = QuatAlgElem {
-                                    denom: (*quaternion_data::[<EXTREMAL_ORDER_ $i _I_DENOM>]).clone(),
+                                    denom: quaternion_data::[<EXTREMAL_ORDER_ $i _I_DENOM>]().clone(),
                                     coord: IbzVec4([
-                                        (*quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_0>]).clone(),
-                                        (*quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_1>]).clone(),
-                                        (*quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_2>]).clone(),
-                                        (*quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_3>]).clone(),
+                                        quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_0>]().clone(),
+                                        quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_1>]().clone(),
+                                        quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_2>]().clone(),
+                                        quaternion_data::[<EXTREMAL_ORDER_ $i _I_COORD_3>]().clone(),
                                     ]),
                                 };
                                 let t = QuatAlgElem {
@@ -200,33 +200,33 @@ macro_rules! define_level_builders {
                                 for r in 0..4 {
                                     for c in 0..4 {
                                         basis.0[r][c] = match (r, c) {
-                                            (0, 0) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_00>]).clone(),
-                                            (0, 1) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_01>]).clone(),
-                                            (0, 2) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_02>]).clone(),
-                                            (0, 3) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_03>]).clone(),
-                                            (1, 0) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_10>]).clone(),
-                                            (1, 1) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_11>]).clone(),
-                                            (1, 2) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_12>]).clone(),
-                                            (1, 3) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_13>]).clone(),
-                                            (2, 0) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_20>]).clone(),
-                                            (2, 1) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_21>]).clone(),
-                                            (2, 2) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_22>]).clone(),
-                                            (2, 3) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_23>]).clone(),
-                                            (3, 0) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_30>]).clone(),
-                                            (3, 1) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_31>]).clone(),
-                                            (3, 2) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_32>]).clone(),
-                                            (3, 3) => (*quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_33>]).clone(),
+                                            (0, 0) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_00>]().clone(),
+                                            (0, 1) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_01>]().clone(),
+                                            (0, 2) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_02>]().clone(),
+                                            (0, 3) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_03>]().clone(),
+                                            (1, 0) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_10>]().clone(),
+                                            (1, 1) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_11>]().clone(),
+                                            (1, 2) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_12>]().clone(),
+                                            (1, 3) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_13>]().clone(),
+                                            (2, 0) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_20>]().clone(),
+                                            (2, 1) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_21>]().clone(),
+                                            (2, 2) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_22>]().clone(),
+                                            (2, 3) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_23>]().clone(),
+                                            (3, 0) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_30>]().clone(),
+                                            (3, 1) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_31>]().clone(),
+                                            (3, 2) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_32>]().clone(),
+                                            (3, 3) => quaternion_data::[<CONNECTING_IDEAL_ $i _BASIS_33>]().clone(),
                                             _ => unreachable!(),
                                         };
                                     }
                                 }
                                 let lattice = QuatLattice {
-                                    denom: (*quaternion_data::[<CONNECTING_IDEAL_ $i _DENOM>]).clone(),
+                                    denom: quaternion_data::[<CONNECTING_IDEAL_ $i _DENOM>]().clone(),
                                     basis,
                                 };
                                 QuatLeftIdeal {
                                     lattice,
-                                    norm: (*quaternion_data::[<CONNECTING_IDEAL_ $i _NORM>]).clone(),
+                                    norm: quaternion_data::[<CONNECTING_IDEAL_ $i _NORM>]().clone(),
                                     parent_order: parent_order.clone(),
                                 }
                             }
@@ -378,8 +378,8 @@ macro_rules! impl_signing_precomp_constructor {
                     });
                 }
 
-                let algebra = QuatAlg::new(&quaternion_data::QUATALG_P);
-                let torsion_plus_2power = (*torsion_constants::TORSION_PLUS_2POWER).clone();
+                let algebra = QuatAlg::new(&quaternion_data::QUATALG_P());
+                let torsion_plus_2power = torsion_constants::TORSION_PLUS_2POWER().clone();
 
                 SigningPrecomp {
                     extremal_orders,
@@ -399,9 +399,9 @@ macro_rules! impl_signing_precomp_constructor {
                     quat_equiv_bound_coeff: quaternion_constants::QUAT_EQUIV_BOUND_COEFF,
                     num_alternate_extremal_orders:
                         quaternion_constants::NUM_ALTERNATE_EXTREMAL_ORDERS,
-                    com_degree: (*torsion_constants::COM_DEGREE).clone(),
-                    quat_prime_cofactor: (*quaternion_data::QUAT_PRIME_COFACTOR).clone(),
-                    sec_degree: (*torsion_constants::SEC_DEGREE).clone(),
+                    com_degree: torsion_constants::COM_DEGREE().clone(),
+                    quat_prime_cofactor: quaternion_data::QUAT_PRIME_COFACTOR().clone(),
+                    sec_degree: torsion_constants::SEC_DEGREE().clone(),
                     torsion_2power_bytes: torsion_constants::TORSION_2POWER_BYTES,
                     basis_e0_px_bytes: &sqisign_verify::precomp::$level::BASIS_E0_PX_BYTES,
                     basis_e0_qx_bytes: &sqisign_verify::precomp::$level::BASIS_E0_QX_BYTES,

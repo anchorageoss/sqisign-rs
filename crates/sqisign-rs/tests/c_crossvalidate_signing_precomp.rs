@@ -64,22 +64,22 @@ fn crossvalidate_torsion_constants() {
     assert_match(
         &expected,
         "TWO_TO_SECURITY_BITS",
-        &bigint_to_decimal(&torsion_constants::TWO_TO_SECURITY_BITS),
+        &bigint_to_decimal(&torsion_constants::TWO_TO_SECURITY_BITS()),
     );
     assert_match(
         &expected,
         "TORSION_PLUS_2POWER",
-        &bigint_to_decimal(&torsion_constants::TORSION_PLUS_2POWER),
+        &bigint_to_decimal(&torsion_constants::TORSION_PLUS_2POWER()),
     );
     assert_match(
         &expected,
         "SEC_DEGREE",
-        &bigint_to_decimal(&torsion_constants::SEC_DEGREE),
+        &bigint_to_decimal(&torsion_constants::SEC_DEGREE()),
     );
     assert_match(
         &expected,
         "COM_DEGREE",
-        &bigint_to_decimal(&torsion_constants::COM_DEGREE),
+        &bigint_to_decimal(&torsion_constants::COM_DEGREE()),
     );
 }
 
@@ -111,12 +111,12 @@ fn crossvalidate_quaternion_data() {
     assert_match(
         &expected,
         "QUAT_prime_cofactor",
-        &bigint_to_decimal(&quaternion_data::QUAT_PRIME_COFACTOR),
+        &bigint_to_decimal(Box::leak(Box::new(quaternion_data::QUAT_PRIME_COFACTOR()))),
     );
     assert_match(
         &expected,
         "QUATALG_P",
-        &bigint_to_decimal(&quaternion_data::QUATALG_P),
+        &bigint_to_decimal(Box::leak(Box::new(quaternion_data::QUATALG_P()))),
     );
 }
 
@@ -137,31 +137,31 @@ fn crossvalidate_extremal_orders() {
             paste::paste! {
                 OrderRefs {
                     q: quaternion_data::[<EXTREMAL_ORDER_ $idx _Q>],
-                    denom: &*quaternion_data::[<EXTREMAL_ORDER_ $idx _DENOM>],
+                    denom: Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _DENOM>]())),
                     basis: [
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_00>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_01>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_02>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_03>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_10>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_11>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_12>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_13>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_20>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_21>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_22>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_23>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_30>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_31>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_32>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_33>],
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_00>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_01>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_02>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_03>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_10>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_11>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_12>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_13>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_20>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_21>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_22>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_23>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_30>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_31>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_32>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _BASIS_33>]())),
                     ],
-                    i_denom: &*quaternion_data::[<EXTREMAL_ORDER_ $idx _I_DENOM>],
+                    i_denom: Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _I_DENOM>]())),
                     i_coord: [
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_0>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_1>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_2>],
-                        &*quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_3>],
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_0>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_1>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_2>]())),
+                        Box::leak(Box::new(quaternion_data::[<EXTREMAL_ORDER_ $idx _I_COORD_3>]())),
                     ],
                 }
             }
@@ -235,26 +235,26 @@ fn crossvalidate_connecting_ideals() {
         ($idx:literal) => {
             paste::paste! {
                 IdealRefs {
-                    denom: &*quaternion_data::[<CONNECTING_IDEAL_ $idx _DENOM>],
+                    denom: Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _DENOM>]())),
                     basis: [
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_00>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_01>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_02>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_03>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_10>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_11>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_12>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_13>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_20>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_21>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_22>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_23>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_30>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_31>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_32>],
-                        &*quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_33>],
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_00>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_01>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_02>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_03>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_10>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_11>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_12>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_13>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_20>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_21>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_22>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_23>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_30>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_31>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_32>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _BASIS_33>]())),
                     ],
-                    norm: &*quaternion_data::[<CONNECTING_IDEAL_ $idx _NORM>],
+                    norm: Box::leak(Box::new(quaternion_data::[<CONNECTING_IDEAL_ $idx _NORM>]())),
                 }
             }
         };
@@ -309,12 +309,12 @@ fn crossvalidate_conjugating_elements() {
         ($idx:literal) => {
             paste::paste! {
                 ElemRefs {
-                    denom: &*quaternion_data::[<CONJUGATING_ELEM_ $idx _DENOM>],
+                    denom: Box::leak(Box::new(quaternion_data::[<CONJUGATING_ELEM_ $idx _DENOM>]())),
                     coord: [
-                        &*quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_0>],
-                        &*quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_1>],
-                        &*quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_2>],
-                        &*quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_3>],
+                        Box::leak(Box::new(quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_0>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_1>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_2>]())),
+                        Box::leak(Box::new(quaternion_data::[<CONJUGATING_ELEM_ $idx _COORD_3>]())),
                     ],
                 }
             }
@@ -457,24 +457,24 @@ fn crossvalidate_endomorphism_action_matrices() {
     // Same order, direct index mapping.
 
     struct ActionRefs {
-        action_i: &'static [std::sync::LazyLock<BigInt>; 4],
-        action_j: &'static [std::sync::LazyLock<BigInt>; 4],
-        action_k: &'static [std::sync::LazyLock<BigInt>; 4],
-        action_gen2: &'static [std::sync::LazyLock<BigInt>; 4],
-        action_gen3: &'static [std::sync::LazyLock<BigInt>; 4],
-        action_gen4: &'static [std::sync::LazyLock<BigInt>; 4],
+        action_i: [BigInt; 4],
+        action_j: [BigInt; 4],
+        action_k: [BigInt; 4],
+        action_gen2: [BigInt; 4],
+        action_gen3: [BigInt; 4],
+        action_gen4: [BigInt; 4],
     }
 
     macro_rules! action_ref {
         ($idx:literal) => {
             paste::paste! {
                 ActionRefs {
-                    action_i: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_I>],
-                    action_j: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_J>],
-                    action_k: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_K>],
-                    action_gen2: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN2>],
-                    action_gen3: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN3>],
-                    action_gen4: &endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN4>],
+                    action_i: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_I>](),
+                    action_j: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_J>](),
+                    action_k: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_K>](),
+                    action_gen2: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN2>](),
+                    action_gen3: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN3>](),
+                    action_gen4: endomorphism_action::[<ENDOMORPHISM_ $idx _ACTION_GEN4>](),
                 }
             }
         };
@@ -493,13 +493,13 @@ fn crossvalidate_endomorphism_action_matrices() {
     for (idx, a) in actions.iter().enumerate() {
         let pfx = format!("ENDOMORPHISM[{idx}]");
 
-        let matrices: &[(&str, &[std::sync::LazyLock<BigInt>; 4])] = &[
-            ("action_i", a.action_i),
-            ("action_j", a.action_j),
-            ("action_k", a.action_k),
-            ("action_gen2", a.action_gen2),
-            ("action_gen3", a.action_gen3),
-            ("action_gen4", a.action_gen4),
+        let matrices: &[(&str, &[BigInt; 4])] = &[
+            ("action_i", &a.action_i),
+            ("action_j", &a.action_j),
+            ("action_k", &a.action_k),
+            ("action_gen2", &a.action_gen2),
+            ("action_gen3", &a.action_gen3),
+            ("action_gen4", &a.action_gen4),
         ];
 
         for (name, mat) in matrices {
@@ -507,7 +507,7 @@ fn crossvalidate_endomorphism_action_matrices() {
                 for c in 0..2 {
                     let key = format!("{pfx}.{name}[{r}][{c}]");
                     let rust_i = r * 2 + c;
-                    let val = &*mat[rust_i];
+                    let val = &mat[rust_i];
                     assert_match(&expected, &key, &bigint_to_decimal(val));
                 }
             }
