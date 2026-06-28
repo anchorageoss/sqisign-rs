@@ -22,10 +22,10 @@ use super::rational::{
     IbqMat4x4, IbqVec4,
 };
 use super::types::{IbzMat4x4, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal};
-use zeroize::Zeroize;
 use num_bigint::BigInt;
 use num_traits::{One, Zero};
 use rand::Rng;
+use zeroize::Zeroize;
 
 /// Floating-point LLL parameter `δ̄`. Must satisfy `1/4 < δ̄ ≤ 1`;
 /// closer to 1 gives stronger reduction at higher cost.

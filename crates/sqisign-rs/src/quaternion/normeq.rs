@@ -192,7 +192,8 @@ pub fn quat_represent_integer(
             // Create gamma from coefficients
             *gamma = quat_order_elem_create(params.order, &coeffs, params.algebra);
 
-            let (mut prim_coeffs, mut content) = quat_alg_make_primitive(gamma, &params.order.order);
+            let (mut prim_coeffs, mut content) =
+                quat_alg_make_primitive(gamma, &params.order.order);
 
             if non_diag || standard_order {
                 found = content == BigInt::from(2);

@@ -444,6 +444,7 @@ fn compute_and_set_basis_change_matrix<L: FpBackend + sqisign_verify::precomp::L
     e_chall: &mut EcCurve<L>,
     f: u32,
     precomp: &SigningPrecomp<L>,
+    rng: &mut (impl rand_core::RngCore + rand_core::CryptoRng),
 ) -> Option<()> {
     let nwords = L::NWORDS_ORDER;
 
@@ -478,7 +479,7 @@ fn compute_and_set_basis_change_matrix<L: FpBackend + sqisign_verify::precomp::L
 
     // Apply change of basis to B_chall_2
     let mut mat_clone = mat_baux2_to_baux2_can;
-    matrix_application_even_basis(b_chall_2, e_chall, &mut mat_clone, f);
+    matrix_application_even_basis(b_chall_2, e_chall, &mut mat_clone, f, rng);
 
     // Compute change of basis: B_chall_can -> B_chall_2
     let mat_bchall_can_to_bchall =
@@ -699,6 +700,7 @@ pub fn protocols_sign<L: FpBackend + HasSigningPrecomp + sqisign_verify::precomp
         &mut e_chall,
         reduced_order,
         &precomp,
+        rng,
     )
     .is_some();
 
