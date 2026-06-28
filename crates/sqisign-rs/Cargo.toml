@@ -27,7 +27,22 @@ signature = { workspace = true, features = ["rand_core"] }
 paste = "1"
 
 [features]
-default = []
+default = ["std"]
+# `std` (on by default) registers the zeroing global allocator so secret-derived
+# heap data is scrubbed on free with no caller action. Turn it off
+# (`default-features = false`) for a `no_std` build; the crate then registers no
+# global allocator and the embedder supplies one (optionally the zeroing wrapper
+# via `enable_secure_allocator!`).
+std = []
+# `dpa-protect` (off by default) enables physical side-channel countermeasures
+# in the signing path: each secret-curve torsion basis fed into a Montgomery
+# ladder is re-expressed in a fresh random projective representative per
+# signature, and the secondary u/v theta chain uses the randomized variant.
+# It changes no signature bytes (the affine result is identical), but it does
+# consume extra randomness, so the NIST KAT vectors only reproduce byte-for-byte
+# with this feature OFF. Production deployments on physical hardware should
+# enable it.
+dpa-protect = []
 
 [dev-dependencies]
 rand = { workspace = true }
