@@ -28,6 +28,10 @@ paste = "1"
 
 [features]
 default = []
+# SQIsign-RK: signatures with randomizable keys (ePrint 2026/1169). Adds the
+# RandPK / RandSK / VerKey key-randomization operations on top of base SQIsign.
+# Off by default; base Sign/Verify/KeyGen are unchanged.
+sqisign-rk = []
 
 [dev-dependencies]
 rand = { workspace = true }
@@ -39,3 +43,8 @@ hex = "0.4"
 [[bench]]
 name = "sign_bench"
 harness = false
+
+[[bench]]
+name = "sqisign_rk"
+harness = false
+required-features = ["sqisign-rk"]

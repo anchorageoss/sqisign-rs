@@ -47,6 +47,8 @@ pub mod precomp_signing;
 pub mod quaternion;
 pub mod secure_alloc;
 pub mod sign;
+#[cfg(feature = "sqisign-rk")]
+pub mod sqisign_rk;
 
 // Re-export everything from sqisign-verify, including the unified
 // `AnySignature` (which now autodetects dim-2 *and* dim-4 SQIsignHD by length)

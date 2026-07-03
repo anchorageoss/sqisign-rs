@@ -49,6 +49,37 @@ impl CompactSigningKey<Level1> {
     pub fn public_key(&self) -> &CompactPublicKey<Level1> {
         &self.pk
     }
+
+    /// Assemble a compact signing key from its parts.
+    ///
+    /// Crate-internal: used by the SQIsign-RK key-randomization path
+    /// (`sqisign_rk::compact`) to build a derived signing key without exposing
+    /// the private fields. Only compiled with that feature.
+    #[cfg(feature = "sqisign-rk")]
+    #[inline]
+    pub(crate) fn from_parts(
+        sk: Dim4SecretKey,
+        pk_dim4: Dim4PublicKey,
+        pk: CompactPublicKey<Level1>,
+    ) -> Self {
+        Self { sk, pk_dim4, pk }
+    }
+
+    /// The dim-4 secret key (secret ideal + change-of-basis matrix).
+    /// Crate-internal, for the key-randomization path.
+    #[cfg(feature = "sqisign-rk")]
+    #[inline]
+    pub(crate) fn dim4_secret(&self) -> &Dim4SecretKey {
+        &self.sk
+    }
+
+    /// The internal dim-4 public key (curve coefficient + HD basis hints).
+    /// Crate-internal, for the key-randomization path.
+    #[cfg(feature = "sqisign-rk")]
+    #[inline]
+    pub(crate) fn dim4_public(&self) -> &Dim4PublicKey {
+        &self.pk_dim4
+    }
 }
 
 impl signature::RandomizedSigner<CompactSignature<Level1>> for CompactSigningKey<Level1> {
