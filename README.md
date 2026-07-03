@@ -43,6 +43,31 @@ pk.verify(b"hello world", &sig)?;
 
 Verification auto-detects the wire format from its byte length. Standard and compact public keys are separate, non-interchangeable schemes (chosen at keygen).
 
+## Rerandomizable keys
+
+Enable the `sqisign-rk` feature to derive fresh, unlinkable keys from an existing keypair (SQIsign-RK, [ePrint 2026/1169](https://eprint.iacr.org/2026/1169)). Public derivation needs no secret:
+
+```rust
+use sqisign_rs::keygen::keypair;
+use sqisign_rs::sign::sign;
+use sqisign_rs::sqisign_rk::{rand_pk, rand_sk, ver_key};
+use sqisign_rs::{PublicKey, SecretKey, Verifier};
+
+let (pk, sk): (PublicKey, SecretKey) = keypair(&mut rng);
+
+// Anyone can derive a new, unlinkable public key, no secret needed.
+let pk_child = rand_pk(&pk, b"context");
+
+// The key holder derives the matching secret key; it signs as usual.
+let sk_child = rand_sk(&sk, &pk, b"context");
+assert!(ver_key(&pk_child, &sk_child));
+
+let sig = sign(&sk_child, &pk_child, b"hello world", &mut rng)?;
+pk_child.verify(b"hello world", &sig)?;
+```
+
+Derivation is deterministic in `(pk, rr)`, and the derived keypair is an ordinary SQIsign keypair. Compact (108-byte) variants are `rand_pk_compact` / `rand_sk_compact` / `ver_key_compact`.
+
 ## Performance
 
 A signature can be carried in four formats that trade wire size for verification speed. Level 1:
