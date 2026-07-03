@@ -72,14 +72,14 @@ Derivation is deterministic in `(pk, rr)`, and the derived keypair is an ordinar
 
 A signature can be carried in four formats that trade wire size for verification speed. Level 1:
 
-| Format             | Size  | Verify   | Levels |
-|--------------------|-------|----------|--------|
-| Compact (dim-4)    | 108 B | ~33 ms   | 1      |
-| Compressed         | 129 B | ~1.4 ms  | 1/3/5  |
-| Standard (default) | 148 B | ~1.4 ms  | 1/3/5  |
-| Expanded           | 212 B | ~1.4 ms  | 1/3/5  |
+| Format             | Size  | Verify    | Levels |
+|--------------------|-------|-----------|--------|
+| Compact (dim-4)    | 108 B | ~13.4 ms  | 1      |
+| Compressed         | 129 B | ~2.3 ms   | 1/3/5  |
+| Standard (default) | 148 B | ~1.5 ms   | 1/3/5  |
+| Expanded           | 212 B | ~1.3 ms   | 1/3/5  |
 
-Dimension-2 verification (the three larger formats) is at parity with the C reference on portable builds with fat LTO (~1.4 ms at L1, ~8 ms at L5 on an Apple M4 Pro; expanded is fastest, compressed slowest). The compact format trades a heavier dimension-4 verify for the smallest signature. Key generation and signing are ~3-4x the C reference (the pure-Rust `num-bigint` quaternion layer instead of GMP) and affect only the signer, never verification.
+Dimension-2 verification (the three larger formats) runs in 1.3-2.3 ms at L1 and 7.6-12.9 ms at L5 on an Apple M4 Pro (expanded is fastest, compressed slowest). The compact format trades a heavier dimension-4 verify (~13.4 ms at L1) for the smallest signature. Key generation and signing are slower (the pure-Rust `num-bigint` quaternion layer) and affect only the signer, never verification.
 
 For a standalone constant-time, zero-allocation dim-2 verifier, depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify) directly. The compact format is documented in [COMPRESSION.md](COMPRESSION.md).
 
