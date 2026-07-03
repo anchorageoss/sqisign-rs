@@ -131,6 +131,20 @@ impl<L: SecurityLevel> CompactPublicKey<L> {
             _marker: PhantomData,
         }
     }
+
+    /// The public curve's Montgomery `A` coefficient (public data; the same
+    /// value encoded in [`to_bytes`](Self::to_bytes)). Analogous to the dim-2
+    /// [`PublicKey::curve`](crate::PublicKey::curve) accessor.
+    #[inline]
+    pub fn a_pk(&self) -> Fp2<Level1> {
+        self.a_pk.clone()
+    }
+
+    /// The canonical `2^f`-torsion basis hints `(hint_pk_p, hint_pk_q)`.
+    #[inline]
+    pub fn basis_hints(&self) -> (u32, u32) {
+        (self.hint_pk_p, self.hint_pk_q)
+    }
 }
 
 impl CompactPublicKey<Level1> {
