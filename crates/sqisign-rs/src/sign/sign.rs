@@ -493,6 +493,13 @@ fn compute_and_set_basis_change_matrix<L: FpBackend + sqisign_verify::precomp::L
             Signature::<L>::scalar_digits_mut(entry)[..nwords].copy_from_slice(&digits[..nwords]);
         }
     }
+
+    // Emit the canonical (non-malleable) representative of the basis-change
+    // matrix by default; `kat-compat` leaves the raw matrix for byte-exact C
+    // reference compatibility. See ePrint 2026/1305.
+    #[cfg(not(feature = "kat-compat"))]
+    sqisign_verify::verify::canonicalize_basis_change_matrix(sig);
+
     Some(())
 }
 

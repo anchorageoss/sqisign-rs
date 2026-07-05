@@ -6,6 +6,8 @@
 //!
 //! Also verifies the signature with `pk.verify()`.
 
+#![cfg(feature = "kat-compat")]
+
 use rayon::prelude::*;
 use sqisign_kat::kat_parser;
 use sqisign_kat::nist_drbg::NistDrbg;

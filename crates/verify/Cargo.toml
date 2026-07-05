@@ -38,6 +38,12 @@ harness = false
 [features]
 default = []
 std = ["sha3/std"]
+# Disable canonical (non-malleable) basis-change matrix encoding, restoring
+# byte-exact compatibility with the C reference KAT vectors. Canonical encoding
+# is the default: the verifier rejects the non-canonical (negated) matrix
+# representative to close the malleability described in ePrint 2026/1305.
+# Enabling this feature turns that rejection off. OFF by default.
+kat-compat = []
 # Run the two independent dim-4 SQIsignHD half-chains (F1 and F2_dual) on
 # separate threads, halving their wall-clock latency. std-only and OFF by
 # default - the canonical implementation is the serial no_std path, which is

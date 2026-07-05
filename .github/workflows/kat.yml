@@ -14,4 +14,8 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test -p sqisign-kat --release
+      # KAT vectors come from the C reference, which does not canonicalize the
+      # basis-change matrix. The `kat-compat` feature restores that legacy
+      # encoding (and un-gates the KAT test suite), so byte-exact KAT validation
+      # runs here under the flag while canonical encoding stays the default.
+      - run: cargo test -p sqisign-kat --release --features kat-compat

@@ -58,6 +58,23 @@ Dimension-2 verification (the three larger formats) is at parity with the C refe
 
 For a standalone constant-time, zero-allocation dim-2 verifier, depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify) directly. The compact format is documented in [COMPRESSION.md](COMPRESSION.md).
 
+### Signature malleability and canonical encoding
+
+SQIsign signatures admit a known malleability: negating the basis
+change matrix M produces a second valid signature for the same
+message. This is the isogeny analog of ECDSA's (r,s) vs (r,n-s).
+See [ePrint 2026/1305](https://eprint.iacr.org/2026/1305).
+
+This crate canonicalizes M by default (signer normalizes,
+verifier rejects non-canonical). Canonical signatures are
+accepted by both canonical and legacy verifiers.
+
+For byte-exact compatibility with C reference KAT vectors:
+
+```toml
+sqisign = { version = "...", features = ["kat-compat"] }
+```
+
 ## About
 
 SQIsign is advancing through NIST's post-quantum signature standardization and has **not** been standardized. It is the only isogeny-based candidate, and the only one with signatures this small. The 2022 attacks that broke the SIDH/SIKE key exchange do not apply to it; in fact the higher-dimensional isogeny techniques those attacks introduced are now used constructively to build and speed up SQIsign (the dimension-2 and dimension-4 constructions in this library), so the mathematics that ended SIKE strengthens SQIsign. The scheme and its implementations are also young and moving fast, with substantial engineering headroom still to capture (faster signing, optimized field and quaternion backends); this library tracks that progress.

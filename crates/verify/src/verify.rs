@@ -122,6 +122,90 @@ pub(crate) fn check_canonical_basis_change_matrix<L: FpBackend>(sig: &Signature<
     Some(())
 }
 
+// Canonical (non-malleable) encoding of the challenge basis-change matrix.
+//
+// SQIsign signatures are malleable: negating every entry of the basis-change
+// matrix modulo `2^N` yields a second matrix that verifies for the same
+// message (the isogeny analogue of ECDSA's `(r, s)` / `(r, n - s)`). Fixing a
+// single canonical representative removes that malleability and hardens the
+// scheme toward SUF-CMA. See ePrint 2026/1305. This is the default behaviour;
+// the `kat-compat` feature disables it for byte-exact compatibility with the C
+// reference KAT vectors.
+
+/// Number of bits `N` in the modulus `2^N` for the basis-change matrix entries
+/// of `sig`: `E_RSP + HD_EXTRA_TORSION - backtracking`. This is the same
+/// modulus whose range [`check_canonical_basis_change_matrix`] enforces, and
+/// the precision `reduced_order` at which the signer reduces the entries.
+#[cfg(not(feature = "kat-compat"))]
+fn basis_change_matrix_bits<L: FpBackend>(sig: &Signature<L>) -> usize {
+    L::E_RSP as usize + HD_EXTRA_TORSION as usize - sig.backtracking as usize
+}
+
+#[cfg(not(feature = "kat-compat"))]
+fn scalar_is_zero<L: FpBackend>(s: &Scalar<L>) -> bool {
+    s.digits.iter().all(|&d| d == 0)
+}
+
+/// Returns `true` when the basis-change matrix of `sig` is in canonical form:
+/// the first non-zero entry, scanned in row-major order `(m00, m01, m10, m11)`,
+/// is strictly less than `2^{N-1}` where `N = E_RSP + HD_EXTRA_TORSION -
+/// backtracking`. The all-zero matrix (which never occurs for a valid
+/// signature) is treated as non-canonical.
+#[cfg(not(feature = "kat-compat"))]
+pub fn is_canonical_basis_change_matrix<L: FpBackend>(sig: &Signature<L>) -> bool {
+    let n_bits = basis_change_matrix_bits(sig);
+
+    // half = 2^{N-1}
+    let mut half = Scalar::<L>::default();
+    half.digits[0] = 1;
+    multiple_mp_shiftl(half.digits.as_mut_slice(), n_bits - 1);
+
+    for entry in [
+        &sig.mat[0][0],
+        &sig.mat[0][1],
+        &sig.mat[1][0],
+        &sig.mat[1][1],
+    ] {
+        if !scalar_is_zero(entry) {
+            return mp_compare::<L>(entry, &half) < 0;
+        }
+    }
+    false
+}
+
+/// Rewrites the basis-change matrix of `sig` into canonical form, negating
+/// every entry modulo `2^N` when the matrix is not already canonical.
+/// Idempotent. See [`is_canonical_basis_change_matrix`] for the definition of
+/// canonical.
+#[cfg(not(feature = "kat-compat"))]
+pub fn canonicalize_basis_change_matrix<L: FpBackend>(sig: &mut Signature<L>) {
+    if is_canonical_basis_change_matrix(sig) {
+        return;
+    }
+
+    let n_bits = basis_change_matrix_bits(sig);
+
+    // modulus = 2^N
+    let mut modulus = Scalar::<L>::default();
+    modulus.digits[0] = 1;
+    multiple_mp_shiftl(modulus.digits.as_mut_slice(), n_bits);
+
+    for i in 0..2 {
+        for j in 0..2 {
+            let mut negated = Scalar::<L>::default();
+            mp_sub_digits(
+                negated.digits.as_mut_slice(),
+                modulus.digits.as_slice(),
+                sig.mat[i][j].digits.as_slice(),
+            );
+            // 2^N - 0 wraps to 2^N; reduce back into [0, 2^N) so a zero entry
+            // negates to zero rather than to the out-of-range modulus.
+            mp_mod_2exp_digits(negated.digits.as_mut_slice(), n_bits);
+            sig.mat[i][j] = negated;
+        }
+    }
+}
+
 /// Compute the challenge curve `E_chall` from the challenge coefficient
 /// and backtracking count, evaluated on the public key curve.
 pub fn compute_challenge_curve<L: FpBackend + LevelPrecomp>(
@@ -364,6 +448,13 @@ pub fn protocols_verify<L: FpBackend + LevelPrecomp>(
     }
 
     check_canonical_basis_change_matrix(sig).ok_or_else(err)?;
+
+    // Reject the non-canonical (negated) representative of the basis-change
+    // matrix to close the signature malleability described in ePrint 2026/1305.
+    #[cfg(not(feature = "kat-compat"))]
+    if !is_canonical_basis_change_matrix(sig) {
+        return Err(err());
+    }
 
     if !EcCurve::<L>::verify_a(&pk.curve.a) {
         return Err(err());

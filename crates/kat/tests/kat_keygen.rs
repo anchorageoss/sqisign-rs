@@ -4,6 +4,8 @@
 //! runs `protocols_keygen`, and compares the serialized pk and sk
 //! against the expected bytes from the `.rsp` file.
 
+#![cfg(feature = "kat-compat")]
+
 use rayon::prelude::*;
 use sqisign_kat::kat_parser;
 use sqisign_kat::nist_drbg::NistDrbg;

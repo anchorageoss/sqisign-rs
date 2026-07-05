@@ -28,6 +28,13 @@ paste = "1"
 
 [features]
 default = []
+# Disable canonical (non-malleable) basis-change matrix encoding for byte-exact
+# compatibility with the C reference KAT vectors. Canonical encoding is the
+# default: the signer normalizes the matrix and the verifier rejects the
+# non-canonical (negated) representative, closing the malleability described in
+# ePrint 2026/1305. Forwards to the verifier so both sides stay in sync. OFF by
+# default.
+kat-compat = ["sqisign-verify/kat-compat"]
 
 [dev-dependencies]
 rand = { workspace = true }
