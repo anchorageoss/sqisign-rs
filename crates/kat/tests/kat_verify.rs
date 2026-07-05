@@ -4,6 +4,8 @@
 //! (no keygen or signing involved) and verifies each signature. This tests
 //! the verification path in isolation from the signing path.
 
+#![cfg(feature = "kat-compat")]
+
 use rayon::prelude::*;
 use sqisign_kat::kat_parser;
 use sqisign_verify::{Level1, PublicKey, Signature, Verifier};
