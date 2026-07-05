@@ -3,6 +3,14 @@
 //! Parses the NIST PQC KAT response files and verifies that the Rust
 //! implementation produces identical results across all three security
 //! levels and all signature formats (standard, expanded, compressed).
+//!
+//! These vectors come from the C reference, which does not canonicalize the
+//! basis-change matrix, so ~half of them are non-canonical and are rejected by
+//! the default (canonical) verifier. The suite therefore only compiles under
+//! the `kat-compat` feature, which restores the legacy encoding. Run it with:
+//!   cargo test -p sqisign-verify --release --features kat-compat --test kat_validation
+
+#![cfg(feature = "kat-compat")]
 
 use sqisign_verify::fp::FpBackend;
 use sqisign_verify::params::{Level1, Level3, Level5, SecurityLevel};
