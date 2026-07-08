@@ -914,6 +914,402 @@ fn lowest_set_bit(a: &[u64], nlimbs: usize) -> Option<usize> {
     None
 }
 
+// ===========================================================================
+// Paulo's short-ladder Tate experiment.
+//
+// Idea: replace the two Weil ladders (2 x ~f biextension steps) with a single
+// order-2^f Tate ladder (~f steps) plus a *partial* final exponentiation
+// ^((p-1)*c), where c = (p+1)/2^F_CHR is the small odd cofactor (5 @ L1,
+// 65 @ L3, 27 @ L5). This deliberately omits the (F_CHR - f) squarings that
+// the standard reduction ^((p^2-1)/2^f) would apply.
+// ===========================================================================
+
+/// Ground-truth det(M) = M00*M11 - M01*M10 at full precision, into `out`
+/// (needs `out.len() >= 2*nw`). Not reduced mod 2^f (caller masks).
+fn ground_truth_det<L: FpBackend>(sig: &Signature<L>, nw: usize, out: &mut [u64]) {
+    let wide = 2 * nw;
+    let mut prod1 = [0u64; 16]; // M00 * M11
+    for i in 0..nw {
+        let mut carry: u64 = 0;
+        for j in 0..nw {
+            if i + j >= wide {
+                break;
+            }
+            let p = (sig.mat()[0][0].digits()[i] as u128) * (sig.mat()[1][1].digits()[j] as u128)
+                + (prod1[i + j] as u128)
+                + (carry as u128);
+            prod1[i + j] = p as u64;
+            carry = (p >> 64) as u64;
+        }
+        if i + nw < wide {
+            prod1[i + nw] = carry;
+        }
+    }
+    let mut prod2 = [0u64; 16]; // M01 * M10
+    for i in 0..nw {
+        let mut carry: u64 = 0;
+        for j in 0..nw {
+            if i + j >= wide {
+                break;
+            }
+            let p = (sig.mat()[0][1].digits()[i] as u128) * (sig.mat()[1][0].digits()[j] as u128)
+                + (prod2[i + j] as u128)
+                + (carry as u128);
+            prod2[i + j] = p as u64;
+            carry = (p >> 64) as u64;
+        }
+        if i + nw < wide {
+            prod2[i + nw] = carry;
+        }
+    }
+    let mut borrow: u64 = 0;
+    for i in 0..wide {
+        let (d1, b1) = prod1[i].overflowing_sub(prod2[i]);
+        let (d2, b2) = d1.overflowing_sub(borrow);
+        out[i] = d2;
+        borrow = (b1 as u64) + (b2 as u64);
+    }
+}
+
+/// First differing bit (below `nbits`) of two little-endian integers, or None
+/// if they agree on all `nbits` low bits.
+fn first_mismatch(a: &[u64], b: &[u64], nbits: usize) -> Option<usize> {
+    let mut d = [0u64; 16];
+    let n = a.len().min(b.len()).min(16);
+    for i in 0..n {
+        d[i] = a[i] ^ b[i];
+    }
+    mask_bits(&mut d, nbits);
+    lowest_set_bit(&d, n)
+}
+
+/// One order-2^e Tate ladder + partial exponentiation ^((p-1)*c). Returns
+/// `(reduced, paulo)`: `reduced` is the standard order-2^e reduced Tate value
+/// (= `paulo` squared down (F_CHR - e) times); `paulo = raw^((p-1)*c)` has
+/// order 2^F_CHR.
+fn short_tate<L: FpBackend + LevelPrecomp>(
+    e: u32,
+    p: &sqisign_verify::ec::EcPoint<L>,
+    q: &sqisign_verify::ec::EcPoint<L>,
+    ppq: &sqisign_verify::ec::EcPoint<L>,
+    curve: &mut sqisign_verify::ec::EcCurve<L>,
+) -> (sqisign_verify::fp::Fp2<L>, sqisign_verify::fp::Fp2<L>) {
+    use sqisign_verify::ec::pairing::{clear_cofac, reduced_tate_stages};
+    let f_chr = <L as SecurityLevel>::F_CHR;
+    let cofac = L::p_cofactor_for_2f();
+    // reduced_tate_stages returns (raw, raw^(p-1), fully_reduced).
+    // Return (raw, paulo) where paulo = raw^((p-1)*c).
+    let (raw, pm1, _) = reduced_tate_stages::<L>(e, p, q, ppq, curve, f_chr, cofac);
+    let paulo = clear_cofac::<L>(&pm1, cofac);
+    (raw, paulo)
+}
+
+/// Generic det-recovery experiment for one security level.
+fn paulo_det_recovery<L: FpBackend + LevelPrecomp>(kat: &str, sig_bytes: usize, n: usize, label: &str) {
+    use hybrid_array::typenum::Unsigned;
+    use sqisign_verify::ec::pairing::{clear_cofac, fp2_dlog_2e_pub, weil};
+    use sqisign_verify::ec::point::{ec_dbl_iter_basis, xadd};
+    use sqisign_verify::ec::EcCurve;
+    use sqisign_verify::theta::HD_EXTRA_TORSION;
+    use sqisign_verify::verify::{basis_from_hint, compute_challenge_curve};
+
+    let nw = <L as SecurityLevel>::MpLimbs::USIZE;
+    let f_chr = <L as SecurityLevel>::F_CHR;
+    let cofac = L::p_cofactor_for_2f();
+
+    let entries = parse_kat_entries(kat, n);
+    let total = entries.len();
+
+    // Reference (Weil) match vs ground truth, at the three bit precisions.
+    let (mut weil_pd, mut weil_g, mut weil_f) = (0u32, 0u32, 0u32);
+    // Single short-Tate ladder (Paulo's proposal), depth f, both arg orders,
+    // counting exact agreement with the Weil-recovered det (mod 2^f).
+    let (mut single_pq_eq, mut single_qp_eq) = (0u32, 0u32);
+    // pow_dim2-level match vs ground truth for the single-ladder (best order).
+    let mut single_pd = 0u32;
+    // Ratio of two short-Tate ladders  t(Q,P)/t(P,Q)  (antisymmetric = Weil),
+    // depth f: match vs ground truth and exact agreement with Weil.
+    let (mut ratio_pd, mut ratio_g, mut ratio_f, mut ratio_eq) = (0u32, 0u32, 0u32, 0u32);
+    // Relationships: is the single value == omega_f^{±c}?  is the ratio == omega_f^{±c}?
+    let (mut rel_single_pos, mut rel_single_neg) = (0u32, 0u32);
+    let (mut rel_ratio_pos, mut rel_ratio_neg) = (0u32, 0u32);
+    // RAW-monodromy ratio  raw(Q,P)/raw(P,Q)  (no (p-1) reduction) = Weil?
+    let (mut rawratio_pd, mut rawratio_g, mut rawratio_f, mut rawratio_eq) =
+        (0u32, 0u32, 0u32, 0u32);
+    let (mut rel_rawratio_pos, mut rel_rawratio_neg) = (0u32, 0u32);
+
+    for entry in entries.iter() {
+        let pk = PublicKey::<L>::from_bytes(&entry.pk).unwrap();
+        let sig = Signature::<L>::from_bytes(&entry.sm[..sig_bytes]).unwrap();
+
+        let pow_dim2 =
+            L::E_RSP as usize - sig.two_resp_length() as usize - sig.backtracking() as usize;
+        let g = pow_dim2 + HD_EXTRA_TORSION as usize;
+        let f = pow_dim2 + HD_EXTRA_TORSION as usize + sig.two_resp_length() as usize;
+
+        let mut det_true = [0u64; 16];
+        ground_truth_det::<L>(&sig, nw, &mut det_true);
+        mask_bits(&mut det_true, f);
+
+        // --- challenge basis (reduced to 2^f) and omega_f ---
+        let mut e_chall = compute_challenge_curve::<L>(
+            sig.chall_coeff(),
+            sig.backtracking(),
+            pk.curve(),
+            pk.hint_pk(),
+        )
+        .unwrap();
+        let b_chall_full = basis_from_hint::<L>(&mut e_chall, f_chr, sig.hint_chall()).unwrap();
+        let b_chall_f = ec_dbl_iter_basis(&b_chall_full, f_chr as usize - f, &mut e_chall);
+        let ppq_f = xadd(&b_chall_f.p, &b_chall_f.q, &b_chall_f.pmq);
+        let omega_f = weil::<L>(f as u32, &b_chall_f.p, &b_chall_f.q, &ppq_f, &mut e_chall);
+
+        // --- aux basis (reduced to 2^g) and omega_g ---
+        let mut e_aux = EcCurve::<L>::from_a(sig.e_aux_a()).unwrap();
+        let b_aux_full = basis_from_hint::<L>(&mut e_aux, f_chr, sig.hint_aux()).unwrap();
+        let b_aux_g = ec_dbl_iter_basis(&b_aux_full, f_chr as usize - g, &mut e_aux);
+        let ppq_g = xadd(&b_aux_g.p, &b_aux_g.q, &b_aux_g.pmq);
+        let omega_g = weil::<L>(g as u32, &b_aux_g.p, &b_aux_g.q, &ppq_g, &mut e_aux);
+
+        // --- reference Weil det ---
+        let mut det_weil = [0u64; 16];
+        let _ = fp2_dlog_2e_pub::<L>(&mut det_weil[..nw], &omega_g.inv(), &omega_f.inv(), f as u32);
+        mask_bits(&mut det_weil, f);
+        match first_mismatch(&det_true, &det_weil, f) {
+            None => {
+                weil_pd += 1;
+                weil_g += 1;
+                weil_f += 1;
+            }
+            Some(b) => {
+                if b >= pow_dim2 {
+                    weil_pd += 1;
+                }
+                if b >= g {
+                    weil_g += 1;
+                }
+            }
+        }
+
+        // --- short Tate values, BOTH argument orders. Each is one order-2^f
+        // ladder + ^((p-1)*c); empirically the result already has order 2^f
+        // (no squaring down). ---
+        let (raw_c_pq, tate_c_pq) =
+            short_tate::<L>(f as u32, &b_chall_f.p, &b_chall_f.q, &ppq_f, &mut e_chall);
+        let (raw_c_qp, tate_c_qp) =
+            short_tate::<L>(f as u32, &b_chall_f.q, &b_chall_f.p, &ppq_f, &mut e_chall);
+        let (raw_a_pq, tate_a_pq) =
+            short_tate::<L>(g as u32, &b_aux_g.p, &b_aux_g.q, &ppq_g, &mut e_aux);
+        let (raw_a_qp, tate_a_qp) =
+            short_tate::<L>(g as u32, &b_aux_g.q, &b_aux_g.p, &ppq_g, &mut e_aux);
+
+        // (1) Paulo's proposal: SINGLE ladder, dlog at depth f, both orders.
+        let mut det_pq = [0u64; 16];
+        let _ = fp2_dlog_2e_pub::<L>(&mut det_pq[..nw], &tate_a_pq.inv(), &tate_c_pq.inv(), f as u32);
+        mask_bits(&mut det_pq, f);
+        let mut det_qp = [0u64; 16];
+        let _ = fp2_dlog_2e_pub::<L>(&mut det_qp[..nw], &tate_a_qp.inv(), &tate_c_qp.inv(), f as u32);
+        mask_bits(&mut det_qp, f);
+        if first_mismatch(&det_weil, &det_pq, f).is_none() {
+            single_pq_eq += 1;
+        }
+        if first_mismatch(&det_weil, &det_qp, f).is_none() {
+            single_qp_eq += 1;
+        }
+        let single_best = first_mismatch(&det_true, &det_pq, f)
+            .map_or(f, |b| b)
+            .max(first_mismatch(&det_true, &det_qp, f).map_or(f, |b| b));
+        if single_best >= pow_dim2 {
+            single_pd += 1;
+        }
+
+        // (2) Antisymmetric RATIO of two ladders  t(Q,P)/t(P,Q)  (= Weil), depth f.
+        let ratio_c = tate_c_qp.mul(&tate_c_pq.inv());
+        let ratio_a = tate_a_qp.mul(&tate_a_pq.inv());
+        let mut det_r = [0u64; 16];
+        let _ = fp2_dlog_2e_pub::<L>(&mut det_r[..nw], &ratio_a.inv(), &ratio_c.inv(), f as u32);
+        mask_bits(&mut det_r, f);
+        match first_mismatch(&det_true, &det_r, f) {
+            None => {
+                ratio_pd += 1;
+                ratio_g += 1;
+                ratio_f += 1;
+            }
+            Some(bit) => {
+                if bit >= pow_dim2 {
+                    ratio_pd += 1;
+                }
+                if bit >= g {
+                    ratio_g += 1;
+                }
+            }
+        }
+        if first_mismatch(&det_weil, &det_r, f).is_none() {
+            ratio_eq += 1;
+        }
+
+        // (3) RAW-monodromy ratio  raw(Q,P)/raw(P,Q)  with NO (p-1) reduction.
+        // This is what the Weil pairing actually is (ratio of the two cubical
+        // ladders). Should reproduce Weil and recover det.
+        let rawratio_c = raw_c_qp.mul(&raw_c_pq.inv());
+        let rawratio_a = raw_a_qp.mul(&raw_a_pq.inv());
+        let mut det_rr = [0u64; 16];
+        let _ =
+            fp2_dlog_2e_pub::<L>(&mut det_rr[..nw], &rawratio_a.inv(), &rawratio_c.inv(), f as u32);
+        mask_bits(&mut det_rr, f);
+        match first_mismatch(&det_true, &det_rr, f) {
+            None => {
+                rawratio_pd += 1;
+                rawratio_g += 1;
+                rawratio_f += 1;
+            }
+            Some(bit) => {
+                if bit >= pow_dim2 {
+                    rawratio_pd += 1;
+                }
+                if bit >= g {
+                    rawratio_g += 1;
+                }
+            }
+        }
+        if first_mismatch(&det_weil, &det_rr, f).is_none() {
+            rawratio_eq += 1;
+        }
+
+        // Relationships to the Weil value omega_f (order 2^f).
+        let omega_f_c = clear_cofac::<L>(&omega_f, cofac);
+        let omega_f_neg_c = clear_cofac::<L>(&omega_f.inv(), cofac);
+        if bool::from(tate_c_pq.ct_equal(&omega_f_c)) {
+            rel_single_pos += 1;
+        }
+        if bool::from(tate_c_pq.ct_equal(&omega_f_neg_c)) {
+            rel_single_neg += 1;
+        }
+        if bool::from(ratio_c.ct_equal(&omega_f_c)) {
+            rel_ratio_pos += 1;
+        }
+        if bool::from(ratio_c.ct_equal(&omega_f_neg_c)) {
+            rel_ratio_neg += 1;
+        }
+        if bool::from(rawratio_c.ct_equal(&omega_f)) {
+            rel_rawratio_pos += 1;
+        }
+        if bool::from(rawratio_c.ct_equal(&omega_f.inv())) {
+            rel_rawratio_neg += 1;
+        }
+    }
+
+    eprintln!("================ {} ({} vectors) ================", label, total);
+    eprintln!(
+        "Weil (reference, 2 ladders)  vs ground truth: pow_dim2 {}/{}  g {}/{}  f {}/{}",
+        weil_pd, total, weil_g, total, weil_f, total
+    );
+    eprintln!(
+        "Paulo SINGLE Tate ladder     exact-match w/ Weil det: (P,Q) {}/{}  (Q,P) {}/{}  | pow_dim2 vs truth {}/{}",
+        single_pq_eq, total, single_qp_eq, total, single_pd, total
+    );
+    eprintln!(
+        "REDUCED-Tate ratio t(Q,P)/t(P,Q) [with ^(p-1)c]  vs truth: pow_dim2 {}/{}  g {}/{}  f {}/{}  | ==Weil {}/{}",
+        ratio_pd, total, ratio_g, total, ratio_f, total, ratio_eq, total
+    );
+    eprintln!(
+        "RAW-monodromy ratio raw(Q,P)/raw(P,Q) [no reduction]  vs truth: pow_dim2 {}/{}  g {}/{}  f {}/{}  | ==Weil {}/{}",
+        rawratio_pd, total, rawratio_g, total, rawratio_f, total, rawratio_eq, total
+    );
+    eprintln!(
+        "Relationships: single==omega_f^±c {}/{},{}  reduced-ratio==omega_f^±c {}/{},{}  raw-ratio==omega_f^±1 {}/{},{}",
+        rel_single_pos, rel_single_neg, total,
+        rel_ratio_pos, rel_ratio_neg, total,
+        rel_rawratio_pos, rel_rawratio_neg, total
+    );
+    eprintln!();
+}
+
+#[test]
+fn paulo_short_tate_l1() {
+    paulo_det_recovery::<Level1>(KAT_LVL1, L1_SIG_BYTES, 100, "Level 1  (p=5*2^248-1, c=5)");
+}
+
+#[test]
+fn paulo_short_tate_l3() {
+    paulo_det_recovery::<Level3>(KAT_LVL3, L3_SIG_BYTES, 100, "Level 3  (p=65*2^376-1, c=65)");
+}
+
+#[test]
+fn paulo_short_tate_l5() {
+    paulo_det_recovery::<Level5>(KAT_LVL5, L5_SIG_BYTES, 100, "Level 5  (p=27*2^500-1, c=27)");
+}
+
+/// Step 1: order of the order-2^f raw Tate value and of `raw^((p-1)*c)`, for
+/// the first 10 Level-1 vectors. (Exact-order helpers are L1-specific.)
+#[test]
+fn paulo_short_tate_orders_l1() {
+    use sqisign_verify::ec::pairing::{clear_cofac, reduced_tate_stages};
+    use sqisign_verify::ec::point::{ec_dbl_iter_basis, xadd};
+    use sqisign_verify::theta::HD_EXTRA_TORSION;
+    use sqisign_verify::verify::{basis_from_hint, compute_challenge_curve};
+
+    let f_chr = L1::F_CHR;
+    let cofac: &[u64] = &[5];
+    let entries = parse_kat_entries(KAT_LVL1, 10);
+
+    eprintln!("Order at 2^f: raw Tate ladder output and raw^((p-1)*c). F_CHR={}\n", f_chr);
+    for (idx, entry) in entries.iter().enumerate() {
+        let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
+        let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
+        let pow_dim2 =
+            L1::E_RSP as usize - sig.two_resp_length() as usize - sig.backtracking() as usize;
+        let f = pow_dim2 + HD_EXTRA_TORSION as usize + sig.two_resp_length() as usize;
+
+        let mut e_chall = compute_challenge_curve::<L1>(
+            sig.chall_coeff(),
+            sig.backtracking(),
+            pk.curve(),
+            pk.hint_pk(),
+        )
+        .unwrap();
+        let b_full = basis_from_hint::<L1>(&mut e_chall, f_chr, sig.hint_chall()).unwrap();
+        let b_f = ec_dbl_iter_basis(&b_full, f_chr as usize - f, &mut e_chall);
+        let ppq = xadd(&b_f.p, &b_f.q, &b_f.pmq);
+
+        let (raw, pm1, reduced) =
+            reduced_tate_stages::<L1>(f as u32, &b_f.q, &b_f.p, &ppq, &mut e_chall, f_chr, cofac);
+        let paulo = clear_cofac::<L1>(&pm1, cofac);
+
+        // cross-checks: Weil value at 2^f, and the fully-reduced (.2) Tate value
+        let omega = {
+            use sqisign_verify::ec::pairing::weil;
+            weil::<L1>(f as u32, &b_f.p, &b_f.q, &ppq, &mut e_chall)
+        };
+        let (a_red, b_red) = order_in_p_plus_1(&reduced);
+        let (a_om, b_om) = order_in_p_plus_1(&omega);
+
+        let (a_raw, b_raw, m_raw) = order_in_p2_minus_1(&raw);
+        let (a_p, b_p) = order_in_p_plus_1(&paulo);
+        let _ = (b_red, b_om);
+        let raw_s = {
+            let mut s = if b_raw > 0 {
+                format!("2^{} * 5^{}", a_raw, b_raw)
+            } else {
+                format!("2^{}", a_raw)
+            };
+            if m_raw {
+                s.push_str(" * m (m>1, m|(5*2^247-1))");
+            }
+            s
+        };
+        let paulo_s = if b_p > 0 {
+            format!("2^{} * 5^{}", a_p, b_p)
+        } else {
+            format!("2^{}", a_p)
+        };
+        eprintln!(
+            "KAT {:2}: f={}  raw={}  paulo=raw^((p-1)c)={}  fully_reduced(.2)=2^{}  weil(2^f)=2^{}",
+            idx, f, raw_s, paulo_s, a_red, a_om
+        );
+    }
+}
+
 // --- Matrix bit structure diagnostic ---
 
 #[test]
