@@ -679,6 +679,217 @@ fn diagnostic_det_bit_precision() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Pairing / point order diagnostic.
+//
+// Prints, for the first 10 Level-1 KAT vectors:
+//   Order(P_chall), Order(Q_chall)         (challenge basis, reduced to 2^f)
+//   Order(omega_f), Order(omega_g)         (Weil pairings at exponents f, g)
+//   order of the full-torsion Tate value   before and after ^(p-1)
+//
+// Number theory for Level 1 (p = 5*2^248 - 1):
+//   p + 1   = 5 * 2^248                      (2- and 5-smooth)
+//   p - 1   = 2 * (5*2^247 - 1)              (odd part large / unfactored)
+//   p^2 - 1 = 2^249 * 5 * M,   M = 5*2^247-1 (coprime to 10)
+// So an element's order after ^(p-1) is 2^a * 5^b (fully computable), while the
+// raw value before ^(p-1) can also carry a factor of the unfactored M.
+// ---------------------------------------------------------------------------
+
+/// Smallest `k` with `x^(2^k) == 1`, or `None` if not reached within `cap`.
+fn fp2_ord_2adic<L: FpBackend>(x: &sqisign_verify::fp::Fp2<L>, cap: u32) -> Option<u32> {
+    if bool::from(x.ct_is_one()) {
+        return Some(0);
+    }
+    let mut t = x.clone();
+    for k in 1..=cap {
+        t = t.sqr();
+        if bool::from(t.ct_is_one()) {
+            return Some(k);
+        }
+    }
+    None
+}
+
+/// Multiplicative order of a 2-power torsion point, as the exponent `k` in
+/// `2^k` (smallest `k` with `[2^k]P = O`), or `None` if not reached.
+fn point_ord_2adic<L: FpBackend>(
+    p: &sqisign_verify::ec::EcPoint<L>,
+    curve: &sqisign_verify::ec::EcCurve<L>,
+    cap: u32,
+) -> Option<u32> {
+    use sqisign_verify::ec::point::ec_dbl;
+    if bool::from(p.is_zero()) {
+        return Some(0);
+    }
+    let mut t = p.clone();
+    for k in 1..=cap {
+        t = ec_dbl(&t, curve);
+        if bool::from(t.is_zero()) {
+            return Some(k);
+        }
+    }
+    None
+}
+
+/// Order of `x` given `ord(x) | (p+1) = 5 * 2^248`. Returns `(a, b)` for
+/// `ord = 2^a * 5^b`.
+fn order_in_p_plus_1<L: FpBackend>(x: &sqisign_verify::fp::Fp2<L>) -> (u32, u32) {
+    const E_2F: &[u64] = &[0, 0, 0, 72057594037927936]; // 2^248
+    // 5-part: raise to 2^248 to kill the 2-part; remainder has order | 5.
+    let after2 = x.pow_vartime(E_2F);
+    let b = if bool::from(after2.ct_is_one()) { 0 } else { 1 };
+    // 2-part: raise to 5 to kill the 5-part, then measure the 2-adic order.
+    let after5 = x.pow_vartime(&[5]);
+    let a = fp2_ord_2adic(&after5, 250).expect("2-part exceeds 2^250");
+    (a, b)
+}
+
+/// Order of `x` given `ord(x) | (p^2-1) = 2^249 * 5 * M`, `M = 5*2^247-1`
+/// coprime to 10. Returns `(a, b, m_nontrivial)` for
+/// `ord = 2^a * 5^b * m` with `m | M`, `m > 1` iff `m_nontrivial`.
+fn order_in_p2_minus_1<L: FpBackend>(x: &sqisign_verify::fp::Fp2<L>) -> (u32, u32, bool) {
+    // (p^2-1)/M = 2^249 * 5
+    const E_M: &[u64] = &[0, 0, 0, 720575940379279360];
+    // (p^2-1)/2^249 = 5*M  (odd)
+    const E_2: &[u64] = &[
+        18446744073709551611,
+        18446744073709551615,
+        18446744073709551615,
+        900719925474099199,
+    ];
+    // (p^2-1)/5 = 2^249 * M
+    const E_5: &[u64] = &[
+        0,
+        0,
+        0,
+        18302628885633695744,
+        18446744073709551615,
+        18446744073709551615,
+        18446744073709551615,
+        1407374883553279,
+    ];
+    // M-part trivial iff x^((p^2-1)/M) == 1.
+    let xm = x.pow_vartime(E_M);
+    let m_nontrivial = !bool::from(xm.ct_is_one());
+    // 2-part: raise to (p^2-1)/2^249, remainder is the 2-Sylow component.
+    let u = x.pow_vartime(E_2);
+    let a = fp2_ord_2adic(&u, 250).expect("2-part exceeds 2^250");
+    // 5-part.
+    let v = x.pow_vartime(E_5);
+    let b = if bool::from(v.ct_is_one()) { 0 } else { 1 };
+    (a, b, m_nontrivial)
+}
+
+#[test]
+fn diagnostic_pairing_orders() {
+    use sqisign_verify::ec::pairing::{reduced_tate_stages, weil};
+    use sqisign_verify::ec::point::{ec_dbl_iter_basis, xadd};
+    use sqisign_verify::ec::EcCurve;
+    use sqisign_verify::theta::HD_EXTRA_TORSION;
+    use sqisign_verify::verify::{basis_from_hint, compute_challenge_curve};
+
+    let f_chr = L1::F_CHR; // 248
+    const COFAC: &[u64] = &[5]; // (p+1)/2^248
+
+    let entries = parse_kat_entries(KAT_LVL1, 10);
+    assert_eq!(entries.len(), 10);
+
+    eprintln!("Level 1: p = 5*2^248 - 1 ; p+1 = 5*2^248 ; p-1 = 2*(5*2^247-1)");
+    eprintln!("F_CHR = {} (full 2-power torsion). Orders shown as 2^a[*5^b].\n", f_chr);
+
+    let fmt = |o: Option<u32>| match o {
+        Some(k) => format!("2^{}", k),
+        None => ">2^cap (unexpected)".to_string(),
+    };
+
+    for (idx, entry) in entries.iter().enumerate() {
+        let pk = PublicKey::<L1>::from_bytes(&entry.pk)
+            .unwrap_or_else(|_| panic!("KAT {}: pk decode failed", idx));
+        let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES])
+            .unwrap_or_else(|_| panic!("KAT {}: sig decode failed", idx));
+
+        let pow_dim2 =
+            L1::E_RSP as usize - sig.two_resp_length() as usize - sig.backtracking() as usize;
+        let g = pow_dim2 + HD_EXTRA_TORSION as usize;
+        let f = pow_dim2 + HD_EXTRA_TORSION as usize + sig.two_resp_length() as usize;
+
+        // --- challenge curve + full 2^F_CHR torsion basis ---
+        let mut e_chall = compute_challenge_curve::<L1>(
+            sig.chall_coeff(),
+            sig.backtracking(),
+            pk.curve(),
+            pk.hint_pk(),
+        )
+        .unwrap_or_else(|| panic!("KAT {}: challenge curve failed", idx));
+        let b_chall_full = basis_from_hint::<L1>(&mut e_chall, f_chr, sig.hint_chall())
+            .unwrap_or_else(|| panic!("KAT {}: basis chall failed", idx));
+
+        // Challenge basis reduced to order 2^f (the points that feed omega_f).
+        let b_chall_f = ec_dbl_iter_basis(&b_chall_full, f_chr as usize - f, &mut e_chall);
+        let ppq_f = xadd(&b_chall_f.p, &b_chall_f.q, &b_chall_f.pmq);
+        let omega_f = weil::<L1>(f as u32, &b_chall_f.p, &b_chall_f.q, &ppq_f, &mut e_chall);
+
+        // --- aux curve + basis; omega_g (=omega_aux) at exponent g ---
+        let mut e_aux =
+            EcCurve::<L1>::from_a(sig.e_aux_a()).unwrap_or_else(|| panic!("KAT {}: e_aux", idx));
+        let b_aux_full = basis_from_hint::<L1>(&mut e_aux, f_chr, sig.hint_aux())
+            .unwrap_or_else(|| panic!("KAT {}: basis aux failed", idx));
+        let b_aux_g = ec_dbl_iter_basis(&b_aux_full, f_chr as usize - g, &mut e_aux);
+        let ppq_g = xadd(&b_aux_g.p, &b_aux_g.q, &b_aux_g.pmq);
+        let omega_g = weil::<L1>(g as u32, &b_aux_g.p, &b_aux_g.q, &ppq_g, &mut e_aux);
+
+        // --- full-torsion (e = F_CHR) reduced Tate on the challenge basis,
+        //     exposing the raw value and the value after ^(p-1) ---
+        let ppq_full = xadd(&b_chall_full.p, &b_chall_full.q, &b_chall_full.pmq);
+        let (raw, after_pm1, reduced) = reduced_tate_stages::<L1>(
+            f_chr,
+            &b_chall_full.p,
+            &b_chall_full.q,
+            &ppq_full,
+            &mut e_chall,
+            f_chr,
+            COFAC,
+        );
+
+        // --- orders (e_chall / e_aux are a24-normalized by the pairing calls) ---
+        let ord_p = point_ord_2adic(&b_chall_f.p, &e_chall, 260);
+        let ord_q = point_ord_2adic(&b_chall_f.q, &e_chall, 260);
+        let ord_p_full = point_ord_2adic(&b_chall_full.p, &e_chall, 260);
+        let ord_omega_f = fp2_ord_2adic(&omega_f, 260);
+        let ord_omega_g = fp2_ord_2adic(&omega_g, 260);
+        let ord_reduced = fp2_ord_2adic(&reduced, 260);
+
+        let (a_raw, b_raw, m_raw) = order_in_p2_minus_1(&raw);
+        let (a_aft, b_aft) = order_in_p_plus_1(&after_pm1);
+
+        let smooth = |a: u32, b: u32| {
+            if b > 0 {
+                format!("2^{} * 5^{}", a, b)
+            } else {
+                format!("2^{}", a)
+            }
+        };
+        let raw_str = {
+            let mut s = smooth(a_raw, b_raw);
+            if m_raw {
+                s.push_str(" * m   (m>1, m | (5*2^247-1), not factored)");
+            }
+            s
+        };
+
+        eprintln!("KAT {:2}:  f={}  g={}  pow_dim2={}", idx, f, g, pow_dim2);
+        eprintln!("   Order(P_chall)            = {}   (2^f basis)", fmt(ord_p));
+        eprintln!("   Order(Q_chall)            = {}   (2^f basis)", fmt(ord_q));
+        eprintln!("   Order(omega_f)  [Weil,e=f]= {}", fmt(ord_omega_f));
+        eprintln!("   Order(omega_g)  [Weil,e=g]= {}", fmt(ord_omega_g));
+        eprintln!("   full-torsion basis pt ord = {}   (sanity, expect 2^{})", fmt(ord_p_full), f_chr);
+        eprintln!("   Tate value BEFORE ^(p-1)  = {}", raw_str);
+        eprintln!("   Tate value AFTER  ^(p-1)  = {}", smooth(a_aft, b_aft));
+        eprintln!("   Tate fully reduced        = {}   (expect 2^{})", fmt(ord_reduced), f_chr);
+        eprintln!();
+    }
+}
+
 fn mask_bits(a: &mut [u64], nbits: usize) {
     let q = nbits / 64;
     let r = nbits % 64;

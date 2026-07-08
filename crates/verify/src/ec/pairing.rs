@@ -301,6 +301,61 @@ pub fn reduced_tate<L: FpBackend>(
     r
 }
 
+/// Diagnostic-only variant of [`reduced_tate`] that exposes the intermediate
+/// stages of the final exponentiation. Returns the tuple
+/// `(raw, after_p_minus_1, reduced)` where:
+/// * `raw` is the unreduced monodromy ratio `R.Z / R.X` (an arbitrary element
+///   of 𝔽p²*, i.e. before the final exponentiation),
+/// * `after_p_minus_1` is `raw^(p-1)` (an element of the order-`p+1` subgroup),
+///   computed via the same Frobenius split used in [`reduced_tate`],
+/// * `reduced` is the fully reduced pairing `raw^((p²-1)/2ᶠ)`.
+///
+/// Intended purely for instrumentation/diagnostics; not part of the verifier.
+#[doc(hidden)]
+pub fn reduced_tate_stages<L: FpBackend>(
+    e: u32,
+    p: &EcPoint<L>,
+    q: &EcPoint<L>,
+    pq: &EcPoint<L>,
+    curve: &mut EcCurve<L>,
+    torsion_even_power: u32,
+    cofactor: &[u64],
+) -> (Fp2<L>, Fp2<L>, Fp2<L>) {
+    let e_diff = torsion_even_power - e;
+
+    let (np, nq, ix_p, ix_q) = cubical_normalization(p, q);
+    curve.normalize_a24();
+
+    let params = PairingParams {
+        e,
+        p: np,
+        q: nq,
+        pq: pq.clone(),
+        ix_p,
+        ix_q,
+        a24: curve.a24.clone(),
+    };
+    let r_pt = monodromy_i(&params, true);
+
+    // Unreduced monodromy ratio R.Z / R.X (before ^(p-1)).
+    let raw = r_pt.z.mul(&r_pt.x.inv());
+
+    // ^(p-1) via Frobenius split: raw^(p-1) = conj(raw)/raw.
+    let frob_rx = fp2_frob::<L>(&r_pt.x);
+    let new_rx = r_pt.z.mul(&frob_rx);
+    let frob_rz = fp2_frob::<L>(&r_pt.z);
+    let new_rz = r_pt.x.mul(&frob_rz);
+    let after = new_rx.inv().mul(&new_rz);
+
+    // Complete the reduction: ^((p+1)/2ᶠ) then the residual squarings.
+    let mut reduced = clear_cofac::<L>(&after, cofactor);
+    for _ in 0..e_diff {
+        reduced = reduced.sqr();
+    }
+
+    (raw, after, reduced)
+}
+
 /// Recursive 2-power discrete log: find `a` s.t. `f = g^a` in the
 /// `2^len`-subgroup, given stacks of powers of f and g_inverse.
 #[allow(clippy::needless_range_loop)]
