@@ -2,33 +2,47 @@
 //! intermediate `BigInt` values from the signing path do not persist in freed
 //! pages. Measured overhead: <1% on signing.
 //!
-//! This crate is `no_std` and does not register a `#[global_allocator]` itself
-//! (an embedder supplies its own). A `std` binary can opt in to wrapping the
-//! system allocator with the
-//! [`enable_secure_allocator!`](crate::enable_secure_allocator) macro, placed at
-//! the top of `main.rs`:
+//! With the default `std` feature the crate registers this as the process
+//! [`#[global_allocator]`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html)
+//! automatically (secure by default, no caller action). Build with
+//! `default-features = false` for `no_std`: the crate then registers no global
+//! allocator (the embedder supplies one), and a `std` binary that disabled the
+//! feature can still opt in with the
+//! [`enable_secure_allocator!`](crate::enable_secure_allocator) macro.
 //!
-//! ```rust,ignore
-//! sqisign_rs::enable_secure_allocator!();
-//! ```
+//! Because a library setting `#[global_allocator]` is a process-wide singleton,
+//! an application that registers its own allocator (jemalloc, mimalloc, ...) or
+//! depends on another crate that does will get a "multiple global allocators"
+//! error. Disable the `std` feature in that case and manage the allocator
+//! yourself (optionally wrapping it in [`ZeroizingAllocator`]).
 
 use core::alloc::{GlobalAlloc, Layout};
 use zeroize::Zeroize;
 
 /// A global allocator wrapper that zeros memory before deallocation.
 ///
-/// Generic over the inner allocator `A`. This crate is `no_std`, so it does not
-/// itself register a `#[global_allocator]`: that is the final binary's job, and
-/// a `no_std` embedder must supply its own allocator. A `std` binary can opt in
-/// to the zeroing wrapper around the system allocator with the
-/// [`enable_secure_allocator!`](crate::enable_secure_allocator) macro.
+/// Generic over the inner allocator `A`. With the default `std` feature the
+/// crate registers `ZeroizingAllocator<System>` as the global allocator
+/// automatically (see the module docs); a `no_std` embedder wraps its own
+/// allocator instead, either directly or via
+/// [`enable_secure_allocator!`](crate::enable_secure_allocator).
 pub struct ZeroizingAllocator<A: GlobalAlloc>(pub A);
 
-/// Convenience macro for `std` binaries that want the zeroing allocator wrapped
-/// around the system allocator. Expands in the downstream binary, where `std`
-/// is available.
+/// Secure-by-default: under the `std` feature, scrub all freed heap memory by
+/// making the zeroing wrapper around the system allocator the process global
+/// allocator. No effect on `no_std` builds (the feature is off there).
+#[cfg(feature = "std")]
+#[global_allocator]
+static SQISIGN_GLOBAL_ALLOC: ZeroizingAllocator<std::alloc::System> =
+    ZeroizingAllocator(std::alloc::System);
+
+/// Register the zeroing allocator around the system allocator in a downstream
+/// `std` binary.
 ///
-/// Place at the top of `main.rs`:
+/// Only needed when the default `std` feature is **disabled** — with it enabled
+/// the crate already registers the allocator, and invoking this as well is a
+/// second `#[global_allocator]` (a compile error). Place at the top of
+/// `main.rs`:
 /// ```rust,ignore
 /// sqisign_rs::enable_secure_allocator!();
 /// ```

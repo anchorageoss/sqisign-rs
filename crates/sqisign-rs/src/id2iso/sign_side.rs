@@ -38,9 +38,9 @@ use sqisign_verify::ec::pairing::{ec_dlog_2_tate, weil};
 use sqisign_verify::ec::point::{ec_biscalar_mul, ec_dbl_iter_basis};
 use sqisign_verify::ec::{EcBasis, EcCurve, EcPoint};
 use sqisign_verify::fp::{Fp2, FpBackend};
-use sqisign_verify::theta::chain::{
-    theta_chain_compute_and_eval, theta_chain_compute_and_eval_randomized,
-};
+#[cfg(not(feature = "dpa-protect"))]
+use sqisign_verify::theta::chain::theta_chain_compute_and_eval;
+use sqisign_verify::theta::chain::theta_chain_compute_and_eval_randomized;
 use sqisign_verify::theta::couple::{copy_bases_to_kernel, double_couple_point_iter};
 use sqisign_verify::theta::{ThetaCoupleCurve, ThetaCouplePoint};
 
@@ -110,11 +110,16 @@ pub fn matrix_application_even_basis<L: FpBackend>(
     curve: &EcCurve<L>,
     mat: &mut IbzMat2x2,
     f: u32,
+    rng: &mut impl Rng,
 ) -> Option<()> {
     let nwords = L::NWORDS_ORDER;
     let pow_two = ibz_pow(&Ibz::from(2), f);
 
-    let tmp_bas = bas.clone();
+    let mut tmp_bas = bas.clone();
+    // Side-channel hardening (no-op unless `dpa-protect` is enabled): place the
+    // secret-curve basis in a fresh random projective representative before it
+    // enters the 2-D Montgomery ladder. Transparent to the affine result.
+    crate::id2iso::dpa::maybe_randomize_basis(&mut tmp_bas, rng);
 
     for i in 0..2 {
         for j in 0..2 {
@@ -146,6 +151,7 @@ pub fn endomorphism_application_even_basis<L: FpBackend>(
     theta: &QuatAlgElem,
     f: u32,
     precomp: &SigningPrecomp<L>,
+    rng: &mut impl Rng,
 ) {
     let order = &precomp.extremal_orders[index_alternate_curve];
     // theta must be contained in the order (precondition).
@@ -170,7 +176,7 @@ pub fn endomorphism_application_even_basis<L: FpBackend>(
         }
     }
 
-    matrix_application_even_basis(bas, curve, &mut mat, f)
+    matrix_application_even_basis(bas, curve, &mut mat, f, rng)
         .expect("invariant: endomorphism matrix application must succeed");
 }
 
@@ -769,6 +775,7 @@ fn fixed_degree_isogeny_impl<L: FpBackend + sqisign_verify::precomp::LevelPrecom
         &theta,
         length + HD_EXTRA_TORSION,
         precomp,
+        rng,
     );
 
     let mut e00 = ThetaCoupleCurve {
@@ -778,7 +785,15 @@ fn fixed_degree_isogeny_impl<L: FpBackend + sqisign_verify::precomp::LevelPrecom
 
     let ker = copy_bases_to_kernel(&b0_two, &b0_two_theta);
 
-    match theta_chain_compute_and_eval(length, &mut e00, &ker, true, points) {
+    // The secondary u/v theta chain. Under `dpa-protect`, use the randomized
+    // variant so its theta coordinates are in a fresh representative per
+    // signature (matching the response chain, which is always randomized).
+    #[cfg(not(feature = "dpa-protect"))]
+    let chain_result = theta_chain_compute_and_eval(length, &mut e00, &ker, true, points);
+    #[cfg(feature = "dpa-protect")]
+    let chain_result =
+        theta_chain_compute_and_eval_randomized(length, &mut e00, &ker, true, points, rng);
+    match chain_result {
         Some(cod) => {
             *codomain = cod;
             length
@@ -975,6 +990,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis<
         &theta,
         torsion_even_power,
         precomp,
+        rng,
     );
 
     e01.e2 = fv_codomain.e1.clone();
@@ -1062,7 +1078,15 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis<
     beta1.coord[2] = &beta1.coord[2] * &scalar_inv;
     beta1.coord[3] = &beta1.coord[3] * &scalar_inv;
 
-    endomorphism_application_even_basis(basis, 0, codomain, beta1, torsion_even_power, precomp);
+    endomorphism_application_even_basis(
+        basis,
+        0,
+        codomain,
+        beta1,
+        torsion_even_power,
+        precomp,
+        rng,
+    );
 
     Some(())
 }
