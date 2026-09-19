@@ -88,11 +88,13 @@ For a standalone constant-time, zero-allocation dim-2 verifier, depend on [`sqis
 SQIsign signatures admit a known malleability: negating the basis
 change matrix M produces a second valid signature for the same
 message. This is the isogeny analog of ECDSA's (r,s) vs (r,n-s).
-See [ePrint 2026/1305](https://eprint.iacr.org/2026/1305).
 
 This crate canonicalizes M by default (signer normalizes,
 verifier rejects non-canonical). Canonical signatures are
 accepted by both canonical and legacy verifiers.
+SQISign is not, and cannot be SUF-CMA, see [ePrint 2026/1305](https://eprint.iacr.org/2026/1305).
+Therefore, in applications demanding non-malleable signatures,
+other schemes should be considered.
 
 For byte-exact compatibility with C reference KAT vectors:
 
