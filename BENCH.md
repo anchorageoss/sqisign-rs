@@ -45,8 +45,9 @@ the C `broadwell` cold verification like the prepared row's.
 Reading the table:
 
 - Verification from bytes is within 7 to 12 % of the reference's
-  `broadwell` build at the three levels and 1.5 to 1.7x faster than its
-  `ref` build. A prepared key saves 3 % (the per-key basis).
+  `broadwell` build at the three levels and 1.15 to 1.7x faster than
+  its `ref` build (1.5 / 1.7 / 1.15: level V's `ref` build is close to
+  its assembly build). A prepared key saves 3 % (the per-key basis).
 - The compressed format's recovery (two Weil pairings and one discrete
   logarithm at `2^(RESPONSE_BITS + 2)`) costs 2.2 / 5.2 / 11.0 Mcycles
   over the prepared verification: 18 / 17 / 13 % of it, for 12 % fewer

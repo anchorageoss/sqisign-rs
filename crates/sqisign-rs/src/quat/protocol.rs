@@ -3,6 +3,7 @@
 
 use super::{QuatAlg, QuatAlgElem, QuatIdeal};
 use crate::mp::{DefaultDomain, Ibz, Rng};
+use zeroize::Zeroizing;
 
 /// The response of SQIsign: `(sk_chall_ideal, resp_quat, norm,
 /// sk_chall_quat)`. `sk_chall_ideal` is a small prime-norm ideal equivalent
@@ -20,11 +21,15 @@ pub fn response_element<const N: usize>(
     alg: &QuatAlg<N>,
     rng: &mut impl Rng,
 ) -> Option<(QuatIdeal<N>, QuatAlgElem<N>, Ibz<N>, QuatAlgElem<N>)> {
-    let inter = QuatIdeal::intersect_o0(ideal_chall_two, sk_ideal, chall_split);
+    let inter = Zeroizing::new(QuatIdeal::intersect_o0(
+        ideal_chall_two,
+        sk_ideal,
+        chall_split,
+    ));
     let (mut sk_chall_quat, sk_chall_ideal) =
         inter.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut DefaultDomain(&mut *rng))?;
     sk_chall_quat = sk_chall_quat.conj();
-    let prod = QuatIdeal::mul_o0(&sk_chall_ideal, ideal_commit);
+    let prod = Zeroizing::new(QuatIdeal::mul_o0(&sk_chall_ideal, ideal_commit));
     let mut bound = Ibz::<N>::one().mul_2exp(e).sub(&Ibz::one());
     bound.set_bound(e as i32 + 1);
     let (resp_quat, mut norm) = prod.sample_from_ball(&bound, alg, rng)?;

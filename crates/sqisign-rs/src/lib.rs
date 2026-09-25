@@ -47,12 +47,10 @@ pub mod id2iso;
 pub mod mp;
 pub mod precomp;
 pub mod quat;
-pub mod secure_alloc;
 pub mod sqisign;
 
 #[cfg(feature = "compact")]
 pub use compact::{generate_compact, CompactSignError, CompactSigningKey};
-pub use secure_alloc::ZeroizingAllocator;
 #[cfg(feature = "compact")]
 pub use sqisign_verify::compact::{CompactLevel, CompactPublicKey, CompactSignature};
 pub use sqisign_verify::{
@@ -62,15 +60,15 @@ pub use sqisign_verify::{
 
 use alloc::vec::Vec;
 use sqisign_verify::rng::Rng;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 /// A level with its signing-side parameters: the quaternion algebra and
 /// the endomorphism data, and the secret key of the matching width.
 pub trait SigningLevel: Level {
     /// The signing parameters ([`sqisign::Params`] at the level's width).
     type Params: 'static;
-    /// The protocol-level secret key.
-    type SecretKey: Clone + Zeroize;
+    /// The protocol-level secret key (zeroized on drop).
+    type SecretKey: Clone + Zeroize + ZeroizeOnDrop;
     /// The parameters, built from the constants.
     fn params() -> Self::Params;
     /// `protocols_keygen`.
@@ -86,12 +84,12 @@ pub trait SigningLevel: Level {
         msg: &[u8],
         rng: &mut R,
     ) -> Option<sqisign_verify::sqisign::Signature<Self>>;
-    /// `secret_key_to_bytes`.
+    /// `secret_key_to_bytes`, in a buffer zeroized on drop.
     fn secret_key_to_bytes(
         params: &Self::Params,
         sk: &Self::SecretKey,
         pk: &sqisign_verify::sqisign::PublicKey<Self>,
-    ) -> Vec<u8>;
+    ) -> Zeroizing<Vec<u8>>;
     /// `secret_key_from_bytes`, with the embedded public key.
     fn secret_key_from_bytes(
         params: &Self::Params,
@@ -128,7 +126,7 @@ macro_rules! signing_level {
                 params: &Self::Params,
                 sk: &Self::SecretKey,
                 pk: &sqisign_verify::sqisign::PublicKey<Self>,
-            ) -> Vec<u8> {
+            ) -> Zeroizing<Vec<u8>> {
                 sqisign::secret_key_to_bytes(params, sk, pk)
             }
             fn secret_key_from_bytes(
@@ -205,7 +203,8 @@ impl<L: SigningLevel> SigningKey<L> {
 
     /// The reference's secret-key encoding: the public key, the secret
     /// ideal in inert form, the basis-change matrix (270 / 417 / 549 bytes).
-    pub fn to_bytes(&self) -> Vec<u8> {
+    /// The buffer is zeroized when dropped.
+    pub fn to_bytes(&self) -> Zeroizing<Vec<u8>> {
         L::secret_key_to_bytes(&self.params, &self.sk, self.pk.inner())
     }
 

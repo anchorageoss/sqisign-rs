@@ -25,6 +25,7 @@ use sqisign_verify::theta::chain::theta_chain_compute_and_eval;
 use sqisign_verify::theta::{
     ChainMode, ThetaCoupleCurve, ThetaCouplePoint, ThetaKernelCouplePoints,
 };
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 /// Everything a level's key generation and signing need: the verifier's
 /// constants plus the quaternion algebra and the endomorphism data.
@@ -71,8 +72,8 @@ level!(
 );
 
 /// `secret_key_t` (the canonical basis is not kept: signing recomputes
-/// nothing from it).
-#[derive(Clone, Debug)]
+/// nothing from it). Zeroized on drop; `Debug` is redacted.
+#[derive(Clone)]
 pub struct SecretKey<L: Prime, const N: usize> {
     /// `E_pk`.
     pub curve: EcCurve<L>,
@@ -84,25 +85,33 @@ pub struct SecretKey<L: Prime, const N: usize> {
     pub mat_bacan_to_ba0_two: Mat2x2<N>,
 }
 
-impl<L: Prime, const N: usize> zeroize::Zeroize for SecretKey<L, N> {
+impl<L: Prime, const N: usize> Zeroize for SecretKey<L, N> {
     fn zeroize(&mut self) {
         // the curve is the public key; the ideal and the matrix are secret
-        self.secret_ideal.x.zeroize();
-        self.secret_ideal.y.zeroize();
-        self.secret_ideal.norm.zeroize();
-        for row in self.mat_bacan_to_ba0_two.0.iter_mut() {
-            for x in row.iter_mut() {
-                x.zeroize();
-            }
-        }
+        self.secret_ideal.zeroize();
+        self.mat_bacan_to_ba0_two.zeroize();
+    }
+}
+
+impl<L: Prime, const N: usize> Drop for SecretKey<L, N> {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl<L: Prime, const N: usize> ZeroizeOnDrop for SecretKey<L, N> {}
+
+impl<L: Prime, const N: usize> core::fmt::Debug for SecretKey<L, N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("SecretKey([REDACTED])")
     }
 }
 
 /// `prng_seed`: the 48-byte root seed, from which the domain streams are
 /// derived (`prng_domain_seed`).
-fn prng_seed(entropy: &mut impl Rng) -> Option<[u8; 48]> {
-    let mut seed = [0u8; 48];
-    entropy.fill(&mut seed).then_some(seed)
+fn prng_seed(entropy: &mut impl Rng) -> Option<Zeroizing<[u8; 48]>> {
+    let mut seed = Zeroizing::new([0u8; 48]);
+    entropy.fill(&mut *seed).then_some(seed)
 }
 
 fn domain(seed: &[u8; 48], dom: &[u8; 3]) -> ShakeRng {
@@ -136,27 +145,34 @@ pub fn keygen<L: FpBackend + PrimePrecomp, const N: usize>(
     // iterating until a solution has been found
     let (mut secret_ideal, mut curve, b_0_two) = loop {
         let Some(ideal) = QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, &mut key)
+            .map(Zeroizing::new)
         else {
             continue;
         };
         // replacing the secret key ideal by a shorter equivalent one
-        let Some((_, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut key)
+        let Some((beta, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut key)
         else {
             continue;
         };
+        drop(Zeroizing::new(beta));
+        let ideal = Zeroizing::new(ideal);
         let Some((curve, basis)) = arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, &mut key)
         else {
             continue;
         };
-        break (ideal, curve, basis);
+        break (ideal, curve, Zeroizing::new(basis));
     };
 
     // a deterministic basis with a hint, and the change of basis to the
     // image of E0's basis
     let f_chall = vp.challenge_bits + EXTRA_TORSION;
     let (canonical_basis, hint_pk) = ec_curve_to_basis_2f_to_hint(&mut curve, f_chall, 0)?;
-    let mut mat: Mat2x2<N> =
-        change_of_basis_matrix_tate(&canonical_basis, &b_0_two, &mut curve, f_chall)?;
+    let mut mat: Zeroizing<Mat2x2<N>> = Zeroizing::new(change_of_basis_matrix_tate(
+        &canonical_basis,
+        &b_0_two,
+        &mut curve,
+        f_chall,
+    )?);
     for row in mat.0.iter_mut() {
         for x in row.iter_mut() {
             *x = x.mod2exp(vp.challenge_bits);
@@ -187,8 +203,8 @@ pub fn keygen<L: FpBackend + PrimePrecomp, const N: usize>(
         },
         SecretKey {
             curve,
-            secret_ideal,
-            mat_bacan_to_ba0_two: mat,
+            secret_ideal: *secret_ideal,
+            mat_bacan_to_ba0_two: *mat,
         },
     ))
 }
@@ -217,10 +233,16 @@ pub fn sign<L: FpBackend + PrimePrecomp, const N: usize>(
             domain: domain(&seed, b"com"),
             default: &mut def,
         };
-        let ideal = QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, &mut com)?;
-        let (_, ideal) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, &mut com)?;
+        let ideal = Zeroizing::new(QuatIdeal::random_given_prime_norm(
+            &params.sec_degree,
+            alg,
+            &mut com,
+        )?);
+        let (beta, ideal) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, &mut com)?;
+        drop(Zeroizing::new(beta));
+        let ideal = Zeroizing::new(ideal);
         let (e_com, b_com) = arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, &mut com)?;
-        (e_com, b_com, ideal)
+        (e_com, Zeroizing::new(b_com), ideal)
     };
 
     // the challenge: a scalar, the kernel P + [s] Q in the canonical basis
@@ -230,9 +252,11 @@ pub fn sign<L: FpBackend + PrimePrecomp, const N: usize>(
         Ibz::set(1, 2),
         Ibz::from_digits(&chall_coeff[..L::ORDER_WORDS]),
     ]);
-    let vec = sk.mat_bacan_to_ba0_two.eval(&vec);
+    let vec = Zeroizing::new(sk.mat_bacan_to_ba0_two.eval(&vec));
     let (ideal_chall_two, chall_split) =
         kernel_dlogs_to_ideal_even(&vec, vp.challenge_bits, alg, act)?;
+    let (ideal_chall_two, chall_split) =
+        (Zeroizing::new(ideal_chall_two), Zeroizing::new(chall_split));
 
     // the response and the auxiliary ideal
     let (ideal_skchall, resp_quat, deg_odd, aux_ideal, mut aux_split) = {
@@ -243,18 +267,24 @@ pub fn sign<L: FpBackend + PrimePrecomp, const N: usize>(
         let (ideal_skchall, resp_quat, deg_odd, sk_chall_quat) = response_element(
             &sk.secret_ideal,
             &ideal_chall_two,
-            Some(&chall_split),
+            Some(&*chall_split),
             &ideal_commit,
             vp.response_bits - 1,
             alg,
             &mut res,
         )?;
+        let (ideal_skchall, resp_quat, deg_odd, sk_chall_quat) = (
+            Zeroizing::new(ideal_skchall),
+            Zeroizing::new(resp_quat),
+            Zeroizing::new(deg_odd),
+            Zeroizing::new(sk_chall_quat),
+        );
         if !ideal_skchall.norm.gcd(&ideal_commit.norm).is_one() {
             // "Non-coprime resp norms. This should never happen."
             return None;
         }
         let remain = Ibz::<N>::one().mul_2exp(vp.response_bits);
-        let mut random_aux_norm = remain.sub(&deg_odd);
+        let mut random_aux_norm = Zeroizing::new(remain.sub(&deg_odd));
         random_aux_norm.set_bound(vp.response_bits as i32 + 1);
         let (aux_ideal, aux_split) = QuatIdeal::random_given_arbitrary_odd_norm(
             &random_aux_norm,
@@ -262,7 +292,13 @@ pub fn sign<L: FpBackend + PrimePrecomp, const N: usize>(
             alg,
             &mut res,
         )?;
-        (ideal_skchall, resp_quat, deg_odd, aux_ideal, aux_split)
+        (
+            ideal_skchall,
+            resp_quat,
+            deg_odd,
+            Zeroizing::new(aux_ideal),
+            Zeroizing::new(aux_split),
+        )
     };
     if !aux_ideal.norm.gcd(&ideal_skchall.norm).is_one()
         || !aux_ideal.norm.gcd(&sk.secret_ideal.norm).is_one()
@@ -270,46 +306,58 @@ pub fn sign<L: FpBackend + PrimePrecomp, const N: usize>(
         // "Non-coprime aux norms. This should never happen."
         return None;
     }
-    let ideal_skchall_aux = QuatIdeal::intersect_o0(&aux_ideal, &ideal_skchall, Some(&aux_split));
+    let ideal_skchall_aux = Zeroizing::new(QuatIdeal::intersect_o0(
+        &aux_ideal,
+        &ideal_skchall,
+        Some(&*aux_split),
+    ));
 
     // 2^(RESPONSE_BITS + HD_EXTRA_TORSION): the torsion above the kernel
     let remain = Ibz::<N>::one().mul_2exp(vp.response_bits + HD_EXTRA_TORSION);
 
     // the isogeny of the intersection, and the response applied to the
     // images of E0's basis
-    let out = ideal_to_isogeny_qlapoty::<L, N>(
+    let out = Zeroizing::new(ideal_to_isogeny_qlapoty::<L, N>(
         &ideal_skchall_aux,
         alg,
         act,
         &mut def,
         &mut Id2IsoStats::default(),
-    )?;
-    let mut e_aux = out.codomain;
-    let mut b_aux = out.basis;
-    let degree_resp_inv = ideal_skchall.norm.invmod(&remain)?;
+    )?);
+    let mut e_aux = out.codomain.clone();
+    let mut b_aux = Zeroizing::new(out.basis.clone());
+    let degree_resp_inv = Zeroizing::new(ideal_skchall.norm.invmod(&remain)?);
     for i in 0..2 {
         aux_split.coord.0[i] = aux_split.coord.0[i].mul(&degree_resp_inv).modulo(&remain);
     }
     for i in 2..4 {
         aux_split.coord.0[i].set_bound(remain.get_bound());
     }
-    let resp_aux_quat = aux_split.mul(&resp_quat, alg);
+    let resp_aux_quat = Zeroizing::new(aux_split.mul(&resp_quat, alg));
     endomorphism_application_even_basis(&mut b_aux, &e_aux, &resp_aux_quat, f, false, alg, act)?;
 
     // reduce both bases to the relevant order
-    let b_com = ec_dbl_iter_basis(&b_com, (f - reduced_order) as usize, &mut e_com);
-    let b_aux = ec_dbl_iter_basis(&b_aux, (f - reduced_order) as usize, &mut e_aux);
+    let b_com = Zeroizing::new(ec_dbl_iter_basis(
+        &b_com,
+        (f - reduced_order) as usize,
+        &mut e_com,
+    ));
+    let b_aux = Zeroizing::new(ec_dbl_iter_basis(
+        &b_aux,
+        (f - reduced_order) as usize,
+        &mut e_aux,
+    ));
 
     // the (2^RESPONSE_BITS, 2^RESPONSE_BITS)-isogeny E_com x E_aux ->
     // E_aux2 x E_chall2 with kernel <(B_com.P, [1/deg] B_aux.P), (B_com.Q,
     // [1/deg] B_aux.Q)>, pushing B_com
-    let degree_resp_inv = deg_odd.invmod(&remain)?;
+    let degree_resp_inv = Zeroizing::new(deg_odd.invmod(&remain)?);
     let mut e12 = ThetaCoupleCurve {
         e1: e_com,
         e2: e_aux,
     };
     let mut ker = ThetaKernelCouplePoints::from_bases(&b_com, &b_aux);
-    let scalar = digits(&degree_resp_inv);
+    let scalar = Zeroizing::new(digits(&degree_resp_inv));
     let scalar = &scalar[..L::ORDER_WORDS];
     ker.t1.p2 = ec_mul(&ker.t1.p2, scalar, reduced_order as usize, &mut e12.e2);
     ker.t2.p2 = ec_mul(&ker.t2.p2, scalar, reduced_order as usize, &mut e12.e2);
@@ -386,11 +434,14 @@ pub fn secret_key_to_bytes<L: FpBackend, const N: usize>(
     params: &Params<N>,
     sk: &SecretKey<L, N>,
     pk: &PublicKey<L>,
-) -> Vec<u8> {
+) -> Zeroizing<Vec<u8>> {
     let vp = &params.verify;
     let mut pkb = [0u8; MAX_PUBLICKEY_BYTES];
     let n = public_key_to_bytes(pk, &mut pkb);
-    let mut out = pkb[..n].to_vec();
+    // one allocation of the final size: a reallocation would leave an
+    // unscrubbed copy behind
+    let mut out = Zeroizing::new(Vec::with_capacity(vp.secretkey_bytes));
+    out.extend_from_slice(&pkb[..n]);
     let fp = vp.fp_encoded_bytes;
     let cb = vp.challenge_bytes;
     let mut push = |x: &Ibz<N>, n: usize| {
