@@ -1,6 +1,6 @@
 [package]
 name = "sqisign-kat"
-description = "KAT test harness for SQIsign (dev-only, not published)"
+description = "KAT test harness for SQIsign round 3 (dev-only, not published)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,15 +12,5 @@ publish = false
 sqisign-rs = { path = "../sqisign-rs" }
 sqisign-verify = { path = "../verify" }
 aes = { workspace = true }
-rand_core = { workspace = true }
 hex = "0.4"
 rayon = "1.10"
-
-[features]
-default = []
-# The KAT vectors come from the C reference, which does not canonicalize the
-# basis-change matrix. Byte-exact KAT validation therefore requires the legacy
-# (non-canonical) signer/verifier behaviour, so the KAT test suite is gated on
-# this feature and only compiles when it is enabled. Run the suite with:
-#   cargo test -p sqisign-kat --release --features kat-compat
-kat-compat = ["sqisign-rs/kat-compat", "sqisign-verify/kat-compat"]

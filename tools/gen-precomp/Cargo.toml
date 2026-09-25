@@ -1,0 +1,15 @@
+[package]
+name = "gen-precomp"
+description = "Generates the precomputed constants (E0 basis, endomorphism actions, level parameters) of the round-3 modules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+sqisign-verify = { path = "../../crates/verify" }
+hybrid-array = { workspace = true }
+subtle = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+num-integer = { workspace = true }

@@ -23,6 +23,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo clippy --workspace -- -D warnings
+      - run: cargo clippy -p sqisign-verify -p sqisign-rs --all-targets --features compact -- -D warnings
 
   no-std:
     name: no_std (thumbv7em)
@@ -35,6 +36,18 @@ jobs:
         with:
           targets: thumbv7em-none-eabihf
       - run: cargo check -p sqisign-verify --target thumbv7em-none-eabihf
+
+  generated:
+    name: generated backends are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: python3 tools/gen-fp-asm/gen_fp_asm.py --check --without-mont crates/verify/src/fp
+      - run: cargo run -p gen-fp -- --check crates/verify/src/fp
+      - run: cargo run --release -p gen-precomp -- --check .
 
   msrv:
     name: MSRV (1.80)

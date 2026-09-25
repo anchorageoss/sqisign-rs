@@ -6,6 +6,7 @@
 use super::{Fp, FpBackend};
 use hybrid_array::Array;
 use subtle::{Choice, ConstantTimeEq};
+use typenum::Unsigned;
 
 impl<L: FpBackend> Default for Fp<L> {
     fn default() -> Self {
@@ -14,6 +15,13 @@ impl<L: FpBackend> Default for Fp<L> {
 }
 
 impl<L: FpBackend> Fp<L> {
+    /// The backend's internal limbs, as stored (Montgomery form, not
+    /// canonical): for the differential test of the x86-64 kernels and the
+    /// constant-time harness. Compare field elements with `ct_equal`.
+    pub fn as_limbs(&self) -> &[u64] {
+        &self.limbs[..]
+    }
+
     /// The zero element.
     #[inline]
     pub fn zero() -> Self {
@@ -31,10 +39,14 @@ impl<L: FpBackend> Fp<L> {
     }
 
     /// Construct from a raw u64 limb slice already in Montgomery form.
+    ///
+    /// # Panics
+    ///
+    /// If `limbs.len()` is not the backend's limb count (`copy_from_slice`).
     #[inline]
     pub fn from_limbs(limbs: &[u64]) -> Self {
         let mut out = Array::<u64, L::FpLimbs>::default();
-        debug_assert_eq!(limbs.len(), out.len());
+        assert_eq!(limbs.len(), out.len(), "Fp::from_limbs: wrong limb count");
         out.as_mut_slice().copy_from_slice(limbs);
         Self { limbs: out }
     }
@@ -97,6 +109,31 @@ impl<L: FpBackend> Fp<L> {
         let mut out = Array::<u64, L::FpLimbs>::default();
         L::sqr(&mut out, &self.limbs);
         Self { limbs: out }
+    }
+
+    /// `self <- self * rhs` in place (P28): no result moved into the
+    /// caller's value.
+    #[inline]
+    pub fn mul_assign(&mut self, rhs: &Self) {
+        L::mul_assign(&mut self.limbs, &rhs.limbs);
+    }
+
+    /// `self <- self^2` in place (P28).
+    #[inline]
+    pub fn sqr_assign(&mut self) {
+        L::sqr_assign(&mut self.limbs);
+    }
+
+    /// `self <- self + rhs` in place (P28).
+    #[inline]
+    pub fn add_assign(&mut self, rhs: &Self) {
+        L::add_assign(&mut self.limbs, &rhs.limbs);
+    }
+
+    /// `self <- self - rhs` in place (P28).
+    #[inline]
+    pub fn sub_assign(&mut self, rhs: &Self) {
+        L::sub_assign(&mut self.limbs, &rhs.limbs);
     }
 
     /// `self * val mod 2p` for a small integer `val`.
@@ -166,9 +203,13 @@ impl<L: FpBackend> Fp<L> {
     }
 
     /// Deserialize from canonical little-endian bytes. Returns `None`
-    /// if `bytes` does not represent an integer in `[0, p)`.
+    /// if `bytes` does not represent an integer in `[0, p)` or has another
+    /// length than `FpEncodedBytes`.
     #[inline]
     pub fn decode(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != L::FpEncodedBytes::USIZE {
+            return None;
+        }
         let mut limbs = Array::<u64, L::FpLimbs>::default();
         let ok = L::decode(&mut limbs, bytes);
         if bool::from(ok) {
