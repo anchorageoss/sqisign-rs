@@ -31,9 +31,12 @@ conversion of round-2 keys or signatures.
   `PublicKey<L>`, `Signature<L>`, `SigningKey<L>`, `generate`,
   `SigningKey::sign`, `PublicKey::{verify, prepare}`, byte codecs with
   `hybrid_array` lengths, the RustCrypto `signature` traits
-  (`Verifier`, `SignatureEncoding`, `RandomizedSigner`), `zeroize` on
-  the signing key. The verify crate is `no_std` and heap-free; signing
-  uses fixed-precision integers (no `num-bigint`).
+  (`Verifier`, `SignatureEncoding`, `RandomizedSigner`). The signing
+  key, the protocol-level secret keys and the secret-key encoding
+  (`Zeroizing<Vec<u8>>`) zeroize on drop, and the signing path's secret
+  intermediates are held in `Zeroizing` wrappers (SECURITY.md lists what
+  is and is not covered). The verify crate is `no_std` and heap-free;
+  signing uses fixed-precision integers (no `num-bigint`).
 - The compressed format for round 3 ([COMPRESSION.md](COMPRESSION.md)):
   176 / 269 / 353 bytes, three matrix entries and four bits, the fourth
   entry recovered from two Weil pairings. `Signature::compress`,
@@ -74,6 +77,10 @@ conversion of round-2 keys or signatures.
   compressed / compact (dimension-4) formats, the `sqisign-rk`
   rerandomizable keys, the `kat-compat` feature and the signer-side
   canonical matrix, the `num-bigint` quaternion layer, the round-2 KATs.
+- `ZeroizingAllocator`, the `enable_secure_allocator!` macro and the
+  `crates/alloc` audit crate: they scrubbed the round-2 signer's heap
+  big-integer temporaries, which the round-3 signer does not have (its
+  integers are fixed-precision and live on the stack or in the key).
 - `-C target-cpu=native` from `.cargo/config.toml`: it made the
   saturated-limb build slower (level V verification 97.5 against 89.5
   Mcycles without it). Builds are of the default target; the kernels

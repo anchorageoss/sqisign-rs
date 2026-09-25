@@ -27,6 +27,10 @@ pub(crate) fn asm_available() -> bool {
     }
 }
 
+// `__cpuid` / `__cpuid_count` are `unsafe fn` on the MSRV (1.80) and safe
+// on newer toolchains, so the block below is required on one and flagged
+// as unnecessary on the other; the allow keeps both warning-free.
+#[allow(unused_unsafe)]
 #[cold]
 fn detect() -> bool {
     // SAFETY: `cpuid` is available on every x86-64 CPU; leaf 7 is queried

@@ -103,6 +103,16 @@ pub struct Id2IsoOutput<L: Prime, const N: usize> {
     pub basis: EcBasis<L>,
 }
 
+impl<L: Prime, const N: usize> zeroize::Zeroize for Id2IsoOutput<L, N> {
+    /// The codomain is the public curve; the element, its degree and the
+    /// pushed basis are cleared.
+    fn zeroize(&mut self) {
+        self.beta1.zeroize();
+        self.d1.zeroize();
+        self.basis.zeroize();
+    }
+}
+
 /// The curve `E0: y^2 = x^3 + x`.
 #[inline]
 pub fn e0_curve<L: FpBackend>() -> EcCurve<L> {

@@ -52,6 +52,7 @@ use crate::id2iso::{
 use crate::mp::{DefaultDomain, Ibz, Rng, ShakeRng};
 use crate::quat::{Mat2x2, QuatIdeal, Vec2};
 use crate::sqisign::Params;
+use zeroize::{Zeroize, Zeroizing};
 
 /// A compact public key: the curve and the library's two basis hints.
 #[derive(Clone, Debug)]
@@ -76,22 +77,24 @@ pub struct CompactSecretKey<L: HdLevel, const N: usize> {
     mat_bpkcan_to_bpk0: Mat2x2<N>,
 }
 
-impl<L: HdLevel, const N: usize> zeroize::Zeroize for CompactSecretKey<L, N> {
+impl<L: HdLevel, const N: usize> Zeroize for CompactSecretKey<L, N> {
     fn zeroize(&mut self) {
-        self.secret_ideal.x.zeroize();
-        self.secret_ideal.y.zeroize();
-        self.secret_ideal.norm.zeroize();
-        for row in self.mat_bpkcan_to_bpk0.0.iter_mut() {
-            for x in row.iter_mut() {
-                x.zeroize();
-            }
-        }
+        self.secret_ideal.zeroize();
+        self.mat_bpkcan_to_bpk0.zeroize();
     }
 }
 
 impl<L: HdLevel, const N: usize> Drop for CompactSecretKey<L, N> {
     fn drop(&mut self) {
-        zeroize::Zeroize::zeroize(self);
+        self.zeroize();
+    }
+}
+
+impl<L: HdLevel, const N: usize> zeroize::ZeroizeOnDrop for CompactSecretKey<L, N> {}
+
+impl<L: HdLevel, const N: usize> core::fmt::Debug for CompactSecretKey<L, N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("CompactSecretKey([REDACTED])")
     }
 }
 
@@ -122,9 +125,9 @@ const MAX_RESPONSE_TRIES: usize = 4096;
 const PRIME_ROUNDS: u32 = 40;
 
 fn seeded(entropy: &mut impl Rng, dom: &[u8; 3]) -> Option<ShakeRng> {
-    let mut seed = [0u8; 48];
-    entropy.fill(&mut seed).then_some(())?;
-    Some(ShakeRng::new(&seed, dom))
+    let mut seed = Zeroizing::new([0u8; 48]);
+    entropy.fill(&mut *seed).then_some(())?;
+    Some(ShakeRng::new(&*seed, dom))
 }
 
 /// The hinted basis of `E[2^f]` as an x-only basis, with its hints.
@@ -148,23 +151,29 @@ pub fn compact_keygen<L: HdLevel, const N: usize>(
     let mut rng = seeded(entropy, b"ckg")?;
     loop {
         let Some(ideal) = QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, &mut rng)
+            .map(Zeroizing::new)
         else {
             continue;
         };
-        let Some((_, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut rng)
+        let Some((beta, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut rng)
         else {
             continue;
         };
+        drop(Zeroizing::new(beta));
+        let ideal = Zeroizing::new(ideal);
         let Some((mut curve, b_0_two)) =
             arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, &mut rng)
         else {
             continue;
         };
+        let b_0_two = Zeroizing::new(b_0_two);
         curve.normalize();
         let Some((basis, hp, hq)) = hinted_basis::<L>(&curve) else {
             continue;
         };
-        let Some(mat) = change_of_basis_matrix_tate::<L, N>(&basis, &b_0_two, &mut curve, f) else {
+        let Some(mat) = change_of_basis_matrix_tate::<L, N>(&basis, &b_0_two, &mut curve, f)
+            .map(Zeroizing::new)
+        else {
             continue;
         };
         let mut pk_curve = curve.clone();
@@ -177,8 +186,8 @@ pub fn compact_keygen<L: HdLevel, const N: usize>(
             },
             CompactSecretKey {
                 curve,
-                secret_ideal: ideal,
-                mat_bpkcan_to_bpk0: mat,
+                secret_ideal: *ideal,
+                mat_bpkcan_to_bpk0: *mat,
             },
         ));
     }
@@ -238,22 +247,27 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     // commitment (round 3)
     let (mut e_com, b_com, ideal_commit) = loop {
         let Some(ideal) = QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, &mut rng)
+            .map(Zeroizing::new)
         else {
             continue;
         };
-        let Some((_, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, &mut rng)
+        let Some((beta, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, &mut rng)
         else {
             continue;
         };
+        drop(Zeroizing::new(beta));
+        let ideal = Zeroizing::new(ideal);
         if let Some((e, b)) = arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, &mut rng) {
-            break (e, b, ideal);
+            break (e, Zeroizing::new(b), ideal);
         }
     };
     e_com.normalize();
     let a_com = e_com.a.clone();
     let (b_com_can, hp_com, hq_com) = hinted_basis::<L>(&e_com).ok_or(E::CommitmentBasis)?;
-    let m_com: Mat2x2<N> = change_of_basis_matrix_tate::<L, N>(&b_com_can, &b_com, &mut e_com, f)
-        .ok_or(E::CommitmentBasis)?;
+    let m_com: Zeroizing<Mat2x2<N>> = Zeroizing::new(
+        change_of_basis_matrix_tate::<L, N>(&b_com_can, &b_com, &mut e_com, f)
+            .ok_or(E::CommitmentBasis)?,
+    );
 
     // challenge: SHAKE256("SQI" || pk || A_com || msg), λ bits
     let mut pkb = [0u8; MAX_PK_WIRE_BYTES];
@@ -265,12 +279,14 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     k.set_bound(L::LAMBDA as i32 + 1);
 
     // the challenge ideal: kernel P + [k] Q on the hinted basis, in τ(B_0) coordinates
-    let mut vec = sk.mat_bpkcan_to_bpk0.eval(&Vec2([Ibz::one(), k]));
+    let mut vec = Zeroizing::new(sk.mat_bpkcan_to_bpk0.eval(&Vec2([Ibz::one(), k])));
     for x in vec.0.iter_mut() {
         *x = x.mod2exp(L::LAMBDA);
     }
     let (ideal_chall_two, chall_split) =
         kernel_dlogs_to_ideal_even(&vec, L::LAMBDA, alg, act).ok_or(E::Challenge)?;
+    let (ideal_chall_two, chall_split) =
+        (Zeroizing::new(ideal_chall_two), Zeroizing::new(chall_split));
 
     // the response: response_element's construction once (the intersection
     // with the secret ideal, its small equivalent K' with the connecting
@@ -278,22 +294,30 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     // ball until the degree is good: q odd, ≡ 3 mod 4, 2^e − q a probable
     // prime. (`response_element` itself would redo the lattice reduction on
     // every sample.)
-    let inter = QuatIdeal::intersect_o0(&ideal_chall_two, &sk.secret_ideal, Some(&chall_split));
+    let inter = Zeroizing::new(QuatIdeal::intersect_o0(
+        &ideal_chall_two,
+        &sk.secret_ideal,
+        Some(&*chall_split),
+    ));
     let (beta_bar, k_ideal) = {
         let (beta, k_ideal) = inter
             .small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut DefaultDomain(&mut rng))
             .ok_or(E::NoGoodResponse)?;
-        (beta.conj(), k_ideal)
+        let beta = Zeroizing::new(beta);
+        (Zeroizing::new(beta.conj()), Zeroizing::new(k_ideal))
     };
     if !k_ideal.norm.gcd(&ideal_commit.norm).is_one() {
         return Err(E::NoGoodResponse);
     }
-    let prod = QuatIdeal::mul_o0(&k_ideal, &ideal_commit);
+    let prod = Zeroizing::new(QuatIdeal::mul_o0(&k_ideal, &ideal_commit));
     let mut bound = Ibz::<N>::one().mul_2exp(L::E_EMBED).sub(&Ibz::one());
     bound.set_bound(L::E_EMBED as i32 + 1);
     let mut found = None;
     for _ in 0..MAX_RESPONSE_TRIES {
-        let Some((gamma, mut q)) = prod.sample_from_ball(&bound, alg, &mut rng) else {
+        let Some((gamma, mut q)) = prod
+            .sample_from_ball(&bound, alg, &mut rng)
+            .map(|(g, q)| (Zeroizing::new(g), q))
+        else {
             continue;
         };
         q.set_bound(L::E_EMBED as i32 + 1);
@@ -317,24 +341,29 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     // The challenge ideal is `I_c · s` with `s` the split element (`1`, or
     // `1 − i` when the kernel is above `(0, 0)` on `E_0`), so its isogeny is
     // `φ_{I_c} ∘ s` and the dual picks up `conj(s)` after `ε`.
-    let eps = chall_split.conj().mul(&beta_bar.mul(&gamma, alg), alg);
-    let mut a_eps = endomorphism_action_matrix(&eps, f, alg, act);
-    let nk_inv = k_ideal.norm.invmod(&two_f).ok_or(E::NotInvertible)?;
+    let beta_gamma = Zeroizing::new(beta_bar.mul(&gamma, alg));
+    let split_conj = Zeroizing::new(chall_split.conj());
+    let eps = Zeroizing::new(split_conj.mul(&beta_gamma, alg));
+    let mut a_eps = Zeroizing::new(endomorphism_action_matrix(&eps, f, alg, act));
+    let nk_inv = Zeroizing::new(k_ideal.norm.invmod(&two_f).ok_or(E::NotInvertible)?);
     for row in a_eps.0.iter_mut() {
         for x in row.iter_mut() {
             *x = x.mul(&nk_inv).modulo(&two_f);
         }
     }
     let (inv_sk, ok) = sk.mat_bpkcan_to_bpk0.inv_mod(&two_f);
+    let inv_sk = Zeroizing::new(inv_sk);
     if !ok {
         return Err(E::NotInvertible);
     }
-    let nsk_inv = sk
-        .secret_ideal
-        .norm
-        .invmod(&two_f)
-        .ok_or(E::NotInvertible)?;
-    let mut m = inv_sk.mul_mod(&a_eps, &two_f).mul_mod(&m_com, &two_f);
+    let nsk_inv = Zeroizing::new(
+        sk.secret_ideal
+            .norm
+            .invmod(&two_f)
+            .ok_or(E::NotInvertible)?,
+    );
+    let inv_sk_a_eps = Zeroizing::new(inv_sk.mul_mod(&a_eps, &two_f));
+    let mut m = Zeroizing::new(inv_sk_a_eps.mul_mod(&m_com, &two_f));
     for row in m.0.iter_mut() {
         for x in row.iter_mut() {
             *x = x.mul(&nsk_inv).modulo(&two_f);

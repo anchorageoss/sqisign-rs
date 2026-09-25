@@ -9,7 +9,6 @@ members = [
     "tools/gen-precomp",
 ]
 exclude = [
-    "crates/alloc",
     "crates/verify/fuzz",
 ]
 
@@ -35,7 +34,7 @@ num-traits = "0.2"
 num-integer = "0.1"
 
 # Secret material hygiene
-zeroize = { version = "1", default-features = false, features = ["derive"] }
+zeroize = { version = "1", default-features = false, features = ["derive", "alloc"] }
 subtle = { version = "2", default-features = false }
 
 # AES (RustCrypto), used for the NIST AES-256-CTR-DRBG in KAT testing
@@ -43,7 +42,7 @@ aes = { version = "0.8", default-features = false }
 
 # Hashing (RustCrypto). default-features disabled here so individual crates
 # opt back into std explicitly via their own `std` feature.
-sha3 = { version = "0.10", default-features = false }
+sha3 = { version = "0.10", default-features = false, features = ["zeroize"] }
 sha2 = { version = "0.10", default-features = false }
 
 # Randomness

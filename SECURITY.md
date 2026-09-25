@@ -34,14 +34,21 @@
 
 ### Zeroization
 
-- `SigningKey<L>` implements `ZeroizeOnDrop`; its `Debug` output is
-  redacted. The secret ideal, the endomorphism matrix and the
-  intermediate quaternion values are zeroized after use.
-- Fixed-precision integers live on the stack or inside the key; there
-  is no heap residue from big-integer temporaries.
-- `sqisign_rs::ZeroizingAllocator` (the `alloc` crate) zeros all heap
-  memory on deallocation for applications that want it (measured
-  overhead below 1 %).
+- `SigningKey<L>`, the protocol-level `SecretKey` and the compact
+  `CompactSecretKey` zeroize on drop; their `Debug` output is redacted.
+  `SigningKey::to_bytes` returns the secret-key encoding in a
+  `Zeroizing<Vec<u8>>`, allocated once at its final size.
+- Inside key generation and signing (standard and compact), the PRNG
+  seed, the commitment and response ideals, the connecting quaternions,
+  the challenge pulled back through the secret basis change, the pushed
+  bases and the inverses of the secret matrix and norm are held in
+  `Zeroizing` wrappers and cleared when they go out of scope. The
+  SHAKE256 state behind the protocol's random streams is zeroized on
+  drop (`sha3/zeroize`).
+- Not covered: the stack temporaries inside the lattice reduction and
+  the isogeny routines, the SHAKE reader's last output block, and the
+  copies the compiler makes of the `Copy` integer types. There are no
+  heap big-integer temporaries.
 
 ### Compact format (feature `compact`)
 

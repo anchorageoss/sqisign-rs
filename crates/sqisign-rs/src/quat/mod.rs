@@ -20,6 +20,7 @@
 )]
 
 use crate::mp::Ibz;
+use zeroize::Zeroize;
 
 pub mod algebra;
 pub mod dim2;
@@ -84,6 +85,52 @@ pub struct QuatIdeal<const N: usize> {
     pub y: Ibz<N>,
     /// The norm.
     pub norm: Ibz<N>,
+}
+
+impl<const N: usize> Zeroize for Vec2<N> {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for Vec4<N> {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for Mat2x2<N> {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for Mat4x4<N> {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for QuatAlgElem<N> {
+    fn zeroize(&mut self) {
+        self.denom.zeroize();
+        self.coord.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for QuatLattice<N> {
+    fn zeroize(&mut self) {
+        self.denom.zeroize();
+        self.basis.zeroize();
+    }
+}
+
+impl<const N: usize> Zeroize for QuatIdeal<N> {
+    fn zeroize(&mut self) {
+        self.x.zeroize();
+        self.y.zeroize();
+        self.norm.zeroize();
+    }
 }
 
 /// The per-level constants the lattice reduction is configured with
