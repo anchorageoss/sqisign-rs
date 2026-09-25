@@ -1,162 +1,75 @@
-//!
-//! This is a deterministic PRNG used by the NIST KAT generation tool.
-//! It is NOT part of the SQIsign protocol. It exists solely to reproduce
-//! byte-identical output from the NIST KAT generator when seeded with the
-//! same 48-byte entropy input from the `.rsp` files.
+//! The NIST AES-256 CTR-DRBG of the KAT generator (`rng.c` of the NIST
+//! submission package), so the `.rsp` files can be reproduced: seeded with
+//! an entry's 48-byte `seed`, its first `randombytes(48)` is key
+//! generation's root seed and its second is signing's. Not part of any
+//! protocol.
 
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::Aes256;
+use sqisign_verify::rng::Rng;
 
-/// NIST AES-256-CTR-DRBG state.
+/// AES-256 CTR-DRBG state: `randombytes_init(seed, NULL, 256)`.
 pub struct NistDrbg {
     key: [u8; 32],
     v: [u8; 16],
-    reseed_counter: u64,
 }
 
 impl NistDrbg {
-    /// Initialize from a 48-byte seed (entropy_input).
-    ///
-    /// Equivalent to the NIST `randombytes_init(seed, NULL, 256)` API.
+    /// `randombytes_init(seed, NULL, 256)`.
     pub fn new(seed: &[u8; 48]) -> Self {
-        let mut drbg = NistDrbg {
+        let mut d = Self {
             key: [0u8; 32],
             v: [0u8; 16],
-            reseed_counter: 1,
         };
-        Self::update(Some(seed), &mut drbg.key, &mut drbg.v);
-        drbg
+        d.update(Some(seed));
+        d
     }
 
-    /// AES-256-CTR-DRBG Update function.
-    fn update(provided_data: Option<&[u8; 48]>, key: &mut [u8; 32], v: &mut [u8; 16]) {
+    fn update(&mut self, provided: Option<&[u8; 48]>) {
+        let cipher = Aes256::new((&self.key).into());
         let mut temp = [0u8; 48];
-
-        for i in 0..3 {
-            // Increment V (big-endian counter)
-            increment_v(v);
-
-            let cipher = Aes256::new((&*key).into());
-            let mut block = aes::Block::clone_from_slice(v);
-            cipher.encrypt_block(&mut block);
-            temp[16 * i..16 * (i + 1)].copy_from_slice(&block);
-        }
-
-        if let Some(data) = provided_data {
-            for i in 0..48 {
-                temp[i] ^= data[i];
-            }
-        }
-
-        key.copy_from_slice(&temp[..32]);
-        v.copy_from_slice(&temp[32..48]);
-    }
-
-    /// Fill `buf` with deterministic random bytes.
-    ///
-    /// Equivalent to the NIST `randombytes(buf, len)` API.
-    pub fn fill(&mut self, buf: &mut [u8]) {
-        let mut offset = 0;
-        let mut remaining = buf.len();
-
-        while remaining > 0 {
-            increment_v(&mut self.v);
-
-            let cipher = Aes256::new((&self.key as &[u8; 32]).into());
+        for chunk in temp.chunks_mut(16) {
+            increment(&mut self.v);
             let mut block = aes::Block::clone_from_slice(&self.v);
             cipher.encrypt_block(&mut block);
-
-            if remaining > 15 {
-                buf[offset..offset + 16].copy_from_slice(&block);
-                offset += 16;
-                remaining -= 16;
-            } else {
-                buf[offset..offset + remaining].copy_from_slice(&block[..remaining]);
-                remaining = 0;
+            chunk.copy_from_slice(&block);
+        }
+        if let Some(data) = provided {
+            for (t, d) in temp.iter_mut().zip(data.iter()) {
+                *t ^= d;
             }
         }
+        self.key.copy_from_slice(&temp[..32]);
+        self.v.copy_from_slice(&temp[32..]);
+    }
 
-        Self::update(None, &mut self.key, &mut self.v);
-        self.reseed_counter += 1;
+    /// `randombytes(out, len)`.
+    pub fn generate(&mut self, out: &mut [u8]) {
+        let cipher = Aes256::new((&self.key).into());
+        for chunk in out.chunks_mut(16) {
+            increment(&mut self.v);
+            let mut block = aes::Block::clone_from_slice(&self.v);
+            cipher.encrypt_block(&mut block);
+            chunk.copy_from_slice(&block[..chunk.len()]);
+        }
+        self.update(None);
     }
 }
 
-/// Increment V as a big-endian 128-bit counter.
-fn increment_v(v: &mut [u8; 16]) {
-    for j in (0..16).rev() {
-        if v[j] == 0xff {
-            v[j] = 0x00;
+fn increment(v: &mut [u8; 16]) {
+    for b in v.iter_mut().rev() {
+        if *b == 0xff {
+            *b = 0;
         } else {
-            v[j] += 1;
+            *b += 1;
             break;
         }
     }
 }
 
-// Implement rand_core traits so NistDrbg can be passed to keygen.
-
-impl rand_core::RngCore for NistDrbg {
-    fn next_u32(&mut self) -> u32 {
-        let mut buf = [0u8; 4];
-        self.fill(&mut buf);
-        u32::from_le_bytes(buf)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        let mut buf = [0u8; 8];
-        self.fill(&mut buf);
-        u64::from_le_bytes(buf)
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.fill(dest);
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
-        self.fill(dest);
-        Ok(())
-    }
-}
-
-impl rand_core::CryptoRng for NistDrbg {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_drbg_deterministic() {
-        let seed = [0u8; 48];
-        let mut drbg1 = NistDrbg::new(&seed);
-        let mut drbg2 = NistDrbg::new(&seed);
-
-        let mut buf1 = [0u8; 64];
-        let mut buf2 = [0u8; 64];
-        drbg1.fill(&mut buf1);
-        drbg2.fill(&mut buf2);
-
-        assert_eq!(buf1, buf2);
-    }
-
-    #[test]
-    fn test_drbg_kat_seed_generation() {
-        // The C KAT generator seeds with entropy_input = [0, 1, 2, ..., 47],
-        // then calls randombytes(seed, 48) to get the first test case's seed.
-        // The first seed in the Level 1 .rsp file is:
-        // 061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1
-        let mut entropy_input = [0u8; 48];
-        for (i, byte) in entropy_input.iter_mut().enumerate() {
-            *byte = i as u8;
-        }
-        let mut outer_drbg = NistDrbg::new(&entropy_input);
-
-        let mut seed = [0u8; 48];
-        outer_drbg.fill(&mut seed);
-
-        let expected = hex::decode(
-            "061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1"
-        ).unwrap();
-
-        assert_eq!(&seed[..], &expected[..], "first KAT seed mismatch");
+impl Rng for NistDrbg {
+    fn fill(&mut self, out: &mut [u8]) -> bool {
+        self.generate(out);
+        true
     }
 }

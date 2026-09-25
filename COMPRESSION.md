@@ -1,113 +1,157 @@
-# Signature Compression
+# The compressed signature format
 
-This document describes how SQIsign compressed signatures work: the decompression formula, precision analysis, adaptive pivot, wire formats, and approaches that were investigated and ruled out.
+sqisign-rs carries a round-3 signature in two formats: the specification's
+(200 / 306 / 406 bytes at levels I / III / V) and a compressed one of
+176 / 269 / 353 bytes, 12 % smaller, which drops one of the four entries
+of the basis-change matrix and lets the verifier recover it from two Weil
+pairings it can compute on data it already has. **The compressed format is
+not in the SQIsign specification.** It is this repository's construction
+(the method of the ECLIPSE encoding in prism-rs, carried to round 3), and
+a compressed signature verifies only with this crate's verifier.
 
-## The decompression formula
+## API
 
-The dropped matrix entry is recovered using the determinant of the basis-change matrix, which is computed from Weil pairings on the challenge and auxiliary curves:
+```rust
+use sqisign_rs::{generate, CompressedSignature, Level1, Verifier};
 
-```
-det(M) mod 2^det_precision = fp2_dlog_2e(omega_aux^{-1}, omega_f^{-1}, f)
-```
-
-Where:
-- `M` is the 2x2 basis-change matrix from the signature
-- `det_precision = pow_dim2 + two_resp_length`
-- `pow_dim2 = E_RSP - two_resp_length - backtracking`
-- `f = det_precision + HD_EXTRA_TORSION` (torsion order exponent on E_chall)
-- `omega_f = weil(f, P_chall, Q_chall, P_chall+Q_chall, E_chall)` on the `2^f`-torsion of the challenge curve
-- `omega_aux = weil(g, P_aux, Q_aux, P_aux+Q_aux, E_aux)` on the `2^g`-torsion of the auxiliary curve, where `g = pow_dim2 + HD_EXTRA_TORSION`
-- `fp2_dlog_2e` solves the discrete logarithm in the `2^f`-subgroup of GF(p^2)*
-
-**This formula is not in the SQIsign specification.** It was discovered empirically during this implementation. The specification defines the standard and expanded formats but does not describe a compressed format with pairing-based determinant recovery.
-
-## Precision
-
-The Weil pairing discrete logarithm yields `det(M)` modulo `2^det_precision`, where `det_precision = pow_dim2 + two_resp_length`. The number of unknown bits is always exactly `HD_EXTRA_TORSION = 2`, regardless of `two_resp_length`. Only a 2-bit hint (`det_hint`) is needed to recover the dropped entry completely.
-
-This is a stronger result than the naive analysis would suggest. The naive bound gives `pow_dim2` bits of precision from the auxiliary curve's `2^g`-torsion alone, leaving `two_resp_length + 2` unknown bits. In fact, the full `f`-torsion pairing on the challenge curve provides the additional `two_resp_length` bits of precision for free.
-
-## Compression journey
-
-| Size (L1) | Technique |
-|---|---|
-| 148 | Standard format (baseline) |
-| 133 | Drop one matrix entry, Weil pairing det recovery (1-byte hint for up to `trl+2` unknown bits) |
-| 132 | Precision analysis: always exactly 2 unknown bits, not `2+trl` (hint shrinks to 2 bits) |
-| 130 | Recompute canonical basis hints from curves instead of storing them (drop `hint_aux` + `hint_chall`) |
-| 129 | Pack bt (2 bits) + det_hint (2 bits) + trl (4 bits) into 1 metadata byte (drop separate bt + trl bytes) |
-
-## Adaptive pivot
-
-Recovery requires dividing by a pivot value mod `2^det_precision`, which requires the pivot to be odd (invertible mod 2). The compressor chooses which second-row entry to drop based on `M[0][0]` parity:
-
-**M[0][0] odd** (common case, ~72% of signatures):
-- Drop `M[1][1]`, store `M[1][0]` as `mat_var`
-- Recover: `M[1][1] = (det + M[0][1] * M[1][0]) * M[0][0]^{-1} mod 2^det_precision`
-
-**M[0][0] even** (~28% of signatures):
-- Drop `M[1][0]`, store `M[1][1]` as `mat_var`
-- Recover: `M[1][0] = (M[0][0] * M[1][1] - det) * M[0][1]^{-1} mod 2^det_precision`
-
-If both `M[0][0]` and `M[0][1]` are even, no pivot exists and the signature is rejected. This cannot happen for honestly-generated signatures since the matrix has odd determinant.
-
-## Wire formats
-
-### All formats, all levels
-
-| Format | L1 | L3 | L5 |
-|---|---|---|---|
-| Standard | 148 B | 224 B | 292 B |
-| Expanded | 212 B | 316 B | 420 B |
-| Compressed | 129 B | 196 B | 257 B |
-| Public key | 65 B | 97 B | 129 B |
-
-Format detection is purely length-based (each format has a unique byte count per level).
-
-### Standard layout
-
-```
-| e_aux_a (Fp2) | bt | trl | M[0][0] | M[0][1] | M[1][0] | M[1][1] | challenge | h_aux | h_chl |
+let (pk, sk) = generate::<Level1>(&mut rng);
+let sig = sk.sign(msg, &mut rng)?;
+let c = sig.compress();                       // CompressedSignature<Level1>, 176 bytes
+let bytes = c.to_bytes();
+let c = CompressedSignature::<Level1>::from_bytes(&bytes)?;
+pk.verify_compressed(msg, &c)?;               // or Verifier::verify(&pk, msg, &c)
+let sig_again = c.decompress(&pk)?;           // the standard signature, needs the key
 ```
 
-### Expanded layout
+`sqisign_verify::compressed` has the same on slices for `no_std` users:
+`compress`, `compressed_to_bytes`, `compressed_from_bytes`,
+`verify_compressed`, `verify_compressed_prepared` (a `PreparedPublicKey`
+does the per-key work once), `decompress`, and `compressed_bytes(params)`.
+Compression needs only the signature; decompression and verification need
+the public key.
 
+## Layout
+
+```text
+A_aux | m00 | m01 | m_var | challenge | bits | hint_aux | hint_chall
 ```
-| e_aux_a (Fp2) | bt+flags | trl | challenge | P_chl_x (Fp2) | Q_chl_x (Fp2) | h_aux | h_chl |
+
+| field | bytes (I / III / V) | content |
+|---|---|---|
+| `A_aux` | 82 / 128 / 168 | the auxiliary curve's Montgomery coefficient, as in the standard format |
+| `m00`, `m01`, `m_var` | 3 x (25 / 38 / 50) | the low `RESPONSE_BITS` bits (196 / 302 / 400) of three matrix entries; `m_var` is `m10` when `m00` is odd, `m11` otherwise |
+| `challenge` | 16 / 24 / 32 | as in the standard format |
+| `bits` | 1 | bit `RESPONSE_BITS` of `m00, m01, m10, m11` in bits 0 to 3 |
+| `hint_aux`, `hint_chall` | 2 | as in the standard format |
+
+`2 fp + 3 ceil(RESPONSE_BITS / 8) + challenge + 3` = 176 / 269 / 353. The
+standard format spends `4 ceil((RESPONSE_BITS + 2) / 8) + 2` on the
+matrix and hints: 102 / 154 / 206 against 78 / 116 / 153 here.
+
+The decoder rejects a wrong length, a field element at or above `p`, an
+entry at or above `2^RESPONSE_BITS`, a `bits` byte with more than its four
+bits, and a matrix whose first row is even (no odd pivot, so the
+determinant would be even). Everything else is decided by the verifier.
+
+## Recovery
+
+Write `t = RESPONSE_BITS + 2`. The verifier computes the canonical bases
+`(P, Q)` of `E_chall[2^t]` and `(P_aux, Q_aux)` of `E_aux[2^t]` from the
+two hints, then `P' = [m00] P + [m10] Q`, `Q' = [m01] P + [m11] Q`, and
+runs the `(2^RESPONSE_BITS, 2^RESPONSE_BITS)`-isogeny with kernel
+`<[4](P', P_aux), [4](Q', Q_aux)>`. That kernel is maximal isotropic for
+the Weil pairing on the product, so
+
+```text
+e((P', P_aux), (Q', Q_aux))^4 = 1,   i.e.   g^(4 det M) = h^-4
 ```
 
-The `bt+flags` byte packs: bit 7 = `kernel_is_q`, bit 6 = `pmq_sign_hint`, bits 0-5 = backtracking.
+with `g = e(P, Q)` and `h = e(P_aux, Q_aux)`, both of exact order `2^t`
+(the bases generate the full torsion). Hence `det M = log_g(h^-1) (mod
+2^RESPONSE_BITS)`: two Weil pairings at `2^t` and one discrete logarithm in
+the `2^t`-subgroup of `F_p^2^*` (`fp2_dlog_2e`, the verifier's own routine)
+give the determinant modulo `2^RESPONSE_BITS`, and nothing above it, since
+the relation only holds to the fourth power.
 
-### Compressed layout
+The pivot is odd because `det M` is odd. If `m00` is odd, `m11 = (det M +
+m01 m10) m00^-1`; else `m01` is odd and `m10 = (m00 m11 - det M) m01^-1`,
+both modulo `2^RESPONSE_BITS` (inverses by Newton iteration). The four
+`bits` are set on the result, bit `RESPONSE_BITS + 1` of every entry is
+left zero, and the standard verification runs on the matrix so obtained,
+including the specification's range and sign check.
 
-```
-| e_aux_a (Fp2) | packed_meta | M[0][0] | M[0][1] | M[var] | challenge |
-```
+## Why four bits are transmitted
 
-Metadata byte: `[trl:4 | det_hint:2 | bt:2]` (LSB first). No hint bytes stored.
+The isogeny depends on the matrix entries modulo `2^RESPONSE_BITS` only
+(`[4] P'` does), but the chain that computes it also consumes the points
+`P'`, `Q'` themselves, so the verifier's acceptance depends on the bits
+above. Measured on generated signatures against this crate's verifier and
+the reference implementation (the-sqisign at `nist-v3`, `sqisign_verify`
+of the `broadwell` build), on all three levels:
 
-### Field sizes
+- bit `RESPONSE_BITS + 1` of every entry is free: clearing or setting it
+  changes nothing (where the specification's range check on the first
+  entry allows the value);
+- of the sixteen values of bit `RESPONSE_BITS` across the four entries,
+  exactly two are accepted: the signer's, and the one with the first
+  column `(m00, m10)` multiplied by `1 + 2^RESPONSE_BITS`; the analogous
+  change of the second column is rejected;
+- the determinant modulo `2^RESPONSE_BITS` from the pairings agreed with
+  the signature's on every signature.
 
-| Field | L1 | L3 | L5 |
-|---|---|---|---|
-| Fp2 | 64 B | 96 B | 128 B |
-| Matrix entry | 16 B | 25 B | 32 B |
-| Challenge | 16 B | 24 B | 32 B |
+So the pairings recover the dropped entry below bit `RESPONSE_BITS`, and
+the format carries bit `RESPONSE_BITS` of all four entries and drops the
+bit above. Two bits would suffice in principle (one is fixed by the
+pairing relation at `2^(RESPONSE_BITS + 1)`, one by the column-scaling
+freedom), but they would not change the byte count, and transmitting the
+four keeps the reconstruction a copy rather than a search.
 
-Matrix entry size is `floor((E_RSP + 9) / 8)` bytes. Challenge size is `LAMBDA / 8` bytes.
+The compressed verifier accepts a compressed signature exactly when the
+standard verifier accepts the signature it reconstructs. The freedoms of
+the standard format in those bits carry over unchanged (the column scaling
+is one of them); the format adds no rule for uniqueness of the encoding,
+which is not a goal of this crate (SQIsign is not strongly unforgeable).
 
-## Approaches investigated and ruled out
+## Measurement
 
-**Tate pairing instead of Weil for speed.** The biextension Tate pairing produces cyclic subgroup generators that are incompatible with the discrete log computation. The Tate pairing's output lives in a quotient group GF(p^2)* / (GF(p^2)*)^{2^e}, and after exponentiation to the reduced Tate pairing, the resulting root of unity does not align with the generator produced by the Weil pairing. The dlog fails. Weil is required.
+`crates/sqisign-rs/tests/compressed.rs` runs the round trip at each level,
+the decoder's rejections, single-bit tampering, and the acceptance survey:
+`SQISIGN_SURVEY_SIGS=1000 cargo test -p sqisign-rs --release --test
+compressed survey -- --nocapture` signs 1000 messages per level and checks
+that every signature compresses, verifies compressed, and decompresses to
+a standard signature the standard verifier accepts. Result of the
+2026-09-25 run:
 
-**Full f-bit precision (eliminate the hint entirely).** The pairing always gives exactly `det_precision = pow_dim2 + trl` bits, leaving exactly 2 unknown bits (`HD_EXTRA_TORSION`). No amount of additional torsion data eliminates these 2 bits without increasing the isogeny degree by a factor of 4.
+| level | signatures | compressed and verified | decompressed, accepted by the standard verifier | the four bits |
+|---|---|---|---|---|
+| I | 1000 | 1000 | 1000 | all sixteen values, 53 to 76 each |
+| III | 1000 | 1000 | 1000 | all sixteen values, 53 to 72 each |
+| V | 1000 | 1000 | 1000 | all sixteen values, 54 to 77 each |
 
-**Signer retry to force a specific det_hint value.** Statistical analysis of 100 KAT signatures shows the 2-bit `det_hint` is uniformly distributed across {0, 1, 2, 3} (chi-squared test, p > 0.05). Eliminating the hint by retrying signing until `det_hint = 0` would cost ~4x expected signing attempts (~10x worst case). Not viable given that signing already takes ~185 ms.
+The four bits are uniform: the signer's matrix leaves them random, and
+they cannot be dropped without a search.
 
-**Signer-side matrix normalization for 128 bytes.** Folding the metadata (bt, det_hint, trl) into the matrix entries by canonicalizing the matrix form would eliminate the metadata byte entirely, reaching 128 bytes. Analysis of 100 KAT signatures: only 35/100 have `M[0][0]` with a leading 1 at the expected position, and 0/100 allow unique recovery of `(n_bt, two_resp_length)` from the matrix structure alone. The current signer does not produce canonical form. Filed upstream as SECENG-928.
+## Cost
 
-**Infer n_bt and two_resp_length from matrix structure.** Attempted to recover `(n_bt, r')` by scanning for the leading 1 in `M[0][0]` and testing candidates. 0/100 KAT signatures had a unique recovery. The matrix entries do not encode these values in a recoverable way without signer cooperation.
+Recovery adds two Weil pairings at `2^t` and one variable-base discrete
+logarithm to a verification; the standard verification then runs
+unchanged. Session of 2026-09-25 ([BENCH.md](BENCH.md)), prepared key,
+millions of cycles:
 
-## Path to 128 bytes
+| level | standard | compressed | recovery | |
+|---|---|---|---|---|
+| I | 11.9 | 14.1 | 2.2 | 18 % |
+| III | 29.9 | 35.1 | 5.2 | 17 % |
+| V | 86.2 | 97.2 | 11.0 | 13 % |
 
-128 bytes = `Fp2 + 3 * matrix_entry + challenge` with zero metadata overhead. This requires signer-side matrix normalization: the signer must produce a canonical matrix form from which `(backtracking, two_resp_length, det_hint)` can be uniquely inferred by the verifier. This is a signer protocol change, not a verifier-only optimization. Filed upstream as SECENG-928.
+Against the C reference's `broadwell` cold verification the compressed
+verification is 1.24 / 1.22 / 1.22x (the standard one 1.09 / 1.07 /
+1.12x).
+
+## History
+
+sqisign-rs 0.4 had a compressed format for SQIsign round 2 (129 / 196 /
+257 bytes, with the round-2 signature's backtracking and response-length
+fields packed into a metadata byte and the hints recomputed). Round 2 is
+not supported from 0.6 on, and that format has no reader here; see
+[CHANGELOG.md](CHANGELOG.md).

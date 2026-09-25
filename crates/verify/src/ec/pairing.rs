@@ -1,15 +1,19 @@
-//! 2-power discrete logarithms on Montgomery curves over Fp2.
+//! Pairings on the Kummer line by the cubical (biextension) ladder, and the
+//! pairing-based two-dimensional discrete logarithm in `E[2^e]`.
+//!
+//! The reduced Tate pairing and the Tate-based discrete logarithm follow the
+//! round-3 reference (`biextension.c`). The Weil pairing, which round 3
+//! dropped, is kept because PRISM's salt-PRISM verifier checks a Weil pairing
+//! identity; it matches the round-2 reference.
+//!
+//! Cubical addition is off by a factor of 4 from true cubical arithmetic,
+//! which the final exponentiations over `Fp2` absorb.
 
-use super::basis::lift_basis_normalized;
-use super::jacobian::jac_add;
-use super::{EcBasis, EcCurve, EcPoint};
+use super::{mp, EcBasis, EcCurve, EcPoint, MAX_ORDER_WORDS};
 use crate::fp::{Fp2, FpBackend};
+use crate::precomp::PrimePrecomp;
 
-type DlogResult = ([u64; 8], [u64; 8], [u64; 8], [u64; 8]);
-
-/// Pairing computation parameters: normalized copies of P, Q, P-Q and
-/// the cached inverse x-coordinates needed by the cubical ladder.
-#[derive(Clone)]
+/// Normalised inputs for one pairing.
 struct PairingParams<L: FpBackend> {
     e: u32,
     p: EcPoint<L>,
@@ -20,33 +24,8 @@ struct PairingParams<L: FpBackend> {
     a24: EcPoint<L>,
 }
 
-/// Cross-basis difference points needed for dlog: x(P-R), x(P-S), x(R-Q), x(S-Q).
-#[derive(Clone)]
-struct DlogDiffPoints<L: FpBackend> {
-    pm_r: EcPoint<L>,
-    pm_s: EcPoint<L>,
-    rm_q: EcPoint<L>,
-    sm_q: EcPoint<L>,
-}
-
-/// Full dlog parameter bundle for two bases {P,Q} and {R,S}.
-#[derive(Clone)]
-struct PairingDlogParams<L: FpBackend> {
-    e: u32,
-    pq: EcBasis<L>,
-    rs: EcBasis<L>,
-    diff: DlogDiffPoints<L>,
-    ix_p: Fp2<L>,
-    ix_q: Fp2<L>,
-    ix_r: Fp2<L>,
-    ix_s: Fp2<L>,
-    a24: EcPoint<L>,
-}
-
-/// Cubical addition: given cubical reps of P, Q and `ix_pq = Z(P-Q)/X(P-Q)`,
-/// compute the cubical rep of P+Q.
-///
-/// Cost: 3M + 2S + 3a + 3s
+/// Cubical `P + Q` from cubical `P`, `Q` and `1/x(P - Q)` (the difference
+/// anti-normalised as `(1 : ix)`).
 #[inline]
 fn cubical_add<L: FpBackend>(p: &EcPoint<L>, q: &EcPoint<L>, ix_pq: &Fp2<L>) -> EcPoint<L> {
     let t0 = p.x.add(&p.z);
@@ -57,18 +36,10 @@ fn cubical_add<L: FpBackend>(p: &EcPoint<L>, q: &EcPoint<L>, ix_pq: &Fp2<L>) -> 
     let t1 = t1.mul(&t2);
     let t2 = t0.add(&t1);
     let t3 = t0.sub(&t1);
-    let rz = t3.sqr();
-    let t2 = t2.sqr();
-    let rx = ix_pq.mul(&t2);
-    EcPoint::new(rx, rz)
+    EcPoint::new(ix_pq.mul(&t2.sqr()), t3.sqr())
 }
 
-/// Cubical combined double-and-add: given cubical reps of P, Q and
-/// `ix_pq = Z(P-Q)/X(P-Q)`, compute (P+Q, [2]Q).
-///
-/// A24 must be normalized to `((A+2C)/(4C) : 1)`.
-///
-/// Cost: 6M + 4S + 4a + 4s
+/// Cubical `(P + Q, [2] Q)`; `A24` must be normalised.
 #[inline]
 fn cubical_dbladd<L: FpBackend>(
     p: &EcPoint<L>,
@@ -76,8 +47,6 @@ fn cubical_dbladd<L: FpBackend>(
     ix_pq: &Fp2<L>,
     a24: &EcPoint<L>,
 ) -> (EcPoint<L>, EcPoint<L>) {
-    debug_assert!(bool::from(a24.z.ct_is_one()));
-
     let t0 = p.x.add(&p.z);
     let t1 = p.x.sub(&p.z);
     let ppq_x = q.x.add(&q.z);
@@ -89,17 +58,15 @@ fn cubical_dbladd<L: FpBackend>(
     let ppq_x = t0.add(&t1);
     let t3 = t0.sub(&t1);
     let ppq_z = t3.sqr();
-    let ppq_x = ppq_x.sqr();
-    let ppq_x = ix_pq.mul(&ppq_x);
+    let ppq_x = ix_pq.mul(&ppq_x.sqr());
     let t3 = t2.sub(&qq_z);
     let qq_x = t2.mul(&qq_z);
-    let t0 = t3.mul(&a24.x);
-    let t0 = t0.add(&qq_z);
+    let t0 = t3.mul(&a24.x).add(&qq_z);
     let qq_z = t0.mul(&t3);
     (EcPoint::new(ppq_x, ppq_z), EcPoint::new(qq_x, qq_z))
 }
 
-/// Iterative biextension ladder: compute (P + [2ᵉ]Q, [2ᵉ]Q).
+/// `(P + [2^e] Q, [2^e] Q)` cubically.
 #[inline]
 fn biext_ladder_2e<L: FpBackend>(
     e: u32,
@@ -108,105 +75,93 @@ fn biext_ladder_2e<L: FpBackend>(
     ix_p: &Fp2<L>,
     a24: &EcPoint<L>,
 ) -> (EcPoint<L>, EcPoint<L>) {
-    let mut pn_q = pq.clone();
-    let mut n_q = q.clone();
+    let mut pnq = pq.clone();
+    let mut nq = q.clone();
     for _ in 0..e {
-        let (new_pnq, new_nq) = cubical_dbladd(&pn_q, &n_q, ix_p, a24);
-        pn_q = new_pnq;
-        n_q = new_nq;
+        let (a, b) = cubical_dbladd(&pnq, &nq, ix_p, a24);
+        pnq = a;
+        nq = b;
     }
-    (pn_q, n_q)
+    (pnq, nq)
 }
 
-/// Compute the monodromy ratio as a projective point.
+/// The monodromy ratio as a projective point, avoiding a division.
 #[inline]
-fn point_ratio<L: FpBackend>(pn_q: &EcPoint<L>, n_q: &EcPoint<L>, p: &EcPoint<L>) -> EcPoint<L> {
-    let rx = n_q.x.mul(&p.x);
-    let rz = pn_q.x.clone();
-    EcPoint::new(rx, rz)
+fn point_ratio<L: FpBackend>(pnq: &EcPoint<L>, nq: &EcPoint<L>, p: &EcPoint<L>) -> EcPoint<L> {
+    EcPoint::new(nq.x.mul(&p.x), pnq.x.clone())
 }
 
-/// Cubical translation of P by a 2-torsion point T, computed in constant time.
+/// Cubical translation of `P` by the 2-torsion point `T`, constant time over
+/// the three shapes `T = (A : 0)`, `(0 : B)`, `(A : B)`.
 #[inline]
 fn translate<L: FpBackend>(p: &mut EcPoint<L>, t: &EcPoint<L>) {
-    // Generic case: (AX - BZ, BX - AZ)
-    let ax = t.x.mul(&p.x);
-    let bz = t.z.mul(&p.z);
-    let px_generic = ax.sub(&bz);
-
-    let bx = t.z.mul(&p.x);
-    let az = t.x.mul(&p.z);
-    let pz_generic = bx.sub(&az);
-
-    // If T.x == 0 then result is (Z, X)
-    let ta_is_zero = t.x.ct_is_zero();
-    let px_new = Fp2::select(&px_generic, &p.z, ta_is_zero);
-    let pz_new = Fp2::select(&pz_generic, &p.x, ta_is_zero);
-
-    // If T.z == 0 then result is (X, Z) (identity translation)
-    let tb_is_zero = t.z.ct_is_zero();
-    let px_new = Fp2::select(&px_new, &p.x, tb_is_zero);
-    let pz_new = Fp2::select(&pz_new, &p.z, tb_is_zero);
-
-    p.x = px_new;
-    p.z = pz_new;
+    let px = t.x.mul(&p.x).sub(&t.z.mul(&p.z));
+    let pz = t.z.mul(&p.x).sub(&t.x.mul(&p.z));
+    let ta_zero = t.x.ct_is_zero();
+    let px = Fp2::select(&px, &p.z, ta_zero);
+    let pz = Fp2::select(&pz, &p.x, ta_zero);
+    let tb_zero = t.z.ct_is_zero();
+    let px = Fp2::select(&px, &p.x, tb_zero);
+    let pz = Fp2::select(&pz, &p.z, tb_zero);
+    p.x = px;
+    p.z = pz;
 }
 
-/// Normalize P, Q for pairing computation: store `(X/Z : 1)` for each
-/// point plus `Z/X` (the "inverse x-coordinate").
+/// `g_{P,Q}^{2^e}` via the cubical arithmetic of `P + [2^e] Q`; with
+/// `swap_pq` the roles of `P` and `Q` are exchanged.
+#[inline]
+fn monodromy_i<L: FpBackend>(params: &PairingParams<L>, swap_pq: bool) -> EcPoint<L> {
+    let (p, q, ix_p) = if swap_pq {
+        (&params.q, &params.p, &params.ix_q)
+    } else {
+        (&params.p, &params.q, &params.ix_p)
+    };
+    let (mut pnq, mut nq) = biext_ladder_2e(params.e - 1, &params.pq, q, ix_p, &params.a24);
+    translate(&mut pnq, &nq);
+    let nq_copy = nq.clone();
+    translate(&mut nq, &nq_copy);
+    point_ratio(&pnq, &nq, p)
+}
+
+/// Normalise `P`, `Q` to `(x : 1)` and compute `1/x(P)`, `1/x(Q)`.
 #[inline]
 fn cubical_normalization<L: FpBackend>(
     p: &EcPoint<L>,
     q: &EcPoint<L>,
 ) -> (EcPoint<L>, EcPoint<L>, Fp2<L>, Fp2<L>) {
     let mut t = [p.x.clone(), p.z.clone(), q.x.clone(), q.z.clone()];
-    let mut s1 = [Fp2::zero(), Fp2::zero(), Fp2::zero(), Fp2::zero()];
-    let mut s2 = [Fp2::zero(), Fp2::zero(), Fp2::zero(), Fp2::zero()];
+    let mut s1: [Fp2<L>; 4] = core::array::from_fn(|_| Fp2::zero());
+    let mut s2: [Fp2<L>; 4] = core::array::from_fn(|_| Fp2::zero());
     Fp2::batched_inv(&mut t, &mut s1, &mut s2);
-
     let ix_p = p.z.mul(&t[0]);
     let ix_q = q.z.mul(&t[2]);
-
-    let np = EcPoint::new(p.x.mul(&t[1]), Fp2::one());
-    let nq = EcPoint::new(q.x.mul(&t[3]), Fp2::one());
-
+    let np = EcPoint::from_x(p.x.mul(&t[1]));
+    let nq = EcPoint::from_x(q.x.mul(&t[3]));
     (np, nq, ix_p, ix_q)
 }
 
-/// Compute the biextension monodromy via the cubical ladder.
-/// When `swap_pq` is false, computes from P + [2ᵉ]Q.
-/// When `swap_pq` is true, computes from Q + [2ᵉ]P.
-#[inline]
-fn monodromy_i<L: FpBackend>(params: &PairingParams<L>, swap_pq: bool) -> EcPoint<L> {
-    let (p, q, ix_p) = if !swap_pq {
-        (params.p.clone(), params.q.clone(), params.ix_p.clone())
-    } else {
-        (params.q.clone(), params.p.clone(), params.ix_q.clone())
-    };
-
-    let (mut pn_q, mut n_q) = biext_ladder_2e(params.e - 1, &params.pq, &q, &ix_p, &params.a24);
-    translate(&mut pn_q, &n_q);
-    let n_q_copy = n_q.clone();
-    translate(&mut n_q, &n_q_copy);
-    point_ratio(&pn_q, &n_q, &p)
+fn params<L: FpBackend>(
+    e: u32,
+    p: &EcPoint<L>,
+    q: &EcPoint<L>,
+    pq: &EcPoint<L>,
+    curve: &mut EcCurve<L>,
+) -> PairingParams<L> {
+    let (np, nq, ix_p, ix_q) = cubical_normalization(p, q);
+    curve.normalize_a24();
+    PairingParams {
+        e,
+        p: np,
+        q: nq,
+        pq: pq.clone(),
+        ix_p,
+        ix_q,
+        a24: curve.a24.clone(),
+    }
 }
 
-/// Compute the Weil pairing value from normalized pairing data.
-#[inline]
-fn weil_n<L: FpBackend>(params: &PairingParams<L>) -> Fp2<L> {
-    let r0 = monodromy_i(params, true);
-    let r1 = monodromy_i(params, false);
-
-    let r = r0.x.mul(&r1.z);
-    let r = r.inv();
-    let r = r.mul(&r0.z);
-    r.mul(&r1.x)
-}
-
-/// Weil pairing e_{2ᵉ}(P, Q) via the biextension cubical ladder.
-///
-/// `pq` must be `x(P - Q)` in (X:Z) coordinates. Crashes (division by
-/// zero) if either P or Q is the identity.
+/// Weil pairing `e_{2^e}(P, Q)` for `P`, `Q` of order `2^e` with `pq = x(P - Q)`.
+/// Neither point may be the identity.
 #[inline]
 pub fn weil<L: FpBackend>(
     e: u32,
@@ -215,95 +170,46 @@ pub fn weil<L: FpBackend>(
     pq: &EcPoint<L>,
     curve: &mut EcCurve<L>,
 ) -> Fp2<L> {
-    let (np, nq, ix_p, ix_q) = cubical_normalization(p, q);
-    curve.normalize_a24();
-
-    let params = PairingParams {
-        e,
-        p: np,
-        q: nq,
-        pq: pq.clone(),
-        ix_p,
-        ix_q,
-        a24: curve.a24.clone(),
-    };
-    weil_n(&params)
+    let params = params(e, p, q, pq, curve);
+    let r0 = monodromy_i(&params, true);
+    let r1 = monodromy_i(&params, false);
+    let r = r0.x.mul(&r1.z).inv();
+    r.mul(&r0.z).mul(&r1.x)
 }
 
-/// Clear the cofactor (p+1) / 2ᶠ from an 𝔽p² element by
-/// exponentiation. Uses `p_cofactor_for_2f` (a small odd integer).
+/// `a^((p + 1) / 2^f)`; the cofactor is public.
 #[inline]
-pub fn clear_cofac<L: FpBackend>(a: &Fp2<L>, cofactor: &[u64]) -> Fp2<L> {
-    let mut exp = cofactor[0];
-    exp >>= 1;
-    let x = a.clone();
-    let mut r = a.clone();
-    while exp > 0 {
-        r = r.sqr();
-        if exp & 1 != 0 {
-            r = r.mul(&x);
-        }
-        exp >>= 1;
-    }
-    r
+pub fn clear_cofac<L: FpBackend + PrimePrecomp>(a: &Fp2<L>) -> Fp2<L> {
+    a.pow_vartime(&[L::COFACTOR])
 }
 
-/// Frobenius endomorphism on 𝔽p²: a + bi → a − bi.
-/// This is conjugation since `p = 3 mod 4`.
+/// Reduced Tate pairing `t_{2^e}(P, Q)` with `pq = x(P - Q)`: the unreduced
+/// value raised to `(p^2 - 1) / 2^e`, split as Frobenius, inversion, cofactor
+/// and `2^(f - e)` squarings.
 #[inline]
-pub fn fp2_frob<L: FpBackend>(x: &Fp2<L>) -> Fp2<L> {
-    x.conjugate()
-}
-
-/// Reduced Tate pairing t_{2ᵉ}(P, Q) via the biextension cubical ladder.
-///
-/// `pq` must be `x(P - Q)` in (X:Z) coordinates.
-/// Computes the unreduced pairing and applies ^((p²−1)/2ᶠ).
-#[inline]
-pub fn reduced_tate<L: FpBackend>(
+pub fn reduced_tate<L: FpBackend + PrimePrecomp>(
     e: u32,
     p: &EcPoint<L>,
     q: &EcPoint<L>,
     pq: &EcPoint<L>,
     curve: &mut EcCurve<L>,
-    torsion_even_power: u32,
-    cofactor: &[u64],
 ) -> Fp2<L> {
-    let e_diff = torsion_even_power - e;
-
-    let (np, nq, ix_p, ix_q) = cubical_normalization(p, q);
-    curve.normalize_a24();
-
-    let params = PairingParams {
-        e,
-        p: np,
-        q: nq,
-        pq: pq.clone(),
-        ix_p,
-        ix_q,
-        a24: curve.a24.clone(),
-    };
-    let r_pt = monodromy_i(&params, true);
-
-    // Reduce: -(R.Z / R.X)^((p^2-1)/2^f)
-    // Split ^(p-1) into Frobenius and ^(-1)
-    let frob_rx = fp2_frob::<L>(&r_pt.x);
-    let new_rx = r_pt.z.mul(&frob_rx);
-    let frob_rz = fp2_frob::<L>(&r_pt.z);
-    let new_rz = r_pt.x.mul(&frob_rz);
-    let inv_rx = new_rx.inv();
-    let r = inv_rx.mul(&new_rz);
-
-    let mut r = clear_cofac::<L>(&r, cofactor);
+    let e_diff = L::TWO_ADIC_EXPONENT - e;
+    let params = params(e, p, q, pq, curve);
+    let r = monodromy_i(&params, true);
+    // -(R.Z / R.X)^((p^2 - 1) / 2^f), with ^(p-1) as Frobenius and inverse
+    let rx = r.z.mul(&r.x.frob());
+    let rz = r.x.mul(&r.z.frob());
+    let mut out = rx.inv().mul(&rz);
+    out = clear_cofac::<L>(&out);
     for _ in 0..e_diff {
-        r = r.sqr();
+        out = out.sqr();
     }
-    r
+    out
 }
 
-/// Recursive 2-power discrete log: find `a` s.t. `f = g^a` in the
-/// `2^len`-subgroup, given stacks of powers of f and g_inverse.
-#[allow(clippy::needless_range_loop)]
+/// Recursive 2-power discrete logarithm: `a` with `f = g^a` given stacks of
+/// `f` and `1/g`. `None` if `f` is not in the subgroup generated by `g`.
 #[inline]
 fn fp2_dlog_2e_rec<L: FpBackend>(
     a: &mut [u64],
@@ -312,37 +218,27 @@ fn fp2_dlog_2e_rec<L: FpBackend>(
     pows_g: &mut [Fp2<L>],
     stacklen: usize,
 ) -> Option<()> {
-    let nwords = a.len();
     if len == 0 {
-        for w in a.iter_mut() {
-            *w = 0;
-        }
+        a.iter_mut().for_each(|w| *w = 0);
         return Some(());
-    } else if len == 1 {
-        if bool::from(pows_f[stacklen - 1].ct_is_one()) {
-            for w in a.iter_mut() {
-                *w = 0;
-            }
-            for i in 0..stacklen - 1 {
-                pows_g[i] = pows_g[i].sqr();
-            }
-            return Some(());
-        } else if bool::from(pows_f[stacklen - 1].ct_equal(&pows_g[stacklen - 1])) {
-            a[0] = 1;
-            for w in a[1..].iter_mut() {
-                *w = 0;
-            }
-            for i in 0..stacklen - 1 {
-                pows_f[i] = pows_f[i].mul(&pows_g[i]);
-                pows_g[i] = pows_g[i].sqr();
-            }
-            return Some(());
-        } else {
-            return None;
-        }
     }
-
-    let right = (len as f64 * 0.5) as usize;
+    if len == 1 {
+        let f_is_one = pows_f[stacklen - 1].ct_is_one();
+        let f_equals_g = pows_f[stacklen - 1].ct_equal(&pows_g[stacklen - 1]);
+        a.iter_mut().for_each(|w| *w = 0);
+        a[0] = (!f_is_one).unwrap_u8() as u64; // bit = 1 iff f != 1
+        for i in 0..stacklen - 1 {
+            let fg = pows_f[i].mul(&pows_g[i]);
+            pows_f[i] = Fp2::select(&pows_f[i], &fg, !f_is_one);
+            pows_g[i] = pows_g[i].sqr();
+        }
+        return if bool::from(f_is_one | f_equals_g) {
+            Some(())
+        } else {
+            None
+        };
+    }
+    let right = len / 2;
     let left = len - right;
     pows_f[stacklen] = pows_f[stacklen - 1].clone();
     pows_g[stacklen] = pows_g[stacklen - 1].clone();
@@ -350,587 +246,377 @@ fn fp2_dlog_2e_rec<L: FpBackend>(
         pows_f[stacklen] = pows_f[stacklen].sqr();
         pows_g[stacklen] = pows_g[stacklen].sqr();
     }
-
-    let mut dlp1 = [0u64; 8]; // max NWORDS_ORDER across all levels
-    let mut dlp2 = [0u64; 8];
-    let dlp1_slice = &mut dlp1[..nwords];
-    let dlp2_slice = &mut dlp2[..nwords];
-
-    fp2_dlog_2e_rec(dlp1_slice, right, pows_f, pows_g, stacklen + 1)?;
-    fp2_dlog_2e_rec(dlp2_slice, left, pows_f, pows_g, stacklen)?;
-
-    // a = dlp1 + 2^right * dlp2
-    mp_shiftl_multiple(dlp2_slice, right);
-    mp_add_inplace(a, dlp2_slice, dlp1_slice);
-
+    let n = a.len();
+    let mut dlp1 = [0u64; MAX_ORDER_WORDS];
+    let mut dlp2 = [0u64; MAX_ORDER_WORDS];
+    fp2_dlog_2e_rec(&mut dlp1[..n], right, pows_f, pows_g, stacklen + 1)?;
+    fp2_dlog_2e_rec(&mut dlp2[..n], left, pows_f, pows_g, stacklen)?;
+    mp::shl(&mut dlp2[..n], right);
+    mp::add(a, &dlp2[..n], &dlp1[..n]);
     Some(())
 }
 
-/// Compute discrete log: find `scal` such that `f = g^scal` where `g_inverse = g⁻¹`,
-/// in the 2ᵉ-subgroup of 𝔽p²*.
+/// `scal` with `f = g^scal` in the `2^e`-subgroup of `Fp2^*`, given `1/g`.
 #[inline]
-fn fp2_dlog_2e<L: FpBackend>(
+pub fn fp2_dlog_2e<L: FpBackend>(
     scal: &mut [u64],
     f: &Fp2<L>,
     g_inverse: &Fp2<L>,
     e: u32,
 ) -> Option<()> {
-    // Compute stack depth: ceil(log2(e)) + 1
-    let mut log = 0usize;
+    const MAX_STACK: usize = 16;
+    let mut log = 1usize;
     let mut len = e as usize;
     while len > 1 {
         len >>= 1;
         log += 1;
     }
-    log += 1;
-
-    const MAX_STACK: usize = 16;
     debug_assert!(log <= MAX_STACK);
     let mut pows_f: [Fp2<L>; MAX_STACK] = core::array::from_fn(|_| Fp2::zero());
     let mut pows_g: [Fp2<L>; MAX_STACK] = core::array::from_fn(|_| Fp2::zero());
     pows_f[0] = f.clone();
     pows_g[0] = g_inverse.clone();
-
-    for w in scal.iter_mut() {
-        *w = 0;
-    }
-
+    scal.iter_mut().for_each(|w| *w = 0);
     fp2_dlog_2e_rec(scal, e as usize, &mut pows_f, &mut pows_g, 1)
 }
 
-/// Find `scal` such that `f = g^scal` in the 2ᵉ-subgroup of `Fp2*`,
-/// given `g_inverse = g⁻¹`. Returns `None` if the DLP has no solution.
+/// The biquadratic coefficients `(k00, k01, k11)` of a pair of points, whose
+/// roots are `x(P +- Q)` (spec Algorithm 4.91).
 #[inline]
-pub fn fp2_dlog_2e_pub<L: FpBackend>(
-    scal: &mut [u64],
-    f: &Fp2<L>,
-    g_inverse: &Fp2<L>,
+fn compute_kappa<L: FpBackend>(
+    p: &EcPoint<L>,
+    q: &EcPoint<L>,
+    e: &EcCurve<L>,
+) -> (Fp2<L>, Fp2<L>, Fp2<L>) {
+    let xx = p.x.mul(&q.x);
+    let xz = p.x.mul(&q.z);
+    let zx = p.z.mul(&q.x);
+    let zz = p.z.mul(&q.z);
+    let k00 = xx.sub(&zz).sqr();
+    let k11 = xz.sub(&zx).sqr();
+    let k01 = xx.mul(&zz).mul(&e.a);
+    let k01 = k01.add(&k01);
+    let cross = xx.add(&zz).mul(&xz.add(&zx)).mul(&e.c);
+    let k01 = k01.add(&cross);
+    (k00, k01.add(&k01), k11)
+}
+
+/// `x(P1 - P2)` from `P1`, `P2` and their translates by a common `Q`, as the
+/// shared root of the two biquadratics (spec Algorithm 4.93).
+#[inline]
+fn shared_difference_point<L: FpBackend>(
+    p1: &EcPoint<L>,
+    p2: &EcPoint<L>,
+    p1q: &EcPoint<L>,
+    p2q: &EcPoint<L>,
+    curve: &EcCurve<L>,
+) -> EcPoint<L> {
+    let (k00, k01, k11) = compute_kappa(p1, p2, curve);
+    let (k00b, k01b, k11b) = compute_kappa(p1q, p2q, curve);
+    let x = k01b.mul(&k00).sub(&k01.mul(&k00b));
+    let z = k11b.mul(&k00).sub(&k11.mul(&k00b)).mul(&curve.c);
+    EcPoint::new(x, z)
+}
+
+/// Inputs of the Tate discrete logarithm: two bases, the four cross
+/// differences, inverse x-coordinates and `A24`.
+struct DlogParams<L: FpBackend> {
     e: u32,
-) -> Option<()> {
-    fp2_dlog_2e(scal, f, g_inverse, e)
+    pq: EcBasis<L>,
+    rs: EcBasis<L>,
+    pm_r: EcPoint<L>,
+    pm_s: EcPoint<L>,
+    rm_q: EcPoint<L>,
+    sm_q: EcPoint<L>,
+    ix_p: Fp2<L>,
+    ix_q: Fp2<L>,
+    a24: EcPoint<L>,
 }
 
-/// Left-shift a multiprecision integer by `shift` bits.
+/// `x(P - R)`, `x(P - S)`, `x(R - Q)`, `x(S - Q)` for bases `(P, Q)` and `(R, S)`.
 #[inline]
-fn mp_shiftl_multiple(x: &mut [u64], shift: usize) {
-    let mut remaining = shift;
-    while remaining > 63 {
-        mp_shiftl_single(x, 63);
-        remaining -= 63;
-    }
-    if remaining > 0 {
-        mp_shiftl_single(x, remaining);
-    }
+fn compute_shared_difference_points<L: FpBackend>(d: &mut DlogParams<L>, curve: &EcCurve<L>) {
+    let (k00, k01, k11) = compute_kappa(&d.pq.p, &d.rs.p, curve);
+    // (X : Z) solves k11 X^2 - k01 X Z + k00 Z^2 = 0
+    let four_k = k00.mul(&k11);
+    let four_k = four_k.add(&four_k);
+    let four_k = four_k.add(&four_k);
+    let mut disc = k01.sqr().sub(&four_k);
+    let _ = disc.sqrt_verify();
+    d.pm_r = EcPoint::new(k01.add(&disc), k11.add(&k11));
+    d.rm_q = shared_difference_point(&d.rs.p, &d.pq.q, &d.pm_r, &d.pq.pmq, curve);
+    d.pm_s = shared_difference_point(&d.pq.p, &d.rs.q, &d.pm_r, &d.rs.pmq, curve);
+    d.sm_q = shared_difference_point(&d.rs.q, &d.pq.q, &d.pm_s, &d.pq.pmq, curve);
 }
 
-/// Left-shift by 1..63 bits.
+/// Normalise every point to `(x : 1)`, the curve to `(A : 1)`, and store
+/// `1/x(P)`, `1/x(Q)`.
 #[inline]
-fn mp_shiftl_single(x: &mut [u64], shift: usize) {
-    let n = x.len();
-    for i in (1..n).rev() {
-        x[i] = (x[i] << shift) | (x[i - 1] >> (64 - shift));
-    }
-    x[0] <<= shift;
-}
-
-/// Multiprecision addition: `c = a + b`.
-#[inline]
-fn mp_add_inplace(c: &mut [u64], a: &[u64], b: &[u64]) {
-    let n = c.len();
-    let mut carry = 0u64;
-    for i in 0..n {
-        let (s1, c1) = a[i].overflowing_add(b[i]);
-        let (s2, c2) = s1.overflowing_add(carry);
-        c[i] = s2;
-        carry = (c1 as u64) + (c2 as u64);
-    }
-}
-
-/// Normalize both bases {P,Q} and {R,S} plus the curve coefficient
-/// for dlog computation, computing inverse x-coordinates.
-#[inline]
-fn cubical_normalization_dlog<L: FpBackend>(
-    data: &mut PairingDlogParams<L>,
-    curve: &mut EcCurve<L>,
-) {
+fn cubical_normalization_dlog<L: FpBackend>(d: &mut DlogParams<L>, curve: &mut EcCurve<L>) {
     let mut t = [
-        data.pq.p.x.clone(),   // 0
-        data.pq.p.z.clone(),   // 1
-        data.pq.q.x.clone(),   // 2
-        data.pq.q.z.clone(),   // 3
-        data.pq.pmq.x.clone(), // 4
-        data.pq.pmq.z.clone(), // 5
-        data.rs.p.x.clone(),   // 6
-        data.rs.p.z.clone(),   // 7
-        data.rs.q.x.clone(),   // 8
-        data.rs.q.z.clone(),   // 9
-        curve.c.clone(),       // 10
+        curve.c.clone(),
+        d.pq.p.x.clone(),
+        d.pq.q.x.clone(),
+        d.pq.p.z.clone(),
+        d.pq.q.z.clone(),
+        d.rs.p.z.clone(),
+        d.rs.q.z.clone(),
+        d.pq.pmq.z.clone(),
+        d.pm_r.z.clone(),
+        d.pm_s.z.clone(),
+        d.rm_q.z.clone(),
+        d.sm_q.z.clone(),
     ];
-    let mut s1 = [
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-    ];
-    let mut s2 = [
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-        Fp2::zero(),
-    ];
+    let mut s1: [Fp2<L>; 12] = core::array::from_fn(|_| Fp2::zero());
+    let mut s2: [Fp2<L>; 12] = core::array::from_fn(|_| Fp2::zero());
     Fp2::batched_inv(&mut t, &mut s1, &mut s2);
-
-    data.ix_p = data.pq.p.z.mul(&t[0]);
-    data.pq.p.x = data.pq.p.x.mul(&t[1]);
-    data.pq.p.z = Fp2::one();
-
-    data.ix_q = data.pq.q.z.mul(&t[2]);
-    data.pq.q.x = data.pq.q.x.mul(&t[3]);
-    data.pq.q.z = Fp2::one();
-
-    data.pq.pmq.x = data.pq.pmq.x.mul(&t[5]);
-    data.pq.pmq.z = Fp2::one();
-
-    data.ix_r = data.rs.p.z.mul(&t[6]);
-    data.rs.p.x = data.rs.p.x.mul(&t[7]);
-    data.rs.p.z = Fp2::one();
-
-    data.ix_s = data.rs.q.z.mul(&t[8]);
-    data.rs.q.x = data.rs.q.x.mul(&t[9]);
-    data.rs.q.z = Fp2::one();
-
-    curve.a = curve.a.mul(&t[10]);
+    curve.a = curve.a.mul(&t[0]);
     curve.c = Fp2::one();
-}
-
-/// Compute the four cross-basis difference points by lifting to
-/// Jacobian coordinates: x(P-R), x(P-S), x(R-Q), x(S-Q).
-#[inline]
-fn compute_difference_points<L: FpBackend>(data: &mut PairingDlogParams<L>, curve: &EcCurve<L>) {
-    let mut pq_copy = data.pq.clone();
-    let mut rs_copy = data.rs.clone();
-    let (xy_p, xy_q, _) = lift_basis_normalized(&mut pq_copy, curve);
-    let (xy_r, xy_s, _) = lift_basis_normalized(&mut rs_copy, curve);
-
-    // x(P - R)
-    let neg_r = xy_r.neg();
-    let temp = jac_add(&neg_r, &xy_p, curve);
-    data.diff.pm_r = temp.to_xz();
-
-    // x(P - S)
-    let neg_s = xy_s.neg();
-    let temp = jac_add(&neg_s, &xy_p, curve);
-    data.diff.pm_s = temp.to_xz();
-
-    // x(R - Q)
-    let neg_q = xy_q.neg();
-    let temp = jac_add(&neg_q, &xy_r, curve);
-    data.diff.rm_q = temp.to_xz();
-
-    // x(S - Q)
-    let temp = jac_add(&neg_q, &xy_s, curve);
-    data.diff.sm_q = temp.to_xz();
-}
-
-/// Inline all Weil pairing computations needed for the Weil-based dlog.
-#[inline]
-fn weil_dlog<L: FpBackend>(data: &PairingDlogParams<L>) -> Option<DlogResult> {
-    let nwords = L::NWORDS_ORDER;
-
-    let mut n_p = data.pq.p.clone();
-    let mut n_q = data.pq.q.clone();
-    let mut n_r = data.rs.p.clone();
-    let mut n_s = data.rs.q.clone();
-    let mut n_pq = data.pq.pmq.clone();
-    let mut p_nq = data.pq.pmq.clone();
-    let mut n_pr = data.diff.pm_r.clone();
-    let mut n_ps = data.diff.pm_s.clone();
-    let mut p_nr = data.diff.pm_r.clone();
-    let mut p_ns = data.diff.pm_s.clone();
-    let mut n_rq = data.diff.rm_q.clone();
-    let mut n_sq = data.diff.sm_q.clone();
-    let mut r_nq = data.diff.rm_q.clone();
-    let mut s_nq = data.diff.sm_q.clone();
-
-    for _ in 0..data.e - 1 {
-        n_pq = cubical_add(&n_pq, &n_p, &data.ix_q);
-        n_pr = cubical_add(&n_pr, &n_p, &data.ix_r);
-        let (new_nps, new_np) = cubical_dbladd(&n_ps, &n_p, &data.ix_s, &data.a24);
-        n_ps = new_nps;
-        n_p = new_np;
-
-        p_nq = cubical_add(&p_nq, &n_q, &data.ix_p);
-        r_nq = cubical_add(&r_nq, &n_q, &data.ix_r);
-        let (new_snq, new_nq) = cubical_dbladd(&s_nq, &n_q, &data.ix_s, &data.a24);
-        s_nq = new_snq;
-        n_q = new_nq;
-
-        p_nr = cubical_add(&p_nr, &n_r, &data.ix_p);
-        let (new_nrq, new_nr) = cubical_dbladd(&n_rq, &n_r, &data.ix_q, &data.a24);
-        n_rq = new_nrq;
-        n_r = new_nr;
-
-        p_ns = cubical_add(&p_ns, &n_s, &data.ix_p);
-        let (new_nsq, new_ns) = cubical_dbladd(&n_sq, &n_s, &data.ix_q, &data.a24);
-        n_sq = new_nsq;
-        n_s = new_ns;
-    }
-
-    // Translate
-    translate(&mut n_pq, &n_p);
-    translate(&mut n_pr, &n_p);
-    translate(&mut n_ps, &n_p);
-    translate(&mut p_nq, &n_q);
-    translate(&mut r_nq, &n_q);
-    translate(&mut s_nq, &n_q);
-    translate(&mut p_nr, &n_r);
-    translate(&mut n_rq, &n_r);
-    translate(&mut p_ns, &n_s);
-    translate(&mut n_sq, &n_s);
-
-    let n_p_clone = n_p.clone();
-    let n_q_clone = n_q.clone();
-    let n_r_clone = n_r.clone();
-    let n_s_clone = n_s.clone();
-    translate(&mut n_p, &n_p_clone);
-    translate(&mut n_q, &n_q_clone);
-    translate(&mut n_r, &n_r_clone);
-    translate(&mut n_s, &n_s_clone);
-
-    // Compute reference pairing ratios
-    let mut w1 = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    let mut w2 = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-
-    // e(P, Q) = w0, note: w1/w2 swapped for first element to save an inversion
-    let t0 = point_ratio(&n_pq, &n_p, &data.pq.q);
-    let t1 = point_ratio(&p_nq, &n_q, &data.pq.p);
-    w2[0] = t0.x.mul(&t1.z);
-    w1[0] = t1.x.mul(&t0.z);
-
-    // e(P, R) = w0^r2
-    let t0 = point_ratio(&n_pr, &n_p, &data.rs.p);
-    let t1 = point_ratio(&p_nr, &n_r, &data.pq.p);
-    w1[1] = t0.x.mul(&t1.z);
-    w2[1] = t1.x.mul(&t0.z);
-
-    // e(R, Q) = w0^r1
-    let t0 = point_ratio(&n_rq, &n_r, &data.pq.q);
-    let t1 = point_ratio(&r_nq, &n_q, &data.rs.p);
-    w1[2] = t0.x.mul(&t1.z);
-    w2[2] = t1.x.mul(&t0.z);
-
-    // e(P, S) = w0^s2
-    let t0 = point_ratio(&n_ps, &n_p, &data.rs.q);
-    let t1 = point_ratio(&p_ns, &n_s, &data.pq.p);
-    w1[3] = t0.x.mul(&t1.z);
-    w2[3] = t1.x.mul(&t0.z);
-
-    // e(S, Q) = w0^s1
-    let t0 = point_ratio(&n_sq, &n_s, &data.pq.q);
-    let t1 = point_ratio(&s_nq, &n_q, &data.rs.q);
-    w1[4] = t0.x.mul(&t1.z);
-    w2[4] = t1.x.mul(&t0.z);
-
-    // Batch inversion and normalization
-    let mut s1_scratch = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    let mut s2_scratch = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    Fp2::batched_inv(&mut w1, &mut s1_scratch, &mut s2_scratch);
-    for i in 0..5 {
-        w1[i] = w1[i].mul(&w2[i]);
-    }
-
-    let mut r1 = [0u64; 8];
-    let mut r2 = [0u64; 8];
-    let mut s1 = [0u64; 8];
-    let mut s2 = [0u64; 8];
-
-    fp2_dlog_2e(&mut r2[..nwords], &w1[1], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut r1[..nwords], &w1[2], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut s2[..nwords], &w1[3], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut s1[..nwords], &w1[4], &w1[0], data.e)?;
-
-    Some((r1, r2, s1, s2))
-}
-
-/// Compute 2-power discrete log using the Weil pairing.
-///
-/// Given bases `{P, Q}` and `{R, S}` of the 2ᵉ-torsion, find
-/// scalars `r1, r2, s1, s2` such that `R = [r1]P + [r2]Q` and
-/// `S = [s1]P + [s2]Q`.
-#[allow(clippy::too_many_arguments)]
-#[inline]
-pub fn ec_dlog_2_weil<L: FpBackend>(
-    r1: &mut [u64],
-    r2: &mut [u64],
-    s1: &mut [u64],
-    s2: &mut [u64],
-    pq: &EcBasis<L>,
-    rs: &EcBasis<L>,
-    curve: &mut EcCurve<L>,
-    e: u32,
-) -> Option<()> {
-    curve.normalize_a24();
-
-    let mut data = PairingDlogParams {
-        e,
-        pq: pq.clone(),
-        rs: rs.clone(),
-        diff: DlogDiffPoints {
-            pm_r: EcPoint::identity(),
-            pm_s: EcPoint::identity(),
-            rm_q: EcPoint::identity(),
-            sm_q: EcPoint::identity(),
-        },
-        ix_p: Fp2::zero(),
-        ix_q: Fp2::zero(),
-        ix_r: Fp2::zero(),
-        ix_s: Fp2::zero(),
-        a24: curve.a24.clone(),
+    d.ix_p = d.pq.p.z.mul(&t[1]);
+    d.ix_q = d.pq.q.z.mul(&t[2]);
+    let norm = |pt: &mut EcPoint<L>, inv: &Fp2<L>| {
+        pt.x = pt.x.mul(inv);
+        pt.z = Fp2::one();
     };
-
-    cubical_normalization_dlog(&mut data, curve);
-    compute_difference_points(&mut data, curve);
-
-    let (wr1, wr2, ws1, ws2) = weil_dlog(&data)?;
-    let n = r1.len();
-    r1.copy_from_slice(&wr1[..n]);
-    r2.copy_from_slice(&wr2[..n]);
-    s1.copy_from_slice(&ws1[..n]);
-    s2.copy_from_slice(&ws2[..n]);
-    Some(())
+    norm(&mut d.pq.p, &t[3]);
+    norm(&mut d.pq.q, &t[4]);
+    norm(&mut d.rs.p, &t[5]);
+    norm(&mut d.rs.q, &t[6]);
+    norm(&mut d.pq.pmq, &t[7]);
+    norm(&mut d.pm_r, &t[8]);
+    norm(&mut d.pm_s, &t[9]);
+    norm(&mut d.rm_q, &t[10]);
+    norm(&mut d.sm_q, &t[11]);
 }
 
-/// Inline all Tate pairing computations for partial-torsion dlog.
+/// The Tate pairings `t(P, Q)`, `t(R, P)`, `t(R, Q)`, `t(S, P)`, `t(S, Q)` and
+/// the four discrete logarithms.
 #[inline]
-fn tate_dlog_partial<L: FpBackend>(
-    data: &PairingDlogParams<L>,
-    torsion_even_power: u32,
-    cofactor: &[u64],
-) -> Option<DlogResult> {
-    let nwords = L::NWORDS_ORDER;
-    let e_diff = torsion_even_power - data.e;
+fn tate_dlog_partial<L: FpBackend + PrimePrecomp>(
+    d: &DlogParams<L>,
+) -> Option<[[u64; MAX_ORDER_WORDS]; 4]> {
+    let e_full = L::TWO_ADIC_EXPONENT;
+    let e_diff = e_full - d.e;
+    let n = L::ORDER_WORDS;
 
-    let mut n_p = data.pq.p.clone();
-    let mut n_q = data.pq.q.clone();
-    let mut n_r = data.rs.p.clone();
-    let mut n_s = data.rs.q.clone();
-    let mut n_pq = data.pq.pmq.clone();
-    let mut p_nr = data.diff.pm_r.clone();
-    let mut p_ns = data.diff.pm_s.clone();
-    let mut n_rq = data.diff.rm_q.clone();
-    let mut n_sq = data.diff.sm_q.clone();
+    let mut np = d.pq.p.clone();
+    let mut nr = d.rs.p.clone();
+    let mut ns = d.rs.q.clone();
+    let mut npq = d.pq.pmq.clone();
+    let mut pnr = d.pm_r.clone();
+    let mut pns = d.pm_s.clone();
+    let mut nrq = d.rm_q.clone();
+    let mut nsq = d.sm_q.clone();
 
-    // Full-order ladder for P, Q
-    for _ in 0..torsion_even_power - 1 {
-        let (new_npq, new_np) = cubical_dbladd(&n_pq, &n_p, &data.ix_q, &data.a24);
-        n_pq = new_npq;
-        n_p = new_np;
+    for _ in 0..e_full - 1 {
+        let (a, b) = cubical_dbladd(&npq, &np, &d.ix_q, &d.a24);
+        npq = a;
+        np = b;
     }
-
-    // Partial-order ladders for R, S
-    for _ in 0..data.e - 1 {
-        p_nr = cubical_add(&p_nr, &n_r, &data.ix_p);
-        let (new_nrq, new_nr) = cubical_dbladd(&n_rq, &n_r, &data.ix_q, &data.a24);
-        n_rq = new_nrq;
-        n_r = new_nr;
-
-        p_ns = cubical_add(&p_ns, &n_s, &data.ix_p);
-        let (new_nsq, new_ns) = cubical_dbladd(&n_sq, &n_s, &data.ix_q, &data.a24);
-        n_sq = new_nsq;
-        n_s = new_ns;
+    for _ in 0..d.e - 1 {
+        pnr = cubical_add(&pnr, &nr, &d.ix_p);
+        let (a, b) = cubical_dbladd(&nrq, &nr, &d.ix_q, &d.a24);
+        nrq = a;
+        nr = b;
+        pns = cubical_add(&pns, &ns, &d.ix_p);
+        let (a, b) = cubical_dbladd(&nsq, &ns, &d.ix_q, &d.a24);
+        nsq = a;
+        ns = b;
     }
+    translate(&mut npq, &np);
+    translate(&mut pnr, &nr);
+    translate(&mut nrq, &nr);
+    translate(&mut pns, &ns);
+    translate(&mut nsq, &ns);
+    let (np_c, nr_c, ns_c) = (np.clone(), nr.clone(), ns.clone());
+    translate(&mut np, &np_c);
+    translate(&mut nr, &nr_c);
+    translate(&mut ns, &ns_c);
 
-    translate(&mut n_pq, &n_p);
-    translate(&mut p_nr, &n_r);
-    translate(&mut n_rq, &n_r);
-    translate(&mut p_ns, &n_s);
-    translate(&mut n_sq, &n_s);
-
-    let n_p_clone = n_p.clone();
-    let n_q_clone = n_q.clone();
-    let n_r_clone = n_r.clone();
-    let n_s_clone = n_s.clone();
-    translate(&mut n_p, &n_p_clone);
-    translate(&mut n_q, &n_q_clone);
-    translate(&mut n_r, &n_r_clone);
-    translate(&mut n_s, &n_s_clone);
-
-    // Compute Tate ratios
-    let mut w1 = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    let mut w2 = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-
-    // t(P, Q)
-    let t0 = point_ratio(&n_pq, &n_p, &data.pq.q);
-    w1[0] = t0.x.clone();
-    w2[0] = t0.z.clone();
-
+    let mut w1: [Fp2<L>; 5] = core::array::from_fn(|_| Fp2::zero());
+    let mut w2: [Fp2<L>; 5] = core::array::from_fn(|_| Fp2::zero());
+    // t(P, Q)^(2^e_diff) = w0
+    let t = point_ratio(&npq, &np, &d.pq.q);
+    w1[0] = t.x;
+    w2[0] = t.z;
     // t(R, P) = w0^r2
-    let t0 = point_ratio(&p_nr, &n_r, &data.pq.p);
-    w1[1] = t0.x.clone();
-    w2[1] = t0.z.clone();
-
-    // t(R, Q) = w0^r1 , note swapped w1/w2
-    let t0 = point_ratio(&n_rq, &n_r, &data.pq.q);
-    w2[2] = t0.x.clone();
-    w1[2] = t0.z.clone();
-
+    let t = point_ratio(&pnr, &nr, &d.pq.p);
+    w1[1] = t.x;
+    w2[1] = t.z;
+    // t(R, Q) = w0^r1 (inverted)
+    let t = point_ratio(&nrq, &nr, &d.pq.q);
+    w2[2] = t.x;
+    w1[2] = t.z;
     // t(S, P) = w0^s2
-    let t0 = point_ratio(&p_ns, &n_s, &data.pq.p);
-    w1[3] = t0.x.clone();
-    w2[3] = t0.z.clone();
+    let t = point_ratio(&pns, &ns, &d.pq.p);
+    w1[3] = t.x;
+    w2[3] = t.z;
+    // t(S, Q) = w0^s1 (inverted)
+    let t = point_ratio(&nsq, &ns, &d.pq.q);
+    w2[4] = t.x;
+    w1[4] = t.z;
 
-    // t(S, Q) = w0^s1 , note swapped w1/w2
-    let t0 = point_ratio(&n_sq, &n_s, &data.pq.q);
-    w2[4] = t0.x.clone();
-    w1[4] = t0.z.clone();
-
-    // Batched reduction: apply ^(p-1) via Frobenius
+    // ^(p - 1) as Frobenius and inverse, projectively
     for i in 0..5 {
         let tmp = w1[i].clone();
-        let frob = fp2_frob::<L>(&w1[i]);
-        w1[i] = w2[i].mul(&frob);
-        let frob = fp2_frob::<L>(&w2[i]);
-        w2[i] = tmp.mul(&frob);
+        w1[i] = w2[i].mul(&w1[i].frob());
+        w2[i] = tmp.mul(&w2[i].frob());
     }
-
-    // Batch normalize
-    let mut s1_scratch = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    let mut s2_scratch = [
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-        Fp2::<L>::zero(),
-    ];
-    Fp2::batched_inv(&mut w2, &mut s1_scratch, &mut s2_scratch);
+    let mut s1: [Fp2<L>; 5] = core::array::from_fn(|_| Fp2::zero());
+    let mut s2: [Fp2<L>; 5] = core::array::from_fn(|_| Fp2::zero());
+    Fp2::batched_inv(&mut w2, &mut s1, &mut s2);
     for i in 0..5 {
         w1[i] = w1[i].mul(&w2[i]);
-    }
-
-    // Clear cofactor and remaining 2^e_diff
-    for item in w1.iter_mut() {
-        *item = clear_cofac::<L>(item, cofactor);
+        w1[i] = clear_cofac::<L>(&w1[i]);
         for _ in 0..e_diff {
-            *item = item.sqr();
+            w1[i] = w1[i].sqr();
         }
     }
 
-    let mut r1 = [0u64; 8];
-    let mut r2 = [0u64; 8];
-    let mut s1 = [0u64; 8];
-    let mut s2 = [0u64; 8];
-
-    fp2_dlog_2e(&mut r2[..nwords], &w1[1], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut r1[..nwords], &w1[2], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut s2[..nwords], &w1[3], &w1[0], data.e)?;
-    fp2_dlog_2e(&mut s1[..nwords], &w1[4], &w1[0], data.e)?;
-
-    Some((r1, r2, s1, s2))
+    let mut out = [[0u64; MAX_ORDER_WORDS]; 4];
+    fp2_dlog_2e(&mut out[1][..n], &w1[1], &w1[0], d.e)?; // r2
+    fp2_dlog_2e(&mut out[0][..n], &w1[2], &w1[0], d.e)?; // r1
+    fp2_dlog_2e(&mut out[3][..n], &w1[3], &w1[0], d.e)?; // s2
+    fp2_dlog_2e(&mut out[2][..n], &w1[4], &w1[0], d.e)?; // s1
+    Some(out)
 }
 
-/// Compute 2-power discrete log using the reduced Tate pairing.
-///
-/// `{P, Q}` must be a basis of the full `2^torsion_even_power`-torsion.
-/// `{R, S}` is a basis of the 2ᵉ-torsion (where `e <= torsion_even_power`).
-/// Finds scalars `r1, r2, s1, s2` such that
-/// `R = [2^(f-e)]([r1]P + [r2]Q)` and `S = [2^(f-e)]([s1]P + [s2]Q)`.
-#[allow(clippy::too_many_arguments)]
+/// Two-dimensional discrete logarithm by Tate pairings. `pq` is a basis of
+/// the full `E[2^f]`, `rs` a basis of `E[2^e]`, `e <= f`. Returns
+/// `(r1, r2, s1, s2)` with `R = [2^(f-e)] ([r1] P + [r2] Q)` and
+/// `S = [2^(f-e)] ([s1] P + [s2] Q)`, each of `e` bits, **up to a common
+/// sign**: x-only points determine `(R, S)` only up to `(-R, -S)` (the
+/// difference `R - S` is kept), and which of the two answers comes out is
+/// set by the canonical square root in the shared-difference computation
+/// (the reference primes give one sign, the toy prime the other). Callers
+/// build matrices from the result, for which `M` and `-M` give the same
+/// Kummer points. `None` if `R` or `S` is not in the span.
 #[inline]
-pub fn ec_dlog_2_tate<L: FpBackend>(
-    r1: &mut [u64],
-    r2: &mut [u64],
-    s1: &mut [u64],
-    s2: &mut [u64],
+pub fn ec_dlog_2_tate<L: FpBackend + PrimePrecomp>(
     pq: &EcBasis<L>,
     rs: &EcBasis<L>,
     curve: &mut EcCurve<L>,
     e: u32,
-    torsion_even_power: u32,
-    cofactor: &[u64],
-) -> Option<()> {
+) -> Option<[[u64; MAX_ORDER_WORDS]; 4]> {
     curve.normalize_a24();
-
-    let mut data = PairingDlogParams {
+    let mut d = DlogParams {
         e,
         pq: pq.clone(),
         rs: rs.clone(),
-        diff: DlogDiffPoints {
-            pm_r: EcPoint::identity(),
-            pm_s: EcPoint::identity(),
-            rm_q: EcPoint::identity(),
-            sm_q: EcPoint::identity(),
-        },
+        pm_r: EcPoint::identity(),
+        pm_s: EcPoint::identity(),
+        rm_q: EcPoint::identity(),
+        sm_q: EcPoint::identity(),
         ix_p: Fp2::zero(),
         ix_q: Fp2::zero(),
-        ix_r: Fp2::zero(),
-        ix_s: Fp2::zero(),
         a24: curve.a24.clone(),
     };
+    compute_shared_difference_points(&mut d, curve);
+    cubical_normalization_dlog(&mut d, curve);
+    tate_dlog_partial(&d)
+}
 
-    cubical_normalization_dlog(&mut data, curve);
-    compute_difference_points(&mut data, curve);
+/// Bits of the largest 2-power subgroup a [`DlogTable`] covers: the torsion
+/// `e' + 2` of every parameter set is at most 324.
+pub const MAX_DLOG_BITS: usize = 324;
 
-    let (tr1, tr2, ts1, ts2) = tate_dlog_partial(&data, torsion_even_power, cofactor)?;
-    let n = r1.len();
-    r1.copy_from_slice(&tr1[..n]);
-    r2.copy_from_slice(&tr2[..n]);
-    s1.copy_from_slice(&ts1[..n]);
-    s2.copy_from_slice(&ts2[..n]);
-    Some(())
+/// The fixed-base data of the two-adic discrete logarithm (P25): for `g`
+/// of order exactly `2^t` in `F_p^2`, the powers `(g^-1)^(2^k)`, `k = 0..t`,
+/// and the sixteen powers of `(g^-1)^(2^(t-4))`, the 16th roots of unity.
+/// With them [`fp2_dlog_2e_fixed`] divides a found digit out of a node by
+/// table products instead of the running ancestor updates of
+/// [`fp2_dlog_2e`], and resolves four bits per leaf by lookup: about a
+/// third of that routine's multiplications and none of its squarings of
+/// the base. Built once per public key by the verifier's prepared key, or
+/// once per decoding (`t` squarings and one inversion) otherwise.
+pub struct DlogTable<L: FpBackend> {
+    pows: [Fp2<L>; MAX_DLOG_BITS],
+    roots: [Fp2<L>; 16],
+    t: u32,
+}
+
+impl<L: FpBackend> DlogTable<L> {
+    /// The table of `g`. `None` if `t` is outside `4..=MAX_DLOG_BITS` or if
+    /// `g` does not have order exactly `2^t` (`g^(2^(t-1)) != -1`), which is
+    /// how a pairing of a basis of the wrong order shows up.
+    pub fn new(g: &Fp2<L>, t: u32) -> Option<Self> {
+        if !(4..=MAX_DLOG_BITS as u32).contains(&t) {
+            return None;
+        }
+        let mut pows: [Fp2<L>; MAX_DLOG_BITS] = core::array::from_fn(|_| Fp2::zero());
+        pows[0] = g.inv();
+        for k in 1..t as usize {
+            pows[k] = pows[k - 1].sqr();
+        }
+        // order exactly 2^t: (g^-1)^(2^(t-1)) = -1
+        if !bool::from(pows[t as usize - 1].ct_equal(&Fp2::one().neg())) {
+            return None;
+        }
+        let zeta_inv = pows[t as usize - 4].clone();
+        let mut roots: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::zero());
+        roots[0] = Fp2::one();
+        for j in 1..16 {
+            roots[j] = roots[j - 1].mul(&zeta_inv);
+        }
+        Some(Self { pows, roots, t })
+    }
+
+    /// `t`.
+    pub fn bits(&self) -> u32 {
+        self.t
+    }
+
+    /// The digit `x < 2^len` (`len <= 4`) with `f = zeta_(2^len)^x`, where
+    /// `zeta_(2^len) = g^(2^(t-len))`; `f = (zeta_16^-1)^(-x 2^(4-len))`, so
+    /// the lookup index is `-x 2^(4-len) mod 16`. Variable time: the
+    /// pairing values are public.
+    fn leaf(&self, f: &Fp2<L>, len: usize) -> Option<u64> {
+        let shift = 4 - len;
+        (0..1u64 << len).find(|&x| {
+            let idx = (16 - ((x << shift) & 15)) & 15;
+            bool::from(f.ct_equal(&self.roots[idx as usize]))
+        })
+    }
+
+    /// The bits of `x` (`len` of them, `x < 2^len`) with `f = (g^(2^k))^x`,
+    /// `k + len = t`, written into `out` (little-endian limbs).
+    fn rec(&self, f: &Fp2<L>, k: usize, len: usize, out: &mut [u64]) -> Option<()> {
+        out.iter_mut().for_each(|w| *w = 0);
+        if len <= 4 {
+            out[0] = self.leaf(f, len)?;
+            return Some(());
+        }
+        let right = len / 2;
+        let left = len - right;
+        // the low `right` bits from f^(2^left) = (g^(2^(k+left)))^(x_lo)
+        let mut fa = f.clone();
+        for _ in 0..left {
+            fa = fa.sqr();
+        }
+        let n = out.len();
+        let mut lo = [0u64; MAX_ORDER_WORDS];
+        self.rec(&fa, k + left, right, &mut lo[..n])?;
+        // divide x_lo out: f (g^-1)^(2^k x_lo) = (g^(2^(k+right)))^(x_hi)
+        let mut fb = f.clone();
+        for b in 0..right {
+            if mp::bit(&lo[..n], b) == 1 {
+                fb = fb.mul(&self.pows[k + b]);
+            }
+        }
+        let mut hi = [0u64; MAX_ORDER_WORDS];
+        self.rec(&fb, k + right, left, &mut hi[..n])?;
+        mp::shl(&mut hi[..n], right);
+        mp::add(out, &lo[..n], &hi[..n]);
+        Some(())
+    }
+}
+
+/// `scal` with `f = g^scal` for the `g` of `table`, `scal < 2^t`. `None` if
+/// `f` is not in the subgroup generated by `g`.
+pub fn fp2_dlog_2e_fixed<L: FpBackend>(
+    scal: &mut [u64],
+    f: &Fp2<L>,
+    table: &DlogTable<L>,
+) -> Option<()> {
+    table.rec(f, 0, table.t as usize, scal)
 }

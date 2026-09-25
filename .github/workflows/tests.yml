@@ -15,6 +15,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test -p sqisign-verify -p sqisign-rs --release
+      - run: cargo test -p sqisign-verify -p sqisign-rs --release --features compact
   zeroize-audit:
     name: ZeroizingAllocator audit
     runs-on: ubuntu-latest

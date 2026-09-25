@@ -1,202 +1,126 @@
-//! The compact signature scheme's verification-side types.
-//!
-//! [`CompactSignature`] and [`CompactPublicKey`] are the public types of the
-//! 108-byte-signature ("compact") scheme. They are deliberately **distinct**
-//! from the dim-2 [`crate::Signature`] / [`crate::PublicKey`]: the two schemes
-//! use different torsion-basis conventions and their keys are not
-//! interchangeable.
-//!
-//! # Cross-type verification rules
-//!
-//! * a [`CompactPublicKey`] verifies a [`CompactSignature`] (its native format)
-//!   and the compact arm of [`crate::AnySignature`];
-//! * a [`CompactPublicKey`] does **not** verify dim-2
-//!   standard/compressed/expanded signatures;
-//! * the dim-2 [`crate::PublicKey`] does **not** verify a [`CompactSignature`].
-//!
-//! [`crate::AnySignature`] autodetects the wire *format* from its length, but
-//! the caller must hold the public key of the matching *scheme*.
-//!
-//! # Levels
-//!
-//! The compact scheme is implemented at Level 1 only. These types are generic
-//! over the security level for API symmetry with the dim-2 keys and to slot
-//! into [`crate::AnySignature`]`<L>`, but the functional impls
-//! (`SignatureEncoding`, `Verifier`, (de)serialization) exist for [`Level1`].
+//! The compact (dimension-4) format's typed API, level I, experimental
+//! (feature `compact`; the protocol is in [`crate::hd`], the parameters in
+//! `docs/COMPACT_R3.md`). A compact key is not a round-3 key: its basis
+//! convention is the SQIsignHD library's, and its signatures verify only
+//! with a [`CompactPublicKey`].
 
 use core::marker::PhantomData;
 
-use hybrid_array::typenum::{U108, U64};
-use hybrid_array::Array;
+use hybrid_array::typenum::{Unsigned, U142, U84};
+use hybrid_array::{Array, ArraySize};
 
-use crate::fp::Fp2;
-use crate::hd::{
-    encode_public_key, encode_signature, hd_verify_l1_parsed, parse_public_key, parse_signature,
-    ParsedPublicKey, ParsedSignature,
-};
-use crate::params::{Level1, SecurityLevel};
+use crate::hd::{hd_verify_bytes, HdLevel};
+use crate::params::P324_3;
 use crate::Error;
 
-/// A compact signature - the 108-byte (Level 1) wire format.
-///
-/// Verify it with a [`CompactPublicKey`] (see the [module docs](self) for the
-/// cross-type rules).
+/// A level with compact-format wire sizes.
+pub trait CompactLevel: HdLevel {
+    /// Encoded public-key length.
+    type PkLen: ArraySize;
+    /// Encoded signature length.
+    type SigLen: ArraySize;
+}
+
+impl CompactLevel for P324_3 {
+    type PkLen = U84;
+    type SigLen = U142;
+}
+
+/// A compact public key (84 bytes at level I).
 #[derive(Clone, Debug)]
-pub struct CompactSignature<L: SecurityLevel = Level1> {
-    pub(crate) inner: ParsedSignature,
-    pub(crate) _marker: PhantomData<L>,
+pub struct CompactPublicKey<L: CompactLevel> {
+    bytes: Array<u8, L::PkLen>,
+    _level: PhantomData<L>,
 }
 
-impl<L: SecurityLevel> CompactSignature<L> {
-    /// Wrap an already-parsed signature (crate-internal; used by
-    /// `AnySignature::from_bytes` and the signing-key wrapper).
-    pub(crate) fn from_parsed(inner: ParsedSignature) -> Self {
-        Self {
-            inner,
-            _marker: PhantomData,
-        }
-    }
+/// A compact signature (142 bytes at level I).
+#[derive(Clone, Debug)]
+pub struct CompactSignature<L: CompactLevel> {
+    bytes: Array<u8, L::SigLen>,
+    _level: PhantomData<L>,
 }
 
-impl CompactSignature<Level1> {
-    /// The 108-byte wire encoding (commitment basis hints packed into `A_com`).
-    pub fn to_bytes(&self) -> Array<u8, U108> {
-        let bytes = encode_signature(
-            &self.inner.a_com,
-            self.inner.a,
-            self.inner.b,
-            self.inner.c_or_d,
-            &self.inner.q,
-            self.inner.hint_com_p,
-            self.inner.hint_com_q,
-        )
-        .expect("invariant: a parsed compact signature always re-encodes");
-        let mut out = Array::<u8, U108>::default();
-        out.copy_from_slice(&bytes);
-        out
-    }
-
-    /// Parse a compact signature from its 108 wire bytes.
+impl<L: CompactLevel> CompactPublicKey<L> {
+    /// Decode (strict: the length and a canonical curve coefficient).
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let inner = parse_signature(bytes).map_err(|_| Error::MalformedInput)?;
-        Ok(Self::from_parsed(inner))
+        if bytes.len() != L::PkLen::USIZE {
+            return Err(Error::InvalidLength);
+        }
+        crate::hd::parse_public_key::<L>(bytes).map_err(|_| Error::MalformedInput)?;
+        Ok(Self {
+            bytes: Array::try_from(bytes).expect("length checked"),
+            _level: PhantomData,
+        })
+    }
+
+    /// The encoding.
+    pub fn to_bytes(&self) -> Array<u8, L::PkLen> {
+        self.bytes.clone()
+    }
+
+    /// The encoding as a slice.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Verify a compact signature on `msg`.
+    pub fn verify_compact(&self, msg: &[u8], sig: &CompactSignature<L>) -> Result<(), Error> {
+        hd_verify_bytes::<L>(&sig.bytes, &self.bytes, msg).map_err(|_| Error::InvalidSignature)
     }
 }
 
-impl TryFrom<&[u8]> for CompactSignature<Level1> {
+impl<L: CompactLevel> CompactSignature<L> {
+    /// Decode (strict: the length, a canonical curve coefficient, the
+    /// scalars' and the degree's ranges).
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != L::SigLen::USIZE {
+            return Err(Error::InvalidLength);
+        }
+        crate::hd::parse_signature::<L>(bytes).map_err(|_| Error::MalformedInput)?;
+        Ok(Self {
+            bytes: Array::try_from(bytes).expect("length checked"),
+            _level: PhantomData,
+        })
+    }
+
+    /// The encoding.
+    pub fn to_bytes(&self) -> Array<u8, L::SigLen> {
+        self.bytes.clone()
+    }
+
+    /// The encoding as a slice.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl<L: CompactLevel> TryFrom<&[u8]> for CompactPublicKey<L> {
     type Error = Error;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(bytes: &[u8]) -> Result<Self, Error> {
         Self::from_bytes(bytes)
     }
 }
 
-impl From<CompactSignature<Level1>> for Array<u8, U108> {
-    fn from(sig: CompactSignature<Level1>) -> Self {
-        sig.to_bytes()
-    }
-}
-
-impl signature::SignatureEncoding for CompactSignature<Level1> {
-    type Repr = Array<u8, U108>;
-}
-
-impl<L: SecurityLevel> core::fmt::Display for CompactSignature<L> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Debug::fmt(&self.inner, f)
-    }
-}
-
-/// A compact public key - verifies [`CompactSignature`]s.
-///
-/// Distinct from the dim-2 [`crate::PublicKey`]; see the [module docs](self).
-#[derive(Clone, Debug)]
-pub struct CompactPublicKey<L: SecurityLevel = Level1> {
-    /// Commitment/public curve Montgomery coefficient `A_pk` (Level 1 field).
-    pub(crate) a_pk: Fp2<Level1>,
-    /// Canonical `2^f`-torsion basis hints.
-    pub(crate) hint_pk_p: u32,
-    pub(crate) hint_pk_q: u32,
-    pub(crate) _marker: PhantomData<L>,
-}
-
-impl<L: SecurityLevel> CompactPublicKey<L> {
-    /// Construct from a curve coefficient and its canonical basis hints
-    /// (crate-internal; the signing-key wrapper builds public keys via the
-    /// 64-byte encoding instead).
-    pub(crate) fn from_parts(a_pk: Fp2<Level1>, hint_pk_p: u32, hint_pk_q: u32) -> Self {
-        Self {
-            a_pk,
-            hint_pk_p,
-            hint_pk_q,
-            _marker: PhantomData,
-        }
-    }
-
-    /// The public curve's Montgomery `A` coefficient (public data; the same
-    /// value encoded in [`to_bytes`](Self::to_bytes)). Analogous to the dim-2
-    /// [`PublicKey::curve`](crate::PublicKey::curve) accessor.
-    #[inline]
-    pub fn a_pk(&self) -> Fp2<Level1> {
-        self.a_pk.clone()
-    }
-
-    /// The canonical `2^f`-torsion basis hints `(hint_pk_p, hint_pk_q)`.
-    #[inline]
-    pub fn basis_hints(&self) -> (u32, u32) {
-        (self.hint_pk_p, self.hint_pk_q)
-    }
-}
-
-impl CompactPublicKey<Level1> {
-    /// The 64-byte wire encoding (basis hints packed into `A_pk`).
-    pub fn to_bytes(&self) -> Array<u8, U64> {
-        let bytes = encode_public_key(&self.a_pk, self.hint_pk_p, self.hint_pk_q)
-            .expect("invariant: a valid compact public key always re-encodes");
-        let mut out = Array::<u8, U64>::default();
-        out.copy_from_slice(&bytes);
-        out
-    }
-
-    /// Parse a compact public key from its 64 wire bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let p = parse_public_key(bytes).map_err(|_| Error::MalformedInput)?;
-        Ok(Self::from_parts(p.a_pk, p.hint_pk_p, p.hint_pk_q))
-    }
-}
-
-impl TryFrom<&[u8]> for CompactPublicKey<Level1> {
+impl<L: CompactLevel> TryFrom<&[u8]> for CompactSignature<L> {
     type Error = Error;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(bytes: &[u8]) -> Result<Self, Error> {
         Self::from_bytes(bytes)
     }
 }
 
-impl signature::Verifier<CompactSignature<Level1>> for CompactPublicKey<Level1> {
-    fn verify(&self, msg: &[u8], sig: &CompactSignature<Level1>) -> Result<(), signature::Error> {
-        let pk = ParsedPublicKey {
-            a_pk: self.a_pk.clone(),
-            hint_pk_p: self.hint_pk_p,
-            hint_pk_q: self.hint_pk_q,
-        };
-        hd_verify_l1_parsed(&sig.inner, &pk, msg).map_err(|_| signature::Error::new())
+impl<L: CompactLevel> From<CompactSignature<L>> for Array<u8, L::SigLen> {
+    fn from(sig: CompactSignature<L>) -> Self {
+        sig.bytes
     }
 }
 
-impl signature::Verifier<crate::formats::AnySignature<Level1>> for CompactPublicKey<Level1> {
-    fn verify(
-        &self,
-        msg: &[u8],
-        sig: &crate::formats::AnySignature<Level1>,
-    ) -> Result<(), signature::Error> {
-        match sig {
-            // The compact arm verifies natively.
-            crate::formats::AnySignature::Compact(s) => {
-                <Self as signature::Verifier<CompactSignature<Level1>>>::verify(self, msg, s)
-            }
-            // A compact key does not verify dim-2 signatures (wrong scheme).
-            crate::formats::AnySignature::Standard(_)
-            | crate::formats::AnySignature::Expanded(_)
-            | crate::formats::AnySignature::Compressed(_) => Err(signature::Error::new()),
-        }
+impl<L: CompactLevel> signature::SignatureEncoding for CompactSignature<L> {
+    type Repr = Array<u8, L::SigLen>;
+}
+
+impl<L: CompactLevel> signature::Verifier<CompactSignature<L>> for CompactPublicKey<L> {
+    fn verify(&self, msg: &[u8], sig: &CompactSignature<L>) -> Result<(), signature::Error> {
+        self.verify_compact(msg, sig)
+            .map_err(|_| signature::Error::new())
     }
 }
