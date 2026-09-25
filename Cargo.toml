@@ -5,6 +5,8 @@ members = [
     "crates/sqisign-rs",
     "crates/kat",
     "tools/demo-sign",
+    "tools/gen-fp",
+    "tools/gen-precomp",
 ]
 exclude = [
     "crates/alloc",
@@ -12,7 +14,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.6.0"
 authors = ["Dustin Ray <dustin.ray@anchorlabs.com>"]
 edition = "2021"
 rust-version = "1.80"
@@ -26,18 +28,11 @@ categories = ["cryptography", "no-std"]
 hybrid-array = "0.4"
 typenum = "1.17"
 
-# Cryptographic big integers (constant-time, stack-allocated, no_std).
-# default-features off so getrandom (which is not no_std-friendly on bare
-# metal) does not leak into the verification path.
-crypto-bigint = { version = "0.6", default-features = false }
-
-# Temporary quaternion layer big integers (to be replaced)
-num-bigint = { version = "0.4", features = ["rand"] }
+# Big integers for tests and generators only (the library's integers are
+# fixed-width, `sqisign_rs::mp`)
+num-bigint = "0.4"
 num-traits = "0.2"
 num-integer = "0.1"
-
-# Random number generation (quaternion layer)
-rand = "0.8"
 
 # Secret material hygiene
 zeroize = { version = "1", default-features = false, features = ["derive"] }
@@ -63,3 +58,11 @@ hex-literal = "0.4"
 # Internal workspace crates
 sqisign-verify = { path = "crates/verify" }
 sqisign-rs = { path = "crates/sqisign-rs" }
+
+# The measured build (V3.md, README): whole-program optimisation, as the C
+# reference is built with `-O3` and LTO. A downstream crate's own profile
+# applies to its build; this one governs this workspace's benchmarks and
+# tests.
+[profile.release]
+lto = "fat"
+codegen-units = 1

@@ -1,151 +1,105 @@
+//! (2, 2)-isogeny chains between products of elliptic curves in the theta
+//! model, following the SQIsign round-3 reference (`src/hd`) and spec
+//! Section 4.5.
 //!
-//! Implements the SQIsign2D-West approach for fast verification by working
-//! with 2-dimensional isogenies in theta coordinates on abelian surfaces.
+//! A chain of length `n` computes a `(2^n, 2^n)`-isogeny `E1 x E2 -> E3 x
+//! E4` from a kernel given by two couple points of order `2^(n + 2)` whose
+//! `[4]`-multiples generate it. The first step glues the product into a
+//! level-2 theta structure, the middle steps are generic theta isogenies,
+//! and the last step splits back to a product of Montgomery curves in
+//! canonical form.
 
-use crate::ec::{EcBasis, EcCurve, EcPoint, JacPoint};
+use crate::ec::{EcCurve, EcPoint};
 use crate::fp::{Fp2, FpBackend};
+use crate::params::Prime;
 
-pub mod basis_change;
 pub mod chain;
-pub mod couple;
 pub mod gluing;
 pub mod isogeny;
 pub mod splitting;
-pub mod theta_structure;
+pub mod structure;
 
-/// Additional bits of 2-power torsion consumed by the (2,2)-isogeny chain
-/// beyond the target isogeny degree. Computing a degree-2ⁿ isogeny via
-/// the theta model requires 2ⁿ⁺ᴴᴰ_ᴱˣᵀᴿᴬ_ᵀᴼᴿˢᴵᴼᴺ torsion points.
-pub const HD_EXTRA_TORSION: u32 = 2;
-
-/// A point on an elliptic product E1 x E2 in (X : Z) coordinates.
+/// A point in level-2 theta coordinates `(x : y : z : t)`.
 #[derive(Clone, Debug)]
-pub struct ThetaCouplePoint<L: FpBackend> {
-    pub p1: EcPoint<L>,
-    pub p2: EcPoint<L>,
-}
-
-/// A triple (T1, T2, T1-T2) of couple points forming a kernel.
-#[derive(Clone, Debug)]
-pub struct ThetaKernelCouplePoints<L: FpBackend> {
-    pub t1: ThetaCouplePoint<L>,
-    pub t2: ThetaCouplePoint<L>,
-    pub t1m2: ThetaCouplePoint<L>,
-}
-
-/// A point on an elliptic product E1 x E2 in (X : Y : Z) Jacobian coordinates.
-#[derive(Clone, Debug)]
-pub struct ThetaCoupleJacPoint<L: FpBackend> {
-    pub p1: JacPoint<L>,
-    pub p2: JacPoint<L>,
-}
-
-/// An elliptic product E1 x E2.
-#[derive(Clone, Debug)]
-pub struct ThetaCoupleCurve<L: FpBackend> {
-    pub e1: EcCurve<L>,
-    pub e2: EcCurve<L>,
-}
-
-/// An elliptic product E1 x E2 with torsion bases B1, B2.
-#[derive(Clone, Debug)]
-pub struct ThetaCoupleCurveWithBasis<L: FpBackend> {
-    pub e1: EcCurve<L>,
-    pub e2: EcCurve<L>,
-    pub b1: EcBasis<L>,
-    pub b2: EcBasis<L>,
-}
-
-/// A point in the theta model with projective coordinates (x : y : z : t).
-#[derive(Clone, Debug)]
-pub struct ThetaPoint<L: FpBackend> {
+pub struct ThetaPoint<L: Prime> {
+    /// First coordinate.
     pub x: Fp2<L>,
+    /// Second coordinate.
     pub y: Fp2<L>,
+    /// Third coordinate.
     pub z: Fp2<L>,
+    /// Fourth coordinate.
     pub t: Fp2<L>,
 }
 
-/// A compact theta point with two coordinates, used when components repeat.
+/// A theta structure on a principally polarised abelian surface: the data
+/// needed to double and to evaluate isogenies from it.
 #[derive(Clone, Debug)]
-pub struct ThetaPointCompact<L: FpBackend> {
-    pub x: Fp2<L>,
-    pub y: Fp2<L>,
-}
-
-/// A theta structure: null point plus 8 precomputed 𝔽p² values for
-/// efficient doubling and (2,2)-isogeny computation.
-#[derive(Clone, Debug)]
-pub struct ThetaStructure<L: FpBackend> {
-    pub null_point: ThetaPoint<L>,
+pub struct ThetaStructure<L: Prime> {
+    /// Coordinate-wise inverse of the dual theta null point.
+    pub inv_dual_null_point: ThetaPoint<L>,
+    /// Intermediate values from the isogeny that produced this structure,
+    /// from which the dual null point can be rebuilt cheaply.
+    pub dbl_data: ThetaPoint<L>,
+    /// Inverse of the squared (Hadamard-transformed) dual null point, for
+    /// doubling.
+    pub inv_sqr_null_point: ThetaPoint<L>,
+    /// Whether `inv_sqr_null_point` has been computed.
     pub precomputation: bool,
-
-    // Precomputed from to_squared_theta(null_point) = (XX, YY, ZZ, TT)
-    pub cap_xyz0: Fp2<L>, // XX * YY * ZZ
-    pub cap_yzt0: Fp2<L>, // YY * ZZ * TT
-    pub cap_xzt0: Fp2<L>, // XX * ZZ * TT
-    pub cap_xyt0: Fp2<L>, // XX * YY * TT
-
-    // Precomputed from null_point = (x, y, z, t) directly
-    pub xyz0: Fp2<L>, // x * y * z
-    pub yzt0: Fp2<L>, // y * z * t
-    pub xzt0: Fp2<L>, // x * z * t
-    pub xyt0: Fp2<L>, // x * y * t
 }
 
-/// A 2×2 𝔽p² matrix for the action-by-translation in gluing.
+/// A point on a product `E1 x E2`, both components on the Kummer line.
 #[derive(Clone, Debug)]
-pub struct TranslationMatrix<L: FpBackend> {
-    pub g00: Fp2<L>,
-    pub g01: Fp2<L>,
-    pub g10: Fp2<L>,
-    pub g11: Fp2<L>,
+pub struct ThetaCouplePoint<L: Prime> {
+    /// Component on `E1`.
+    pub p1: EcPoint<L>,
+    /// Component on `E2`.
+    pub p2: EcPoint<L>,
 }
 
-/// A 4×4 𝔽p² matrix for theta basis changes.
+/// Two couple points generating (after multiplication by 4) the kernel.
 #[derive(Clone, Debug)]
-pub struct BasisChangeMatrix<L: FpBackend> {
-    pub m: [[Fp2<L>; 4]; 4],
+pub struct ThetaKernelCouplePoints<L: Prime> {
+    /// First generator.
+    pub t1: ThetaCouplePoint<L>,
+    /// Second generator.
+    pub t2: ThetaCouplePoint<L>,
 }
 
-/// Precomputed basis change matrix: 4×4 of u8 indices into FP2_CONSTANTS.
+/// Which codomain factors a chain brings to canonical Montgomery form, and
+/// whether the extra consistency checks of signature verification run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChainMode {
+    /// Normalise both `E3` and `E4`.
+    Both,
+    /// Normalise only `E3`.
+    E1,
+    /// Normalise only `E4`.
+    E2,
+    /// Normalise `E3`, check `E4`'s null point, and verify the kernel at each
+    /// step: the mode used by signature verification.
+    Verify,
+}
+
+/// A product of two Montgomery curves.
 #[derive(Clone, Debug)]
-pub struct PrecompBasisChangeMatrix {
-    pub m: [[u8; 4]; 4],
+pub struct ThetaCoupleCurve<L: Prime> {
+    /// First factor.
+    pub e1: EcCurve<L>,
+    /// Second factor.
+    pub e2: EcCurve<L>,
 }
 
-/// A gluing (2,2) theta isogeny from an elliptic product.
-#[derive(Clone, Debug)]
-pub struct ThetaGluing<L: FpBackend> {
-    pub domain: ThetaCoupleCurve<L>,
-    pub xy_k1_8: ThetaCoupleJacPoint<L>,
-    pub image_k1_8: ThetaPointCompact<L>,
-    pub basis_change: BasisChangeMatrix<L>,
-    pub precomputation: ThetaPoint<L>,
-    pub codomain: ThetaPoint<L>,
-}
-
-/// A standard (2,2) theta isogeny between theta structures.
-#[derive(Clone, Debug)]
-pub struct ThetaIsogeny<L: FpBackend> {
-    pub t1_8: ThetaPoint<L>,
-    pub t2_8: ThetaPoint<L>,
-    pub hadamard_bool_1: bool,
-    pub hadamard_bool_2: bool,
-    pub domain: ThetaStructure<L>,
-    pub precomputation: ThetaPoint<L>,
-    pub codomain: ThetaStructure<L>,
-}
-
-/// A splitting isomorphism from a theta structure back to an elliptic product.
-#[derive(Clone, Debug)]
-pub struct ThetaSplitting<L: FpBackend> {
-    pub basis_change: BasisChangeMatrix<L>,
-    pub b: ThetaStructure<L>,
-}
-
-impl<L: FpBackend> Default for ThetaPoint<L> {
+impl<L: FpBackend> ThetaPoint<L> {
+    /// `(x : y : z : t)`.
     #[inline]
-    fn default() -> Self {
+    pub fn new(x: Fp2<L>, y: Fp2<L>, z: Fp2<L>, t: Fp2<L>) -> Self {
+        Self { x, y, z, t }
+    }
+
+    /// `(0 : 0 : 0 : 0)`, a placeholder.
+    #[inline]
+    pub fn zero() -> Self {
         Self {
             x: Fp2::zero(),
             y: Fp2::zero(),
@@ -155,81 +109,59 @@ impl<L: FpBackend> Default for ThetaPoint<L> {
     }
 }
 
-impl<L: FpBackend> Default for ThetaPointCompact<L> {
+impl<L: FpBackend> ThetaCouplePoint<L> {
+    /// `(p1, p2)`.
     #[inline]
-    fn default() -> Self {
-        Self {
-            x: Fp2::zero(),
-            y: Fp2::zero(),
-        }
+    pub fn new(p1: EcPoint<L>, p2: EcPoint<L>) -> Self {
+        Self { p1, p2 }
     }
-}
 
-impl<L: FpBackend> Default for ThetaStructure<L> {
+    /// `(p, 0)`.
     #[inline]
-    fn default() -> Self {
+    pub fn on_e1(p: EcPoint<L>) -> Self {
         Self {
-            null_point: ThetaPoint::default(),
-            precomputation: false,
-            cap_xyz0: Fp2::zero(),
-            cap_yzt0: Fp2::zero(),
-            cap_xzt0: Fp2::zero(),
-            cap_xyt0: Fp2::zero(),
-            xyz0: Fp2::zero(),
-            yzt0: Fp2::zero(),
-            xzt0: Fp2::zero(),
-            xyt0: Fp2::zero(),
-        }
-    }
-}
-
-impl<L: FpBackend> Default for BasisChangeMatrix<L> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            m: core::array::from_fn(|_| core::array::from_fn(|_| Fp2::zero())),
-        }
-    }
-}
-
-impl<L: FpBackend> Default for TranslationMatrix<L> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            g00: Fp2::zero(),
-            g01: Fp2::zero(),
-            g10: Fp2::zero(),
-            g11: Fp2::zero(),
-        }
-    }
-}
-
-impl<L: FpBackend> Default for ThetaCouplePoint<L> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            p1: EcPoint::identity(),
+            p1: p,
             p2: EcPoint::identity(),
         }
     }
-}
 
-impl<L: FpBackend> Default for ThetaCoupleJacPoint<L> {
+    /// `(0, p)`.
     #[inline]
-    fn default() -> Self {
+    pub fn on_e2(p: EcPoint<L>) -> Self {
         Self {
-            p1: JacPoint::identity(),
-            p2: JacPoint::identity(),
+            p1: EcPoint::identity(),
+            p2: p,
         }
+    }
+
+    /// `[2] (P1, P2)`.
+    #[inline]
+    pub fn double(&self, e12: &ThetaCoupleCurve<L>) -> Self {
+        Self {
+            p1: crate::ec::point::ec_dbl(&self.p1, &e12.e1),
+            p2: crate::ec::point::ec_dbl(&self.p2, &e12.e2),
+        }
+    }
+
+    /// `[2^n] (P1, P2)`.
+    #[inline]
+    pub fn double_iter(&self, n: u16, e12: &ThetaCoupleCurve<L>) -> Self {
+        let mut out = self.clone();
+        for _ in 0..n {
+            out = out.double(e12);
+        }
+        out
     }
 }
 
-impl<L: FpBackend> Default for ThetaCoupleCurve<L> {
+impl<L: FpBackend> ThetaKernelCouplePoints<L> {
+    /// The kernel generated by `(B1.P, B2.P)` and `(B1.Q, B2.Q)` for bases
+    /// `B1` of `E1` and `B2` of `E2`.
     #[inline]
-    fn default() -> Self {
+    pub fn from_bases(b1: &crate::ec::EcBasis<L>, b2: &crate::ec::EcBasis<L>) -> Self {
         Self {
-            e1: EcCurve::default(),
-            e2: EcCurve::default(),
+            t1: ThetaCouplePoint::new(b1.p.clone(), b2.p.clone()),
+            t2: ThetaCouplePoint::new(b1.q.clone(), b2.q.clone()),
         }
     }
 }

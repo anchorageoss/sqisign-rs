@@ -7,7 +7,7 @@
 
 use super::{Fp, Fp2, FpBackend};
 use hybrid_array::Array;
-use subtle::{Choice, ConstantTimeEq};
+use subtle::{Choice, ConstantTimeEq, ConstantTimeLess};
 
 impl<L: FpBackend> Default for Fp2<L> {
     fn default() -> Self {
@@ -116,41 +116,55 @@ impl<L: FpBackend> Fp2<L> {
         }
     }
 
-    /// Karatsuba multiplication: three `Fp` multiplications plus five
-    /// `Fp` adds/subs to compute `self * rhs`.
+    /// `self * rhs`: the backend's [`FpBackend::fp2_mul`], Karatsuba by
+    /// default (three `Fp` multiplications plus five adds/subs), fused
+    /// products in the assembly backend.
     #[inline]
     pub fn mul(&self, rhs: &Self) -> Self {
-        // t0 = (y.re + y.im)
-        let t0_in = self.re.add(&self.im);
-        // t1 = (z.re + z.im)
-        let t1_in = rhs.re.add(&rhs.im);
-        // t0 = (y.re + y.im) * (z.re + z.im)
-        let t0 = t0_in.mul(&t1_in);
-        // t1 = y.im * z.im
-        let t1 = self.im.mul(&rhs.im);
-        // x.re = y.re * z.re
-        let re_yz = self.re.mul(&rhs.re);
-        // x.im = t0 - t1 - x.re   (= y.re*z.im + y.im*z.re)
-        let im = t0.sub(&t1).sub(&re_yz);
-        // x.re = x.re - t1        (= y.re*z.re - y.im*z.im)
-        let re = re_yz.sub(&t1);
-        Self { re, im }
+        let mut out = Self::zero();
+        L::fp2_mul_pair(&mut out, self, rhs);
+        out
     }
 
-    /// `self^2`. Uses the factored identity
-    /// `re = (y.re + y.im) * (y.re - y.im) = y.re^2 - y.im^2`,
-    /// `im = 2 * y.re * y.im`, which costs two `Fp` multiplications
-    /// instead of three.
+    /// `self^2`: the backend's [`FpBackend::fp2_sqr`], by default the
+    /// factored identity `re = (y.re + y.im)(y.re - y.im)`, `im = 2 y.re
+    /// y.im`, two `Fp` multiplications instead of three.
     #[inline]
     pub fn sqr(&self) -> Self {
-        let sum = self.re.add(&self.im);
-        let diff = self.re.sub(&self.im);
-        // im = y.re * y.im; im = im + im
-        let im_half = self.re.mul(&self.im);
-        let im = im_half.add(&im_half);
-        // re = sum * diff
-        let re = sum.mul(&diff);
-        Self { re, im }
+        let mut out = Self::zero();
+        L::fp2_sqr(
+            &mut out.re.limbs,
+            &mut out.im.limbs,
+            &self.re.limbs,
+            &self.im.limbs,
+        );
+        out
+    }
+
+    /// `self <- self * rhs` in place (P28).
+    #[inline]
+    pub fn mul_assign(&mut self, rhs: &Self) {
+        L::fp2_mul_assign(self, rhs);
+    }
+
+    /// `self <- self^2` in place (P28).
+    #[inline]
+    pub fn sqr_assign(&mut self) {
+        L::fp2_sqr_assign(self);
+    }
+
+    /// `self <- self + rhs` in place (P28).
+    #[inline]
+    pub fn add_assign(&mut self, rhs: &Self) {
+        self.re.add_assign(&rhs.re);
+        self.im.add_assign(&rhs.im);
+    }
+
+    /// `self <- self - rhs` in place (P28).
+    #[inline]
+    pub fn sub_assign(&mut self, rhs: &Self) {
+        self.re.sub_assign(&rhs.re);
+        self.im.sub_assign(&rhs.im);
     }
 
     /// Multiply by a small (32-bit) integer.
@@ -206,10 +220,11 @@ impl<L: FpBackend> Fp2<L> {
         norm.is_square()
     }
 
-    /// Square root in 𝔽p² (ePrint 2024/1563). Output is well defined
-    /// up to sign; the sign
-    /// is chosen canonically so that the real part is even when
-    /// non-zero, and otherwise the imaginary part is even.
+    /// Square root in 𝔽p² by the algorithm of Aardal et al. (ePrint
+    /// 2024/1563), computed exactly as the SQIsign round-3 reference does:
+    /// the result is one of the two roots, chosen deterministically by the
+    /// algorithm, with no further sign normalisation. Only meaningful when
+    /// `self` is a square.
     #[inline]
     pub fn sqrt(&self) -> Self {
         // x0 = delta = sqrt(a.re^2 + a.im^2)
@@ -234,28 +249,66 @@ impl<L: FpBackend> Fp2<L> {
         let two_x0 = x0.add(&x0);
         let t1 = two_x0.sqr();
 
-        // If t1 == t0_first return (x0, x1) else (x1, -x0)
+        // If t1 == t0 return x0 + x1*i, else x1 - x0*i
         let f = t0_first.sub(&t1).ct_is_zero();
-        let t1_alt = x0.neg();
-        let t0_alt = x1.clone();
-        let t0 = Fp::<L>::select(&t0_alt, &x0, f);
-        let t1 = Fp::<L>::select(&t1_alt, &x1, f);
+        let re = Fp::<L>::select(&x1, &x0, f);
+        let im = Fp::<L>::select(&x0.neg(), &x1, f);
+        Self { re, im }
+    }
 
-        // Canonical-sign normalization
-        let t0_is_zero = t0.ct_is_zero();
-        let bytes0 = t0.encode();
-        let t0_is_odd = lsb_choice(bytes0[0]);
-        let bytes1 = t1.encode();
-        let t1_is_odd = lsb_choice(bytes1[0]);
-        let negate_output = t0_is_odd | (t0_is_zero & t1_is_odd);
-        let t0_neg = t0.neg();
-        let t1_neg = t1.neg();
-        let re_out = Fp::<L>::select(&t0, &t0_neg, negate_output);
-        let im_out = Fp::<L>::select(&t1, &t1_neg, negate_output);
+    /// The SQIsign round-2 reference's square root: [`Self::sqrt`] followed
+    /// by a sign normalisation so that the real part is even when non-zero,
+    /// and otherwise the imaginary part is even. Kept for byte-exact
+    /// comparison with code built on the round-2 reference (PRISM_v2); the
+    /// round-3 protocol layers use [`Self::sqrt`].
+    #[inline]
+    pub fn sqrt_canonical_even(&self) -> Self {
+        let s = self.sqrt();
+        let re_is_zero = s.re.ct_is_zero();
+        let re_is_odd = lsb_choice(s.re.encode()[0]);
+        let im_is_odd = lsb_choice(s.im.encode()[0]);
+        let negate = re_is_odd | (re_is_zero & im_is_odd);
         Self {
-            re: re_out,
-            im: im_out,
+            re: Fp::<L>::select(&s.re, &s.re.neg(), negate),
+            im: Fp::<L>::select(&s.im, &s.im.neg(), negate),
         }
+    }
+
+    /// Frobenius `a + bi -> a - bi` (the same map as [`Self::conjugate`],
+    /// under the name the round-3 reference uses).
+    #[inline]
+    pub fn frob(&self) -> Self {
+        self.conjugate()
+    }
+
+    /// `i * self` when `ctl` is set, `-i * self` when it is clear. Mirrors
+    /// the round-3 reference's `fp2_mul_by_i`, which always multiplies by a
+    /// fourth root of unity and uses `ctl` only to pick its sign.
+    #[inline]
+    pub fn mul_by_i(&self, ctl: Choice) -> Self {
+        Self {
+            re: Fp::<L>::select(&self.im, &self.im.neg(), ctl),
+            im: Fp::<L>::select(&self.re.neg(), &self.re, ctl),
+        }
+    }
+
+    /// Constant-time `self < other` on canonical encodings, compared as the
+    /// little-endian integer `encode(re) || encode(im)`: the imaginary part
+    /// is the most significant. This is the round-3 reference's
+    /// `fp2_less_than` ordering (used for canonical curve models). It is not
+    /// the real-part-first ordering PRISM's Section 5 defines; that one is
+    /// built where it is needed.
+    #[inline]
+    pub fn less_than(&self, other: &Self) -> Choice {
+        let a = self.encode();
+        let b = other.encode();
+        let mut less = Choice::from(0);
+        let mut equal_so_far = Choice::from(1);
+        for (x, y) in a.iter().rev().zip(b.iter().rev()) {
+            less |= equal_so_far & x.ct_lt(y);
+            equal_so_far &= x.ct_eq(y);
+        }
+        less
     }
 
     /// Replace `self` with `sqrt(self)` and return `Choice(1)` if

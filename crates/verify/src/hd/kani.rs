@@ -11,9 +11,9 @@
 //!
 //! # Integer widths (chosen, and why)
 //!
-//! * **Norm equation.** `N = 2^f - q` is ~136 bits at Level 1 (`f = 136`,
-//!   `q < 2^136`), and Cornacchia squares values up to `⌊√N⌋ ≈ 2^68`
-//!   (`b² < 2^136`). A fixed 256-bit [`U256`] holds `N` and every square with
+//! * **Norm equation.** `N = 2^e - q` has `e` bits (`e = 174` at level I,
+//!   `q < 2^e`), and Cornacchia squares values up to `⌊√N⌋ ≈ 2^87`
+//!   (`b² < 2^136`). A fixed 256-bit [`U4`] holds `N` and every square with
 //!   room to spare; the modular exponentiation for `√(-1) mod N` uses
 //!   `MontyForm` (internal wide products, no overflow). No `alloc`.
 //! * **Symplectic matrices over `Z/2^f`** (`f = r = 70` inside `KaniEndoHalf`).
@@ -40,109 +40,74 @@
 //! therefore validate the completion by the **symplectic property** (it is a
 //! valid completion of the real kernel blocks for all 5 vectors).
 
-use crypto_bigint::modular::{MontyForm, MontyParams};
-use crypto_bigint::{Integer, NonZero, Odd, U256};
+use super::uint::U4;
 
 // Sum of two squares (Cornacchia), N = 2^f - q = a₁² + a₂², N prime ≡ 1 (mod 4).
 
 /// Integer square root `⌊√n⌋` (Newton), for `U256`.
-fn isqrt_u256(n: &U256) -> U256 {
-    if *n == U256::ZERO {
-        return U256::ZERO;
+/// `(a_1, a_2)` with `a_1^2 + a_2^2 = n` for a prime `n ≡ 1 (mod 4)`
+/// (Cornacchia: a square root of `−1` modulo `n` from a small base raised
+/// to `(n − 1)/4`, then the Euclidean descent), `a_1` odd. `None` if `n` is
+/// even, no root is found among the first bases, or the descent fails (`n`
+/// not a prime `≡ 1 mod 4`, or not a sum of two squares).
+pub fn sum_of_two_squares(n: &U4) -> Option<(U4, U4)> {
+    if !n.is_odd() || n.0[0] & 3 != 1 {
+        return None;
     }
-    let nbits = 256 - n.leading_zeros();
-    let mut x = U256::ONE.shl(nbits.div_ceil(2));
-    loop {
-        let (q, _) = n.div_rem(&NonZero::new(x).expect("Newton iterate is positive"));
-        let x_new = x.wrapping_add(&q).shr(1);
-        if x_new >= x {
-            return x;
-        }
-        x = x_new;
-    }
-}
-
-/// Cornacchia's algorithm: given `n` prime with `n ≡ 1 (mod 4)`, return
-/// `(a1, a2)` with `a1² + a2² = n`, canonicalised so that **`a1` is odd and
-/// `a2` is even** (the post-swap convention `KaniEndoHalf` uses). Returns
-/// `None` if `n` is not a sum of two squares (e.g. not such a prime) or is even.
-pub fn sum_of_two_squares(n: &U256) -> Option<(U256, U256)> {
-    // n must be odd to be an odd prime ≡ 1 (mod 4).
-    let n_odd: Odd<U256> = Option::from(Odd::new(*n))?;
-    let params = MontyParams::new_vartime(n_odd);
-    let nm1 = n.wrapping_sub(&U256::ONE);
-    let neg_one = MontyForm::new(&nm1, params);
-    let exp = nm1.shr(2); // (n-1)/4
-
-    // √(-1) mod n = b^((n-1)/4) for a quadratic non-residue b; scan small b.
-    let mut root: Option<U256> = None;
+    let nm1 = n.wrapping_sub(&U4::ONE);
+    let exp = nm1.shr(2); // (n - 1) / 4
+    let mut root: Option<U4> = None;
     let mut b: u64 = 2;
     while b < 1000 {
-        let t = MontyForm::new(&U256::from_u64(b), params).pow(&exp);
-        if t * t == neg_one {
-            root = Some(t.retrieve());
+        let t = U4::from_u64(b).pow_mod(&exp, n);
+        if t.mul_mod(&t, n) == nm1 {
+            root = Some(t);
             break;
         }
         b += 1;
     }
     let mut x0 = root?;
-    // Take the larger root (n/2 < x0 < n), per Cohen's formulation.
     let half = n.shr(1);
-    if x0 <= half {
+    if !half.lt(&x0) {
         x0 = n.wrapping_sub(&x0);
     }
-
-    // Euclidean descent: a, b = n, x0; stop at the first b ≤ ⌊√n⌋.
-    let limit = isqrt_u256(n);
+    let limit = n.isqrt();
     let mut a = *n;
     let mut bb = x0;
-    while bb > limit {
-        let (_, r) = a.div_rem(&NonZero::new(bb).expect("descent divisor is positive"));
+    while limit.lt(&bb) {
+        let (_, r) = a.div_rem(&bb);
         a = bb;
         bb = r;
     }
-    // n = bb² + s²; recover s.
     let bb2 = bb.wrapping_mul(&bb);
     let c = n.wrapping_sub(&bb2);
-    let s = isqrt_u256(&c);
+    let s = c.isqrt();
     if s.wrapping_mul(&s) != c {
         return None;
     }
-    // Canonicalise: a1 odd, a2 even.
-    let bb_odd = bool::from(bb.is_odd());
-    if bb_odd {
+    if bb.is_odd() {
         Some((bb, s))
     } else {
         Some((s, bb))
     }
 }
 
-/// `N = 2^f - q`, then [`sum_of_two_squares`]. At Level 1 `f = 136`.
-pub fn norm_equation_2f_minus_q(f: u32, q: &U256) -> Option<(U256, U256)> {
-    let n = U256::ONE.shl(f).wrapping_sub(q);
+/// `(a_1, a_2)` with `a_1^2 + a_2^2 = 2^e − q`.
+pub fn norm_equation_2f_minus_q(e: u32, q: &U4) -> Option<(U4, U4)> {
+    let n = U4::pow2(e).wrapping_sub(q);
     sum_of_two_squares(&n)
 }
 
-// Symplectic matrices over Z/2^f (f = 70 inside KaniEndoHalf).
-
-/// Modulus exponent of the `KaniEndoHalf` symplectic matrices at Level 1
-/// (`= r`). Every `matrix_f`/kernel entry lives in `[0, 2^70)`.
-pub const F_MATRIX_L1: u32 = 70;
-const MASK70: u128 = (1u128 << 70) - 1;
-
 #[inline]
-fn r70(x: u128) -> u128 {
-    x & MASK70
-}
-#[inline]
-fn neg70(x: u128) -> u128 {
-    0u128.wrapping_sub(x & MASK70) & MASK70
+fn neg_m(x: u128, mask: u128) -> u128 {
+    0u128.wrapping_sub(x & mask) & mask
 }
 
 /// `matrix_F` (sage `kani_base_change.matrix_F`): the matrix of `F(B1)` in
 /// `B1`, an `8×8` matrix over `Z/2^f`. `a1, a2, q` must be reduced mod `2^f`.
-pub fn matrix_f(a1: u128, a2: u128, q: u128) -> [[u128; 8]; 8] {
-    let (a1, a2, q) = (r70(a1), r70(a2), r70(q));
+pub fn matrix_f(a1: u128, a2: u128, q: u128, mask: u128) -> [[u128; 8]; 8] {
+    let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
+    let neg70 = |x: u128| neg_m(x, mask);
     let n1 = neg70(1);
     [
         [a1, a2, q, 0, 0, 0, 0, 0],
@@ -157,8 +122,9 @@ pub fn matrix_f(a1: u128, a2: u128, q: u128) -> [[u128; 8]; 8] {
 }
 
 /// `matrix_F_dual` (sage `kani_base_change.matrix_F_dual`).
-pub fn matrix_f_dual(a1: u128, a2: u128, q: u128) -> [[u128; 8]; 8] {
-    let (a1, a2, q) = (r70(a1), r70(a2), r70(q));
+pub fn matrix_f_dual(a1: u128, a2: u128, q: u128, mask: u128) -> [[u128; 8]; 8] {
+    let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
+    let neg70 = |x: u128| neg_m(x, mask);
     let n1 = neg70(1);
     [
         [a1, neg70(a2), neg70(q), 0, 0, 0, 0, 0],
@@ -175,8 +141,14 @@ pub fn matrix_f_dual(a1: u128, a2: u128, q: u128) -> [[u128; 8]; 8] {
 /// Kernel blocks `(C, D)` of `complete_kernel_matrix_F1` - the symplectic
 /// generators of `B_Kp1` in `B1`, i.e. exactly the columns `kernel_basis`
 /// applies to the torsion points. `4×4` each, over `Z/2^f`.
-pub fn kernel_matrix_f1(a1: u128, a2: u128, q: u128) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
-    let (a1, a2, q) = (r70(a1), r70(a2), r70(q));
+pub fn kernel_matrix_f1(
+    a1: u128,
+    a2: u128,
+    q: u128,
+    mask: u128,
+) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
+    let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
+    let neg70 = |x: u128| neg_m(x, mask);
     let c = [
         [a1, 0, neg70(a2), 0],
         [a2, 0, a1, 0],
@@ -193,8 +165,14 @@ pub fn kernel_matrix_f1(a1: u128, a2: u128, q: u128) -> ([[u128; 4]; 4], [[u128;
 }
 
 /// Kernel blocks `(C, D)` of `complete_kernel_matrix_F2_dual`.
-pub fn kernel_matrix_f2_dual(a1: u128, a2: u128, q: u128) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
-    let (a1, a2, q) = (r70(a1), r70(a2), r70(q));
+pub fn kernel_matrix_f2_dual(
+    a1: u128,
+    a2: u128,
+    q: u128,
+    mask: u128,
+) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
+    let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
+    let neg70 = |x: u128| neg_m(x, mask);
     let n1 = neg70(1);
     let c = [
         [a1, 0, a2, 0],
@@ -483,18 +461,18 @@ pub fn starting_two_symplectic_matrices(
     mask: u128,
 ) -> Option<([[u128; 8]; 8], [[u128; 8]; 8])> {
     // M1_0 = complete_kernel_matrix_F1 (the single shared completion).
-    let (c1, d1) = kernel_matrix_f1(a1, a2, q);
+    let (c1, d1) = kernel_matrix_f1(a1, a2, q, mask);
     let m1_0 = complete_symplectic_dim4(&c1, &d1, mask)?;
 
     // M2 kernel block = matrix_F · M1_0[:, 0..4]; complete it.
-    let matf = matrix_f(a1, a2, q);
+    let matf = matrix_f(a1, a2, q, mask);
     let br2 = mat8_mul_cols0to3(&matf, &m1_0, mask);
     let c_br2: [[u128; 4]; 4] = core::array::from_fn(|i| br2[i]);
     let d_br2: [[u128; 4]; 4] = core::array::from_fn(|i| br2[4 + i]);
     let m2 = complete_symplectic_dim4(&c_br2, &d_br2, mask)?;
 
     // M1 = [ M1_0[:, 0..4] | -(matrix_F_dual · M2[:, 0..4]) ].
-    let matf_dual = matrix_f_dual(a1, a2, q);
+    let matf_dual = matrix_f_dual(a1, a2, q, mask);
     let br1 = mat8_mul_cols0to3(&matf_dual, &m2, mask);
     let mut m1 = [[0u128; 8]; 8];
     for r in 0..8 {

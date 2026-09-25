@@ -1,59 +1,21 @@
-//! Phase 5b.3 - response image recovery (stage 3).
-//!
-//! Given the self-derived challenge data from 5b.2 ([`ChallengeRecovery`]) and
-//! the commitment curve, recover the discrete log `k`, the response scalars
-//! `(c, d)`, and the response isogeny images `φ_rsp(R_com)`, `φ_rsp(S_com)`.
-//! Mirrors `Verify.py::image_response`:
-//!
-//! ```text
-//! R_com = 2^(e-r)·P_com ;  S_com = 2^(e-r)·Q_com         # order 2^r on E_com
-//! w_com = weil(R_com, S_com, 2^r)
-//! k     = dlog(w_com, w_chal, 2^r)                       # w_chal^k = w_com
-//! (a odd)  c = c_or_d, d = a⁻¹(k·q + b·c) mod 2^r
-//! (a even) d = c_or_d, c = b⁻¹(a·d - k·q) mod 2^r        # a·d - b·c ≡ k·q
-//! φ_rsp(R_com) = a·P_chal_resc + b·Q_chal_resc           # on E_chal
-//! φ_rsp(S_com) = c·P_chal_resc + d·Q_chal_resc
-//! ```
-//!
-//! # The `w_chal` convention cancels here (the key 5b.3 fact)
-//!
-//! 5b.2 found that the dim-2 biextension [`weil`] equals the **inverse** of the
-//! oracle's PARI Weil pairing, so its `w_chal` is `w_chal_oracle⁻¹`. This stage
-//! computes `w_com` with the **same** `weil`, so `w_com = w_com_oracle⁻¹` too.
-//! The discrete log then satisfies
-//! `w_com⁻¹·1 = (w_chal⁻¹)^k ⇒ w_com_oracle = w_chal_oracle^k`, i.e. `k` is
-//! **identical** to the oracle's - the global convention cancels because it
-//! divides out of both pairing arguments. This is verified against the
-//! oracle's recorded `k` for all 5 vectors.
-//!
-//! # Reused vs new
-//!
-//! Reused: the dim-2 [`weil`] and [`fp2_dlog_2e_pub`] (the field-element
-//! `2^e`-dlog, exactly `discrete_log_pari`), [`jac_add`], the 5b.1 basis, the
-//! 5b.2 challenge data, and the Phase-5 [`recover_response_cd`] (the `(c,d)`
-//! determinant solve mod `2^r`). New here: the connective tissue (rescaled
-//! commitment basis, `w_com`, the dlog call, the signed full-point linear
-//! combinations for the images).
+//! Stage 3 of the compact verification: the response images (the library's
+//! `image_response`). With `R_com = 2^(f − r) P_com`, `S_com = 2^(f − r)
+//! Q_com` of order `2^r`, `w_com = e(R_com, S_com)`, `k = log_{w_chall}
+//! w_com`, the dropped scalar from `a d − b c ≡ k q (mod 2^r)`, and the
+//! images `σ(R_com) = a P_resc + b Q_resc`, `σ(S_com) = c P_resc + d Q_resc`.
 
 use crate::ec::jacobian::jac_add;
-use crate::ec::pairing::{fp2_dlog_2e_pub, weil};
-use crate::ec::{EcCurve, JacPoint};
-use crate::{Fp2, Level1};
+use crate::ec::pairing::{fp2_dlog_2e, weil};
+use crate::ec::{EcCurve, JacPoint, MAX_ORDER_WORDS};
+use crate::fp::{Fp2, FpBackend};
 
-use crate::hd::challenge::{jac_dbl_iter, jac_scalar_mul, ChallengeRecovery};
-use crate::hd::hd_torsion_basis_l1;
-use crate::hd::hd_verify::recover_response_cd;
+use super::basis::hd_torsion_basis;
+use super::challenge::{jac_dbl_iter, jac_scalar_mul, ChallengeRecovery};
+use super::hd_verify::recover_response_cd;
+use super::params::HdLevel;
 
-/// Level-1 parameters: torsion exponent `e = 248`, response modulus `r = 70`,
-/// so the commitment basis is rescaled by `2^(e-r) = 2^178` to land on the
-/// `2^r`-torsion.
-const E_L1: u32 = 248;
-const R_L1: u32 = 70;
-const RESCALE_RESP_BITS: usize = (E_L1 - R_L1) as usize;
-
-/// The signed response scalars from the signature: `a`, `b`, the stored
-/// `c_or_d`, and the response degree `q` (only `q mod 2^r` is used, so it may
-/// be supplied reduced mod any multiple of `2^r`).
+/// The response scalars of a signature, `q` reduced modulo `2^128` (only
+/// `q mod 2^r` enters here).
 #[derive(Clone, Copy, Debug)]
 pub struct ResponseScalars {
     pub a: i128,
@@ -62,86 +24,62 @@ pub struct ResponseScalars {
     pub q: u128,
 }
 
-/// Stage-3 outputs.
-///
-/// `c`/`d` are reduced mod `2^r`. `r_com`/`s_com` are on `E_com`;
-/// `phi_rsp_r_com`/`phi_rsp_s_com` are on `E_chal`. Use [`crate::hd::jac_to_affine`]
-/// to compare against affine references.
-pub struct ResponseRecovery {
-    /// Discrete log `k` with `w_chal^k = w_com` (matches the oracle exactly).
+/// Stage-3 outputs: `c`, `d` modulo `2^r`, the commitment basis of order
+/// `2^r` and its images on `E_chall`.
+pub struct ResponseRecovery<L: FpBackend> {
     pub k: u128,
-    /// Response scalar `c` mod `2^r`.
     pub c: u128,
-    /// Response scalar `d` mod `2^r`.
     pub d: u128,
-    /// Commitment-basis Weil pairing `e_{2^r}(R_com, S_com)` (native `weil`
-    /// convention - the inverse of the oracle's PARI value).
-    pub w_com: Fp2<Level1>,
-    /// Rescaled commitment basis on `E_com`.
-    pub r_com: JacPoint<Level1>,
-    pub s_com: JacPoint<Level1>,
-    /// Response isogeny images on `E_chal`.
-    pub phi_rsp_r_com: JacPoint<Level1>,
-    pub phi_rsp_s_com: JacPoint<Level1>,
+    pub w_com: Fp2<L>,
+    pub r_com: JacPoint<L>,
+    pub s_com: JacPoint<L>,
+    pub phi_rsp_r_com: JacPoint<L>,
+    pub phi_rsp_s_com: JacPoint<L>,
 }
 
-/// Full-point scalar multiplication by a signed `i128`: `[s]·P` via
-/// `[|s|]·(±P)`. The magnitude fits in two limbs at Level 1 (the response
-/// scalars are < 2^71).
-fn jac_signed_mul(p: &JacPoint<Level1>, s: i128, curve: &EcCurve<Level1>) -> JacPoint<Level1> {
+fn jac_signed_mul<L: FpBackend>(p: &JacPoint<L>, s: i128, curve: &EcCurve<L>) -> JacPoint<L> {
     let mag = s.unsigned_abs();
     let limbs = [mag as u64, (mag >> 64) as u64];
     let base = if s < 0 { p.neg() } else { p.clone() };
     jac_scalar_mul(&base, &limbs, curve)
 }
 
-/// Recover the response images (`Verify.py::image_response`) for Level 1,
-/// consuming the self-derived challenge data from 5b.2.
-///
-/// `chal` is the 5b.2 output; `a_com`/`(hcp, hcq)` recover the commitment
-/// basis; `s` carries the signed signature scalars. Returns `None` if a
-/// curve/dlog is degenerate.
-pub fn recover_response_l1(
-    chal: &ChallengeRecovery,
-    a_com: &Fp2<Level1>,
+/// Recover the response images from the challenge state and the signature.
+pub fn recover_response<L: HdLevel>(
+    chal: &ChallengeRecovery<L>,
+    a_com: &Fp2<L>,
     hcp: u32,
     hcq: u32,
     s: ResponseScalars,
-) -> Option<ResponseRecovery> {
+) -> Option<ResponseRecovery<L>> {
     let ResponseScalars { a, b, c_or_d, q } = s;
-    // Commitment-curve 2^248-torsion basis (5b.1), rescaled to the 2^r torsion.
-    let (p_com, q_com) = hd_torsion_basis_l1(a_com, hcp, hcq)?;
+    let r = L::R;
+    let rescale = (L::TWO_ADIC_EXPONENT - r) as usize;
+    let (p_com, q_com) = hd_torsion_basis::<L>(a_com, hcp, hcq)?;
     let mut e_com = EcCurve::from_a(a_com)?;
     e_com.normalize_a24();
-    let r_com = jac_dbl_iter(&p_com, RESCALE_RESP_BITS, &e_com);
-    let s_com = jac_dbl_iter(&q_com, RESCALE_RESP_BITS, &e_com);
+    let r_com = jac_dbl_iter(&p_com, rescale, &e_com);
+    let s_com = jac_dbl_iter(&q_com, rescale, &e_com);
 
-    // w_com = e_{2^r}(R_com, S_com) with the native biextension weil.
     let r_xz = r_com.to_xz();
     let s_xz = s_com.to_xz();
     let rms = jac_add(&r_com, &s_com.neg(), &e_com).to_xz();
-    let w_com = weil(R_L1, &r_xz, &s_xz, &rms, &mut e_com);
+    let w_com = weil(r, &r_xz, &s_xz, &rms, &mut e_com);
 
-    // k with w_chal^k = w_com (fp2_dlog_2e_pub: f = g^scal, g_inverse = g⁻¹).
-    // Both pairings share the inverse convention, so it cancels and k matches
-    // the oracle.
-    let mut scal = [0u64; 4];
-    fp2_dlog_2e_pub(&mut scal, &w_com, &chal.w_chal.inv(), R_L1)?;
+    // k with w_chall^k = w_com: the dlog of w_com to the base w_chall,
+    // given 1 / w_chall
+    let mut scal = [0u64; MAX_ORDER_WORDS];
+    fp2_dlog_2e(&mut scal[..L::ORDER_WORDS], &w_com, &chal.w_chal.inv(), r)?;
     let k = (scal[0] as u128) | ((scal[1] as u128) << 64);
 
-    // Response scalars (c, d) mod 2^r via the Phase-5 determinant solve.
-    let (c, d) = recover_response_cd(a, b, c_or_d, q, k, R_L1);
+    let (c, d) = recover_response_cd(a, b, c_or_d, q, k, r);
 
-    // Image scalars: sage uses the *raw signed* c_or_d in its slot (and the
-    // reduced value in the other). Only the c_or_d·P_chal_resc term is
-    // sensitive to this - P_chal_resc has order ≫ 2^r - so it must stay raw.
     let (c_img, d_img): (i128, i128) = if a & 1 != 0 {
         (c_or_d, d as i128)
     } else {
         (c as i128, c_or_d)
     };
 
-    // φ_rsp images on E_chal (chal.e_chal is normalised: a = affine A, C = 1).
     let e_chal = &chal.e_chal;
     let phi_rsp_r_com = jac_add(
         &jac_signed_mul(&chal.p_chal_resc, a, e_chal),

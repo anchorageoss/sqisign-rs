@@ -1,0 +1,269 @@
+//! Algebraic properties of the ideal-to-isogeny layer that hold
+//! independently of the reference, and the failure-rate measurement of
+//! spec Section 9.4 (ignored; run with `--ignored --release`, the number of
+//! ideals per level is `PRISM_ID2ISO_SAMPLES`, default 10000).
+
+mod quat_common;
+
+use quat_common::fmt_ideal;
+use sqisign_rs::id2iso::{
+    change_of_basis_matrix_tate, change_of_basis_matrix_tate_invert, e0_basis_even, e0_curve,
+    ideal_to_isogeny_qlapoty, kernel_dlogs_to_ideal_even, matrix_application_even_basis, E0Actions,
+    Id2IsoStats,
+};
+use sqisign_rs::mp::{Ibz, ShakeRng};
+use sqisign_rs::quat::integers::generate_random_prime;
+use sqisign_rs::quat::{Mat2x2, QuatAlg, QuatIdeal, Vec2};
+use sqisign_verify::ec::pairing::weil;
+use sqisign_verify::ec::point::{test_basis_order_twof, test_point_order_twof};
+use sqisign_verify::ec::MAX_ORDER_WORDS;
+use sqisign_verify::fp::FpBackend;
+use sqisign_verify::precomp::PrimePrecomp;
+
+fn rng(label: &str) -> ShakeRng {
+    ShakeRng::new(label.as_bytes(), b"i2i")
+}
+
+fn digits<const N: usize>(x: &Ibz<N>) -> [u64; MAX_ORDER_WORDS] {
+    let mut d = [0u64; MAX_ORDER_WORDS];
+    x.to_digits(&mut d);
+    d
+}
+
+/// The isogeny of a prime-norm ideal: basis images of full order on the
+/// codomain, Weil pairing raised to the degree, Qlapoty output consistent.
+fn isogeny_properties<L: FpBackend + PrimePrecomp, const N: usize>(
+    alg: &QuatAlg<N>,
+    act: &E0Actions<N>,
+    label: &str,
+) {
+    let f = L::TWO_ADIC_EXPONENT;
+    let mut r = rng(label);
+    let it = alg.primality_num_iter;
+    for round in 0..3 {
+        // prime norms of about log2(p) bits, and the small equivalent of a
+        // large one (the key-generation case)
+        let ideal = if round < 2 {
+            let n =
+                generate_random_prime::<N>(true, alg.p.bitsize() as u32 - 20 * round, it, &mut r)
+                    .unwrap();
+            QuatIdeal::random_given_prime_norm(&n, alg, &mut r).unwrap()
+        } else {
+            let n = generate_random_prime::<N>(false, alg.p.bitsize() as u32 + 100, it, &mut r)
+                .unwrap();
+            let k = QuatIdeal::random_given_prime_norm(&n, alg, &mut r).unwrap();
+            k.small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut r)
+                .unwrap()
+                .1
+        };
+        let mut stats = Id2IsoStats::default();
+        let out = ideal_to_isogeny_qlapoty::<L, N>(&ideal, alg, act, &mut r, &mut stats)
+            .expect("ideal to isogeny");
+        assert!(out.d1.is_odd(), "d1 odd");
+        // beta1 in the ideal with norm d1 n(I)
+        assert!(
+            ideal.to_lattice().contains(&out.beta1).0,
+            "beta1 in the ideal"
+        );
+        let (nb, db) = out.beta1.norm(alg);
+        assert!(db.is_one());
+        assert_eq!(nb, out.d1.mul(&ideal.norm), "n(beta1) = d1 n(I)");
+        // a valid curve with a basis of E[2^f]
+        let mut codom = out.codomain.clone();
+        assert!(
+            test_basis_order_twof(&out.basis, &codom, f as usize),
+            "images have order 2^f"
+        );
+        assert!(
+            !test_point_order_twof(&out.basis.p, &codom, f as usize - 1),
+            "P has full order"
+        );
+        // e(phi P, phi Q) = e(P, Q)^deg with deg = n(I)
+        let mut e0 = e0_curve::<L>();
+        let b0 = e0_basis_even::<L>();
+        let w0 = weil(f, &b0.p, &b0.q, &b0.pmq, &mut e0);
+        let w1 = weil(f, &out.basis.p, &out.basis.q, &out.basis.pmq, &mut codom);
+        let two_f = Ibz::<N>::one().mul_2exp(f);
+        let deg = ideal.norm.modulo(&two_f);
+        let w0d = w0.pow_vartime(&digits(&deg)[..L::ORDER_WORDS]);
+        assert!(
+            bool::from(w0d.ct_equal(&w1)),
+            "Weil pairing scales by the degree"
+        );
+        // canonical form: normalising changes nothing
+        let mut c2 = out.codomain.clone();
+        c2.normalize();
+        assert!(bool::from(c2.j_inv().ct_equal(&out.codomain.j_inv())));
+    }
+}
+
+/// KernelToIdeal: norm 2^f, invariance under odd scalars of the kernel
+/// generator, distinct kernels give distinct ideals.
+fn kernel_to_ideal_properties<L: FpBackend + PrimePrecomp, const N: usize>(
+    alg: &QuatAlg<N>,
+    act: &E0Actions<N>,
+    label: &str,
+) {
+    let f = L::TWO_ADIC_EXPONENT;
+    let mut r = rng(label);
+    for &ff in &[f, f - 3, 128] {
+        let two_f = Ibz::<N>::one().mul_2exp(ff);
+        let mut v = Vec2([
+            Ibz::rand_interval(&Ibz::zero(), &two_f, &mut r).unwrap(),
+            Ibz::rand_interval(&Ibz::zero(), &two_f, &mut r).unwrap(),
+        ]);
+        if v.0[0].is_even() {
+            v.0[0] = v.0[0].add(&Ibz::one());
+        }
+        let (i1, s1) = kernel_dlogs_to_ideal_even(&v, ff, alg, act).unwrap();
+        assert_eq!(i1.norm, two_f, "norm 2^f");
+        let (s1n, s1d) = s1.norm(alg);
+        assert!(
+            s1d.is_one() && (s1n.is_one() || s1n == Ibz::two()),
+            "split part is a unit or 1 + i"
+        );
+        // the same subgroup, generated by an odd multiple
+        let lambda = Ibz::<N>::set(0x1_2345, 20);
+        let w = Vec2([
+            v.0[0].mul(&lambda).modulo(&two_f),
+            v.0[1].mul(&lambda).modulo(&two_f),
+        ]);
+        let (i2, _) = kernel_dlogs_to_ideal_even(&w, ff, alg, act).unwrap();
+        assert_eq!(fmt_ideal(&i1), fmt_ideal(&i2), "same kernel, same ideal");
+        // a different kernel
+        let mut u = v;
+        u.0[1] = u.0[1].add(&Ibz::one());
+        let (i3, _) = kernel_dlogs_to_ideal_even(&u, ff, alg, act).unwrap();
+        assert_ne!(fmt_ideal(&i1), fmt_ideal(&i3), "different kernels");
+        // a point of order below 2^f is rejected
+        let bad = Vec2([Ibz::set(2, 3), Ibz::set(2, 3)]);
+        assert!(kernel_dlogs_to_ideal_even(&bad, ff, alg, act).is_none());
+    }
+}
+
+/// Change of basis recovers the matrix that produced the basis, and the
+/// inverse variant its inverse.
+fn change_of_basis_properties<L: FpBackend + PrimePrecomp, const N: usize>(label: &str) {
+    let f = L::TWO_ADIC_EXPONENT;
+    let mut r = rng(label);
+    let two_f = Ibz::<N>::one().mul_2exp(f);
+    let mut e0 = e0_curve::<L>();
+    let even = e0_basis_even::<L>();
+    for _ in 0..2 {
+        let mut m = Mat2x2::<N>([[Ibz::zero(); 2]; 2]);
+        loop {
+            for row in m.0.iter_mut() {
+                for x in row.iter_mut() {
+                    *x = Ibz::rand_interval(&Ibz::zero(), &two_f, &mut r).unwrap();
+                }
+            }
+            let det = m.0[0][0].mul(&m.0[1][1]).sub(&m.0[0][1].mul(&m.0[1][0]));
+            if det.is_odd() {
+                break;
+            }
+        }
+        let mut b = even.clone();
+        let mut mm = m;
+        matrix_application_even_basis(&mut b, &e0, &mut mm, f, true).unwrap();
+        // x-only arithmetic sees a point up to sign, so each column of the
+        // recovered matrix is a column of m up to a sign
+        let got: Mat2x2<N> = change_of_basis_matrix_tate(&b, &even, &mut e0, f).unwrap();
+        for j in 0..2 {
+            let same = (0..2).all(|i| got.0[i][j] == m.0[i][j].modulo(&two_f));
+            let negated = (0..2).all(|i| got.0[i][j] == m.0[i][j].neg().modulo(&two_f));
+            assert!(same || negated, "column {j} of the recovered matrix");
+        }
+        let inv: Mat2x2<N> = change_of_basis_matrix_tate_invert(&even, &b, &mut e0, f).unwrap();
+        let prod = inv.mul_mod(&m, &two_f);
+        let pm_one = |x: &Ibz<N>| x.is_one() || *x == Ibz::one().neg().modulo(&two_f);
+        assert!(
+            pm_one(&prod.0[0][0]) && pm_one(&prod.0[1][1]),
+            "inverse: diagonal"
+        );
+        assert!(
+            prod.0[0][1].is_zero() && prod.0[1][0].is_zero(),
+            "inverse: off-diagonal"
+        );
+    }
+}
+
+/// Failure and retry counts over many random ideals (spec Section 9.4).
+fn failure_rate<L: FpBackend + PrimePrecomp, const N: usize>(
+    alg: &QuatAlg<N>,
+    act: &E0Actions<N>,
+    name: &str,
+) {
+    let samples: u64 = std::env::var("PRISM_ID2ISO_SAMPLES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10_000);
+    let mut r = rng(name);
+    let it = alg.primality_num_iter;
+    let mut stats = Id2IsoStats::default();
+    let mut failed = 0u64;
+    for i in 0..samples {
+        // key-generation shaped ideals: the small equivalent of a degree-norm ideal
+        let bits = alg.p.bitsize() as u32 + 2 * alg.lambda as u32 - 1;
+        let n = generate_random_prime::<N>(false, bits, it, &mut r).unwrap();
+        let k = QuatIdeal::random_given_prime_norm(&n, alg, &mut r).unwrap();
+        let ideal = k
+            .small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut r)
+            .unwrap()
+            .1;
+        if ideal_to_isogeny_qlapoty::<L, N>(&ideal, alg, act, &mut r, &mut stats).is_none() {
+            failed += 1;
+        }
+        if (i + 1) % 1000 == 0 {
+            eprintln!("{name}: {} / {samples}", i + 1);
+        }
+    }
+    eprintln!(
+        "{name}: {samples} ideals, {failed} failures (qlapoty {}, chain {}); loop one {:.2} iterations \
+         per ideal, loop two {:.2} lambdas and {:.2} primes per ideal",
+        stats.qlapoty_failures,
+        stats.chain_failures,
+        stats.qlapoty.loop_one_iterations as f64 / samples as f64,
+        stats.qlapoty.loop_two_iterations as f64 / samples as f64,
+        stats.qlapoty.loop_two_primes as f64 / samples as f64,
+    );
+    // the spec calls the failure probability statistically negligible
+    assert_eq!(failed, 0, "{name}: ideal-to-isogeny failures");
+}
+
+macro_rules! id2iso_props {
+    ($modname:ident, $level:ident, $prime:ident) => {
+        mod $modname {
+            use super::*;
+            type P = sqisign_verify::params::$prime;
+            #[test]
+            fn isogeny() {
+                let alg = sqisign_rs::quat::params::$level();
+                let act = sqisign_rs::id2iso::params::$level();
+                isogeny_properties::<P, _>(&alg, &act, stringify!($modname));
+            }
+            #[test]
+            fn kernel_to_ideal() {
+                let alg = sqisign_rs::quat::params::$level();
+                let act = sqisign_rs::id2iso::params::$level();
+                kernel_to_ideal_properties::<P, _>(&alg, &act, stringify!($modname));
+            }
+            #[test]
+            fn change_of_basis() {
+                change_of_basis_properties::<P, { sqisign_rs::precomp::$modname::IBZ_NLIMBS }>(
+                    stringify!($modname),
+                );
+            }
+            #[test]
+            #[ignore = "long: failure-rate measurement over many ideals"]
+            fn failure_rate() {
+                let alg = sqisign_rs::quat::params::$level();
+                let act = sqisign_rs::id2iso::params::$level();
+                super::failure_rate::<P, _>(&alg, &act, stringify!($modname));
+            }
+        }
+    };
+}
+
+id2iso_props!(p324_3, level1, P324_3);
+id2iso_props!(p500_27, level3, P500_27);
+id2iso_props!(p664_17, level5, P664_17);
