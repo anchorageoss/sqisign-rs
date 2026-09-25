@@ -18,6 +18,20 @@ fn select_jac_point<L: FpBackend>(p1: &JacPoint<L>, p2: &JacPoint<L>, ctl: Choic
 }
 
 impl<L: FpBackend> JacPoint<L> {
+    /// `(x : y : z)`.
+    pub fn new(x: Fp2<L>, y: Fp2<L>, z: Fp2<L>) -> Self {
+        Self { x, y, z }
+    }
+
+    /// The point at infinity, `(1 : 1 : 0)`.
+    pub fn identity() -> Self {
+        Self {
+            x: Fp2::one(),
+            y: Fp2::one(),
+            z: Fp2::zero(),
+        }
+    }
+
     /// Test if two Jacobian points are equal.
     #[inline]
     pub fn ct_equal(&self, other: &Self) -> Choice {

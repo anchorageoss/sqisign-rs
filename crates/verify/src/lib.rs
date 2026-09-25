@@ -1,121 +1,88 @@
+//! SQIsign round-3 signature verification in pure Rust.
 //!
-//! SQIsign signature verification in pure Rust.
+//! SQIsign as submitted to the third round of NIST's additional-signatures
+//! process (`the-sqisign` at tag `nist-v3`): the primes `3 * 2^324 - 1`,
+//! `27 * 2^500 - 1` and `17 * 2^664 - 1`, 83 / 129 / 169-byte public keys,
+//! 200 / 306 / 406-byte signatures. The 300 known-answer vectors of the
+//! reference are reproduced byte for byte (`crates/kat`).
 //!
-//! This crate is `no_std`-compatible and independent of the quaternion algebra
-//! stack. It contains all the arithmetic layers needed for verification: field
-//! arithmetic (params, fp), elliptic curves (ec), the theta model (theta),
-//! precomputed constants (precomp), and the verification protocol itself.
-//!
-//! Both the **dimension-2** formats and the **compact** 108-byte format
-//! (dimension-4, Level 1) are supported. The dim-4 verifier lives in the [`hd`]
-//! module; a compact signature is just another arm of
-//! [`AnySignature`], auto-detected by length and verified
-//! with a [`CompactPublicKey`] through the same [`Verifier`] trait. Compact
-//! verification is ~33 ms (~20.5 ms with the `parallel` feature) at Level 1;
-//! dim-2 verification is a few milliseconds (about 1.4 ms at L1 on Apple M4
-//! Pro, at parity with the C reference). (The dim-4 chain loop uses a small,
-//! bounded heap allocation off the constant-time path; the dim-2 path remains
-//! heap-free.)
+//! This crate is `no_std`, allocates nothing and links no quaternion code:
+//! it is the crate a verifier depends on. It holds the parameter sets
+//! ([`params`]), the field layer ([`fp`]: on x86-64 inline assembly in the
+//! reference's own `mulx`/`adcx`/`adox` schedule, selected at run time from
+//! CPUID with a portable fallback of the same layout; elsewhere generated
+//! radix backends), the Kummer-line curve layer ([`ec`], with a bounded
+//! entangled-basis search that fails closed on crafted curves and a
+//! fixed-base two-adic discrete logarithm), the `(2^n, 2^n)`-isogeny chains
+//! in the theta model ([`theta`]), the precomputed constants ([`precomp`])
+//! and the protocol ([`sqisign`]: verification, the encodings, a prepared
+//! key that does the per-key work once, a batch verifier), plus the
+//! compressed format of [`compressed`] (three matrix entries, the fourth
+//! recovered from two Weil pairings; not in the specification). [`types`] is the
+//! typed surface: [`PublicKey`], [`Signature`], the [`Level1`] /
+//! [`Level3`] / [`Level5`] markers and the RustCrypto [`Verifier`] trait.
 //!
 //! # Verify a signature
 //!
-//! All verification goes through [`pk.verify(msg, &sig)`](Verifier::verify)
-//! via the RustCrypto [`Verifier`] trait. A [`PublicKey`] accepts any dim-2
-//! signature type: [`Signature`], [`ExpandedSignature`], [`CompressedSignature`],
-//! or [`AnySignature`] (auto-detected from raw bytes -
-//! 108 = compact, 129 = compressed, 148 = standard, 212 = expanded at Level 1);
-//! a compact 108-byte signature is verified with a [`CompactPublicKey`].
-//!
 //! ```
-//! use hex_literal::hex;
-//! use sqisign_verify::{PublicKey, Signature, Verifier};
+//! use sqisign_verify::{Level1, PublicKey, Signature, Verifier};
 //!
 //! # fn main() -> Result<(), sqisign_verify::Error> {
-//! let pk_bytes = hex!(
-//!     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
-//!     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
-//!     "0B"
-//! );
-//! let sig_bytes = hex!(
-//!     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
-//!     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
-//!     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
-//!     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
-//!     "71D86EFF3447018ADB0A6551EE8322AB30010202"
-//! );
-//! let msg = hex!(
-//!     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
-//!     "C8"
-//! );
-//!
-//! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-//! let sig: Signature = Signature::from_bytes(&sig_bytes)?;
+//! # let pk_bytes = include_bytes!("../fuzz/fuzz_targets/l1_pk.bin");
+//! # let kat = include_str!("../../kat/kat/PQCsignKAT_270_SQIsign_p324_3.rsp");
+//! # let field = |k: &str| kat.lines().find_map(|l| l.strip_prefix(k)).unwrap().trim().to_string();
+//! # let hex = |s: &str| (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect::<Vec<u8>>();
+//! # let msg = hex(&field("msg = "));
+//! # let sm = hex(&field("sm = "));
+//! # let sig_bytes = &sm[..200];
+//! let pk: PublicKey<Level1> = PublicKey::from_bytes(pk_bytes)?;
+//! let sig: Signature<Level1> = Signature::from_bytes(sig_bytes)?;
 //! pk.verify(&msg, &sig)?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! For raw bytes where the format is unknown, parse into
-//! [`AnySignature`] first:
-//!
-//! ```
-//! use hex_literal::hex;
-//! use sqisign_verify::{formats::AnySignature, PublicKey, Verifier};
-//!
-//! # fn main() -> Result<(), sqisign_verify::Error> {
-//! # let pk_bytes = hex!(
-//! #     "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202"
-//! #     "9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A01"
-//! #     "0B"
-//! # );
-//! # let sig_bytes = hex!(
-//! #     "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04"
-//! #     "55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01"
-//! #     "0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04"
-//! #     "DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674"
-//! #     "71D86EFF3447018ADB0A6551EE8322AB30010202"
-//! # );
-//! # let msg = hex!(
-//! #     "D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556A"
-//! #     "C8"
-//! # );
-//! let pk: PublicKey = PublicKey::from_bytes(&pk_bytes)?;
-//! let sig = AnySignature::from_bytes(&sig_bytes)?;
-//! pk.verify(&msg, &sig)?;
-//! # Ok(())
-//! # }
-//! ```
-
+//! Round 2 is not supported: round-2 keys and signatures are not accepted
+//! and there is no conversion (0.5.0 removed the round-2 implementation).
 #![no_std]
-#![forbid(unsafe_code)]
+// No unsafe code, except on x86-64: the field backends' `asm!` blocks and
+// the `cpuid` that decides whether to run them (`fp::dispatch`), the only
+// modules allowed to opt out.
+#![cfg_attr(not(target_arch = "x86_64"), forbid(unsafe_code))]
+#![cfg_attr(target_arch = "x86_64", deny(unsafe_code))]
+#![warn(missing_docs)]
 
-// The dim-4 SQIsignHD verifier ([`hd`]) keeps a small, data-dependent stack of
-// intermediate kernel bases in heap `Vec`s (the optimal-strategy chain loop).
-// This is the only `alloc` use in the crate and is off the constant-time path.
+#[cfg(feature = "compact")]
 extern crate alloc;
 
+#[cfg(feature = "compact")]
+pub mod compact;
+pub mod compressed;
 pub mod ec;
 pub mod fp;
+#[cfg(feature = "compact")]
 pub mod hd;
 pub mod params;
 pub mod precomp;
+pub mod rng;
+pub mod sqisign;
 pub mod theta;
-
-pub mod compact;
-pub mod formats;
-pub mod hash;
 pub mod types;
-pub mod verify;
 
-pub use compact::{CompactPublicKey, CompactSignature};
-pub use formats::{AnySignature, CompressedSignature, ExpandedSignature, SignatureFormat};
-pub use hash::hash_to_challenge;
-pub use types::{PublicKey, Scalar, Signature};
-
+#[cfg(feature = "compact")]
+pub use compact::{CompactLevel, CompactPublicKey, CompactSignature};
+pub use compressed::MAX_COMPRESSED_BYTES;
 pub use fp::{Fp, Fp2, FpBackend};
-pub use params::{Level1, Level3, Level5, SecurityLevel};
-pub use precomp::LevelPrecomp;
+pub use params::{Prime, P324_3, P500_27, P664_17};
+pub use precomp::PrimePrecomp;
 pub use signature::{self, SignatureEncoding, Verifier};
+pub use sqisign::{
+    hash_to_challenge, verify_batch, BatchItem, PreparedPublicKey, VerifyParams,
+    MAX_PUBLICKEY_BYTES, MAX_SIGNATURE_BYTES,
+};
+pub use types::{
+    verify_bytes_prepared, CompressedSignature, Level, Level1, Level3, Level5, PublicKey, Signature,
+};
 
 /// Error type for verification failures.
 #[derive(Clone, Debug, PartialEq, Eq)]

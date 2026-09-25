@@ -41,6 +41,10 @@
 //! chain length, ~67 at Level 1) in heap `Vec`s - the only `alloc` use, and off
 //! the constant-time path (verification orchestration, not field arithmetic).
 
+// The layer is documented at module level; its internals are the round-2
+// port's, kept as they were validated.
+#![allow(missing_docs, clippy::too_many_arguments)]
+
 pub mod arith;
 pub mod basis;
 pub mod canonical;
@@ -54,25 +58,22 @@ pub mod gluing_chain;
 pub mod hd_verify;
 pub mod isogeny;
 pub mod kani;
-mod nqr_tables_l1;
-mod nqr_tables_l3;
-mod nqr_tables_l5;
+mod nqr_tables_p324_3;
+pub mod params;
 pub mod point;
 pub mod product_theta;
 pub mod response;
 pub mod self_contained;
 pub mod strategy;
 pub mod structure;
+pub mod uint;
 pub mod wire;
 
 pub use arith::{act_point, hadamard, pointwise_square, to_squared_theta};
-pub use basis::{
-    canonical_hints, canonical_hints_l1, hd_torsion_basis, hd_torsion_basis_l1, jac_to_affine,
-    torsion_basis_2f_from_hint, HdNqr,
-};
+pub use basis::{canonical_hints, hd_torsion_basis, jac_to_affine, torsion_basis_2f_from_hint};
 pub use canonical::make_canonical;
 pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};
-pub use challenge::{recover_challenge_l1, ChallengeRecovery};
+pub use challenge::{recover_challenge, ChallengeRecovery};
 pub use dim2::{
     apply_mat4, base_change_theta_dim2, hadamard2, squared_theta2, GluingThetaIsogenyDim2,
     IsogenyChainDim2, ThetaIsogenyDim2, ThetaStructureDim2, TuplePoint,
@@ -81,26 +82,26 @@ pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
 pub use gluing_chain::{jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4};
 pub use hd_verify::{
-    hd_challenge, hd_challenge_from_curves, hd_challenge_len, hd_verify, hd_verify_checked,
-    recover_response_cd, HdReject, HdVerifyInputs,
+    hd_challenge, hd_challenge_len, recover_response_cd, HdReject, MAX_CHAL_BYTES,
 };
 pub use isogeny::IsogenyDim4;
 pub use kani::{
     complete_symplectic_dim4, gluing_bc_dim4_f1, gluing_bc_dim4_f2, gluing_dim2_f1, gluing_dim2_f2,
     inverse_mod_pow2, is_symplectic_dim4, kernel_matrix_f1, kernel_matrix_f2_dual, matrix_f,
     matrix_f_dual, norm_equation_2f_minus_q, starting_two_symplectic_matrices, sum_of_two_squares,
-    F_MATRIX_L1,
 };
+pub use params::{pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_PK_WIRE_BYTES, MAX_SIG_WIRE_BYTES};
 pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
-pub use response::{recover_response_l1, ResponseRecovery, ResponseScalars};
-pub use self_contained::{hd_image_l1, hd_verify_l1, hd_verify_l1_bool, HdSignatureL1};
+pub use response::{recover_response, ResponseRecovery, ResponseScalars};
+pub use self_contained::{hd_image, hd_verify, hd_verify_bool, HdSignature};
 pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
 pub use structure::ThetaStructureDim4;
+pub use uint::U4;
 pub use wire::{
-    encode_public_key, encode_signature, hd_verify_bytes_l1, hd_verify_bytes_l1_bool,
-    hd_verify_l1_parsed, parse_public_key, parse_signature, ParsedPublicKey, ParsedSignature,
-    PK_WIRE_BYTES, SIG_WIRE_BYTES,
+    challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_parsed,
+    parse_public_key, parse_signature, public_key_bytes, signature_bytes, ParsedPublicKey,
+    ParsedSignature,
 };

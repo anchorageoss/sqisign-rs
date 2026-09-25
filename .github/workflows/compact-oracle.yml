@@ -1,0 +1,32 @@
+name: Compact oracle
+
+# The compact (dimension-4) format's vectors against the SQIsignHD library's
+# Sage verifier at the round-3 level I prime: pass/fail. Sage comes from
+# conda-forge, so this job is slow and runs on demand and weekly, not on
+# every push.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+jobs:
+  oracle:
+    name: Sage verifier accepts the compact vectors
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # the vectors are regenerated here so the check covers the code, not
+      # only the checked-in files
+      - run: COMPACT_VECTORS_OUT=$PWD/sqisignhd-harness/round3/Data cargo test -p sqisign-rs --features compact --release --test compact_vectors
+      - run: git diff --exit-code -- sqisignhd-harness/round3/Data
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: sage
+          channels: conda-forge
+      - shell: bash -el {0}
+        run: mamba install -y -q sage
+      - shell: bash -el {0}
+        run: sqisignhd-harness/round3/ci_check.sh
