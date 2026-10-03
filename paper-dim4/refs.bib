@@ -1,0 +1,258 @@
+% =============================================================================
+% References for the dimension-4 SQIsign paper (paper-dim4/main.tex, W05).
+% Same format as prism-rs paper/prism-suf/refs.bib; entries shared with that
+% file are copied verbatim.  Code entries carry the tag or commit measured.
+% =============================================================================
+
+% ---- SQIsign and its history ---------------------------------------------------
+
+@inproceedings{DKLPW20,
+  author       = {Luca De~Feo and David Kohel and Antonin Leroux and
+                  Christophe Petit and Benjamin Wesolowski},
+  title        = {{SQISign}: Compact Post-Quantum Signatures from Quaternions
+                  and Isogenies},
+  booktitle    = {Advances in Cryptology -- {ASIACRYPT}~2020},
+  series       = {LNCS},
+  volume       = {12491},
+  pages        = {64--93},
+  publisher    = {Springer},
+  year         = {2020},
+  doi          = {10.1007/978-3-030-64837-4_3},
+  note         = {ePrint 2020/1240},
+}
+
+@inproceedings{DLRW24,
+  author       = {Pierrick Dartois and Antonin Leroux and Damien Robert and
+                  Benjamin Wesolowski},
+  title        = {{SQIsignHD}: New Dimensions in Cryptography},
+  booktitle    = {Advances in Cryptology -- {EUROCRYPT}~2024},
+  series       = {LNCS},
+  volume       = {14651},
+  pages        = {3--32},
+  publisher    = {Springer},
+  year         = {2024},
+  doi          = {10.1007/978-3-031-58716-0_1},
+  note         = {ePrint 2023/436, revised 2024-09-20;
+                  \url{https://eprint.iacr.org/2023/436}},
+}
+
+@inproceedings{BDDF24,
+  author       = {Andrea Basso and Pierrick Dartois and Luca De~Feo and
+                  Antonin Leroux and Luciano Maino and Giacomo Pope and
+                  Damien Robert and Benjamin Wesolowski},
+  title        = {{SQIsign2D-West}: The Fast, the Small, and the Safer},
+  booktitle    = {Advances in Cryptology -- {ASIACRYPT}~2024},
+  series       = {LNCS},
+  volume       = {15486},
+  pages        = {339--370},
+  publisher    = {Springer},
+  year         = {2024},
+  doi          = {10.1007/978-981-96-0891-1_11},
+  note         = {ePrint 2024/760},
+}
+
+@misc{SQISignV2,
+  author       = {Marius A.~Aardal and Gora Adj and Diego F.~Aranha and
+                  Andrea Basso and Isaac Andr\'es Canales~Martinez and
+                  Jorge Ch\'avez-Saab and Maria Corte-Real~Santos and
+                  Pierrick Dartois and Luca De~Feo and Max Duparc and
+                  Jonathan Komada~Eriksen and Tako Boris Fouotsa and
+                  D\'ecio Luiz Gazzoni~Filho and Basil Hess and
+                  David Kohel and Antonin Leroux and Patrick Longa and
+                  Luciano Maino and Michael Meyer and
+                  Kohei Nakagawa and Hiroshi Onuki and Lorenz Panny and
+                  Sikhar Patranabis and Christophe Petit and
+                  Giacomo Pope and Krijn Reijnders and Damien Robert and
+                  Francisco Rodr\'iguez-Henr\'iquez and
+                  Sina Schaeffler and Benjamin Wesolowski},
+  title        = {{SQIsign} -- Algorithm Specifications and Supporting
+                  Documentation, Version~2.0},
+  howpublished = {NIST PQC Digital Signatures Round~2 Submission},
+  year         = {2025},
+  note         = {\url{https://sqisign.org/spec/sqisign-20250205.pdf}},
+}
+
+@misc{SQISignV3,
+  author       = {Marius A.~Aardal and Gora Adj and Diego F.~Aranha and
+                  Andrea Basso and Giacomo Borin and
+                  Isaac Andr\'es Canales~Mart\'inez and Jorge Ch\'avez-Saab and
+                  Maria Corte-Real~Santos and Pierrick Dartois and Luca De~Feo and
+                  Max Duparc and Thomas Espitau and Jonathan Komada~Eriksen and
+                  Tako Boris Fouotsa and D\'ecio Luiz Gazzoni~Filho and
+                  Basil Hess and Riccardo Invernizzi and David Kohel and
+                  Antonin Leroux and Patrick Longa and Luciano Maino and
+                  Michael Meyer and Marzio Mula and Kohei Nakagawa and
+                  Hiroshi Onuki and Lorenz Panny and Sikhar Patranabis and
+                  Christophe Petit and Giacomo Pope and Krijn Reijnders and
+                  Damien Robert and Francisco Rodr\'iguez-Henr\'iquez and
+                  Sina Schaeffler and Frederik Vercauteren and Alexandre Wallet and
+                  Benjamin Wesolowski and Wessel van~Woerden},
+  title        = {{SQIsign} -- Algorithm Specifications and Supporting
+                  Documentation, Version~3.0},
+  howpublished = {NIST PQC Digital Signatures Round~3 Submission},
+  year         = {2026},
+  note         = {\url{https://sqisign.org/spec/sqisign-20260901.pdf}},
+}
+
+@misc{TheSQIsignV3,
+  author       = {{The SQIsign team}},
+  title        = {the-sqisign: reference implementation of {SQIsign}, round~3},
+  howpublished = {\url{https://github.com/SQISign/the-sqisign}},
+  year         = {2026},
+  note         = {tag \texttt{nist-v3}, commit \texttt{6d017708}},
+}
+
+@misc{TheSQIsignV2,
+  author       = {{The SQIsign team}},
+  title        = {the-sqisign: reference implementation of {SQIsign}, round~2},
+  howpublished = {\url{https://github.com/SQISign/the-sqisign}},
+  year         = {2025},
+  note         = {tag \texttt{nist-v2}, commit \texttt{91e9e46}},
+}
+
+% ---- The attacks that made higher dimensions a tool ---------------------------
+
+@inproceedings{CD23,
+  author       = {Wouter Castryck and Thomas Decru},
+  title        = {An Efficient Key Recovery Attack on {SIDH}},
+  booktitle    = {Advances in Cryptology -- {EUROCRYPT}~2023},
+  series       = {LNCS},
+  volume       = {14008},
+  pages        = {423--447},
+  publisher    = {Springer},
+  year         = {2023},
+  doi          = {10.1007/978-3-031-30589-4_15},
+}
+
+@inproceedings{MMPPW23,
+  author       = {Luciano Maino and Chloe Martindale and Lorenz Panny and
+                  Giacomo Pope and Benjamin Wesolowski},
+  title        = {A Direct Key Recovery Attack on {SIDH}},
+  booktitle    = {Advances in Cryptology -- {EUROCRYPT}~2023},
+  series       = {LNCS},
+  volume       = {14008},
+  pages        = {448--471},
+  publisher    = {Springer},
+  year         = {2023},
+  doi          = {10.1007/978-3-031-30589-4_16},
+}
+
+@inproceedings{Rob23,
+  author       = {Damien Robert},
+  title        = {Breaking {SIDH} in Polynomial Time},
+  booktitle    = {Advances in Cryptology -- {EUROCRYPT}~2023},
+  series       = {LNCS},
+  volume       = {14008},
+  pages        = {472--503},
+  publisher    = {Springer},
+  year         = {2023},
+  doi          = {10.1007/978-3-031-30589-4_17},
+}
+
+@article{Kan97,
+  author       = {Ernst Kani},
+  title        = {The Number of Curves of Genus Two with Elliptic
+                  Differentials},
+  journal      = {J.~Reine Angew.~Math.},
+  volume       = {485},
+  pages        = {93--122},
+  year         = {1997},
+  doi          = {10.1515/crll.1997.485.93},
+}
+
+% ---- Dimension-4 arithmetic and code --------------------------------------------
+
+@misc{Dar24,
+  author       = {Pierrick Dartois},
+  title        = {Fast Computation of 2-Isogenies in Dimension 4 and
+                  Cryptographic Applications},
+  howpublished = {Cryptology ePrint Archive, Paper 2024/1180},
+  year         = {2024},
+  note         = {\url{https://eprint.iacr.org/2024/1180}},
+}
+
+@misc{SQISignHDlib,
+  author       = {Pierrick Dartois and Antonin Leroux and Damien Robert and
+                  Benjamin Wesolowski},
+  title        = {{SQISignHD} library, version 2.0: a {C} signer and a
+                  {SageMath} verifier},
+  howpublished = {\url{https://github.com/Pierrick-Dartois/SQISignHD-lib}},
+  year         = {2025},
+  note         = {master at commit \texttt{0287566}},
+}
+
+@misc{ThetaDim4,
+  author       = {Pierrick Dartois},
+  title        = {Theta\_dim4: {SageMath} library for 2-isogenies in dimension~4
+                  in the theta model},
+  howpublished = {\url{https://github.com/Pierrick-Dartois/Theta_dim4}},
+  year         = {2025},
+}
+
+% ---- The isogeny-path problem in 2026 -------------------------------------------
+
+@misc{Wes26,
+  author       = {Benjamin Wesolowski},
+  title        = {The Supersingular Isogeny Problem in Time and Memory
+                  $p^{1/3+o(1)}$},
+  howpublished = {Cryptology ePrint Archive, Paper 2026/1486},
+  year         = {2026},
+  note         = {\url{https://eprint.iacr.org/2026/1486}},
+}
+
+% ---- Strong unforgeability and PRISM ---------------------------------------------
+
+@misc{Ray26,
+  author       = {Dustin Ray},
+  title        = {Auxiliary Isogeny Freedom in {SQIsign}'s Two-Dimensional
+                  Representation},
+  howpublished = {Cryptology ePrint Archive, Paper 2026/1305},
+  year         = {2026},
+  note         = {Revised 2026-07-08; \url{https://eprint.iacr.org/2026/1305}},
+}
+
+@misc{PRISMsalt,
+  author       = {Andrea Basso and Giacomo Borin and Wouter Castryck and
+                  Maria Corte-Real~Santos and Riccardo Invernizzi and
+                  Antonin Leroux and Luciano Maino and
+                  Frederik Vercauteren and Benjamin Wesolowski},
+  title        = {{PRISM} with a Pinch of Salt: Simple, Efficient and
+                  Strongly Unforgeable Signatures from Isogenies},
+  howpublished = {Cryptology ePrint Archive, Paper 2026/443},
+  year         = {2026},
+  note         = {Published in the Journal of Cryptology 39(4), article 30,
+                  2026, doi 10.1007/s00145-026-09585-6.
+                  \url{https://eprint.iacr.org/2026/443}},
+}
+
+@misc{NO25,
+  author       = {Kohei Nakagawa and Hiroshi Onuki},
+  title        = {Attacks on {PRISM-id} via Torsion over Small Extension
+                  Fields},
+  howpublished = {Cryptology ePrint Archive, Paper 2025/1602},
+  year         = {2025},
+  note         = {\url{https://eprint.iacr.org/2025/1602}},
+}
+
+% ---- Our code ----------------------------------------------------------------------
+
+@misc{SqisignRs,
+  author       = {Dustin Ray},
+  title        = {sqisign-rs: {SQIsign} round 3 in pure {Rust}, with the
+                  compressed and the dimension-4 compact formats},
+  howpublished = {\url{https://github.com/anchorageoss/sqisign-rs}},
+  year         = {2026},
+  note         = {the code measured is commit \texttt{14361c0}, the 0.6 merge
+                  (workspace version 0.6.0), released as tag \texttt{v0.6.34}
+                  at commit \texttt{078cc2af}, its version bump; the round-2
+                  crate measured here is tag \texttt{v0.4.31}, commit
+                  \texttt{a03b834}},
+}
+
+@misc{PRISMrs,
+  author       = {Dustin Ray},
+  title        = {prism-rs: {PRISM} on the {SQIsign} Round-3 Substrate},
+  howpublished = {Software and documentation,
+                  \url{https://github.com/anchorlabsinc/prism-rs}},
+  year         = {2026},
+}

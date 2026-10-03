@@ -145,6 +145,14 @@ bits, `P(N ≡ 1 mod 4) · P(N prime | N ≡ 1 mod 4) = (1/4)(2/ln N) = 1/(2 ln 
 | III | 264 | 1/366 | 366 | 91 |
 | V | 346 | 1/480 | 480 | 120 |
 
+Measured (`paper-dim4/BENCH.md`, session 2026-09-26, 100 signatures at level I): 114
+samples and 57 primality tests per signature on average (median 68
+samples; 1 to 835). The sampler's norms are odd, since the lattice is an
+ideal of odd norm, so the congruence passes one candidate in two and not
+one in four: for odd `q` the density is `1/(e ln 2) = 1/121` at level I,
+which is what the measurement shows; the primality-test count is the same
+either way (60 expected).
+
 A candidate costs one norm (a few `Ibz` products) and, for one in four, a
 Miller–Rabin test on an `e`-bit number whose composites fail at the first
 round: 60 / 91 / 120 modular exponentiations of

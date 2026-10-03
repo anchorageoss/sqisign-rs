@@ -10,6 +10,7 @@ members = [
 ]
 exclude = [
     "crates/verify/fuzz",
+    "paper-dim4/bench",
 ]
 
 [workspace.package]

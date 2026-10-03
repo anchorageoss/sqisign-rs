@@ -50,7 +50,7 @@ pub mod quat;
 pub mod sqisign;
 
 #[cfg(feature = "compact")]
-pub use compact::{generate_compact, CompactSignError, CompactSigningKey};
+pub use compact::{generate_compact, CompactSignError, CompactSignStats, CompactSigningKey};
 #[cfg(feature = "compact")]
 pub use sqisign_verify::compact::{CompactLevel, CompactPublicKey, CompactSignature};
 pub use sqisign_verify::{

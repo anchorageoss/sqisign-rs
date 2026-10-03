@@ -1,0 +1,20 @@
+# The one-session benchmark of the dimension-4 paper (paper-dim4/main.tex,
+# W05). A standalone package, excluded from the workspace: it depends on two
+# versions of sqisign-rs at once, the current crate (round 3, dimension 2 and
+# the compact dimension-4 format) and the last round-2 release, tag v0.4.31
+# from GitHub (round 2, dimension 2 and the 108-byte compact format), so both
+# are measured by the same code in one process. Run with session.sh.
+[package]
+name = "dim4-session"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+sqisign-rs = { path = "../../crates/sqisign-rs", features = ["compact"] }
+sqisign-rs-r2 = { package = "sqisign-rs", git = "https://github.com/anchorageoss/sqisign-rs", tag = "v0.4.31" }
+rand = "0.8"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

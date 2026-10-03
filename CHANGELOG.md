@@ -37,6 +37,13 @@ conversion of round-2 keys or signatures.
   intermediates are held in `Zeroizing` wrappers (SECURITY.md lists what
   is and is not covered). The verify crate is `no_std` and heap-free;
   signing uses fixed-precision integers (no `num-bigint`).
+- `paper-dim4/`: a short paper on the dimension-4 format at the round-3
+  parameters (one `main.tex`, `refs.bib`, figures and tables generated
+  from `paper-dim4/BENCH.md` and `docs/COMPACT_R3.md`), with its
+  one-session benchmark harness `paper-dim4/bench` and the session it
+  reads in `paper-dim4/BENCH.md`.
+  `compact_sign_stats` returns the signer's rejection-loop counts next to
+  the signature length.
 - The compressed format for round 3 ([COMPRESSION.md](COMPRESSION.md)):
   176 / 269 / 353 bytes, three matrix entries and four bits, the fourth
   entry recovered from two Weil pairings. `Signature::compress`,

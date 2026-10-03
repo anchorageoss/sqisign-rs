@@ -137,11 +137,13 @@ production**: it has not been verified against an independent
 implementation beyond the check that the SQIsignHD library's Sage
 verifier, re-parameterised to this prime, accepts our vectors and rejects
 tampered ones (`sqisignhd-harness/round3`, workflow `compact-oracle`).
+A short paper on the format, its parameters and a one-session benchmark
+of both rounds and both dimensions is in [paper-dim4/](paper-dim4/).
 
 ```rust
 use sqisign_rs::{generate_compact, CompactPublicKey, CompactSignature, Verifier};
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
-let (pk, sk) = generate_compact::<sqisign_rs::P324_3, N>(sqisign_rs::sqisign::level1(), &mut rng)?;
+let (pk, sk) = generate_compact::<sqisign_rs::Level1, N>(sqisign_rs::sqisign::level1(), &mut rng)?;
 let sig = sk.sign(b"hello world", &mut rng)?;      // 142 bytes
 pk.verify(b"hello world", &sig)?;
 ```

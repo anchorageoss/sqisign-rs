@@ -234,7 +234,32 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     entropy: &mut impl Rng,
     out: &mut [u8],
 ) -> Result<usize, CompactSignError> {
+    compact_sign_stats(params, pk, sk, msg, entropy, out).map(|(n, _)| n)
+}
+
+/// What the response sampler did for one signature: how many lattice
+/// samples the good-degree loop drew and how many of them reached a
+/// primality test (`q` odd and `≡ 3 mod 4` below `2^e`). Public data, for
+/// measurement; the signature itself does not carry it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CompactSignStats {
+    /// Lattice samples drawn (each costs one norm).
+    pub response_samples: u32,
+    /// Samples that reached the Miller–Rabin test on `2^e − q`.
+    pub primality_tests: u32,
+}
+
+/// [`compact_sign`] returning the sampler's counts next to the length.
+pub fn compact_sign_stats<L: HdLevel, const N: usize>(
+    params: &Params<N>,
+    pk: &CompactPublicKey<L>,
+    sk: &CompactSecretKey<L, N>,
+    msg: &[u8],
+    entropy: &mut impl Rng,
+    out: &mut [u8],
+) -> Result<(usize, CompactSignStats), CompactSignError> {
     use CompactSignError as E;
+    let mut stats = CompactSignStats::default();
     let alg = &params.alg;
     let act = &params.act;
     let f = L::TWO_ADIC_EXPONENT;
@@ -314,6 +339,7 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
     bound.set_bound(L::E_EMBED as i32 + 1);
     let mut found = None;
     for _ in 0..MAX_RESPONSE_TRIES {
+        stats.response_samples += 1;
         let Some((gamma, mut q)) = prod
             .sample_from_ball(&bound, alg, &mut rng)
             .map(|(g, q)| (Zeroizing::new(g), q))
@@ -329,6 +355,7 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
         }
         let mut nn = two_e.sub(&q);
         nn.set_bound(L::E_EMBED as i32 + 1);
+        stats.primality_tests += 1;
         if !nn.probab_prime(PRIME_ROUNDS, &mut rng) {
             continue;
         }
@@ -385,7 +412,7 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
             .modulo(&two_r)
     };
 
-    encode_signature::<L>(
+    let n = encode_signature::<L>(
         &a_com,
         to_u128(&a) as i128,
         to_u128(&b) as i128,
@@ -395,7 +422,8 @@ pub fn compact_sign<L: HdLevel, const N: usize>(
         hq_com,
         out,
     )
-    .ok_or(E::Encode)
+    .ok_or(E::Encode)?;
+    Ok((n, stats))
 }
 
 /// The wire size of a compact signature at this level.
