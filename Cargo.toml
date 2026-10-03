@@ -14,7 +14,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.6.39"
 authors = ["Dustin Ray <dustin.ray@anchorlabs.com>"]
 edition = "2021"
 rust-version = "1.80"
