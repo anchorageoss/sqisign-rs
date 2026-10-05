@@ -11,7 +11,7 @@
   the same limb layout otherwise, the generated radix backends
   elsewhere); conditional operations use `subtle`; the basis search is
   bounded and fails closed on crafted curves.
-- The x86-64 kernels were measured with dudect in the prism-rs
+- The x86-64 kernels were measured with dudect in the eclipse-rs
   repository, which shares them (its `CT_STATUS.md`, Sections 6 and 7,
   2026-09-25): no distinguishable difference on the assembly path; the
   portable path showed a value-dependent difference on `Fp2::mul` with

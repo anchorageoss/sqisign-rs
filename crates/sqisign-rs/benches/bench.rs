@@ -133,7 +133,7 @@ fn level<L: FpBackend + PrimePrecomp, const N: usize>(
 }
 
 /// Dependent chains of field operations, the latency of one operation at
-/// each level (comparable with prism-rs's `field` bench and the C harness).
+/// each level (comparable with eclipse-rs's `field` bench and the C harness).
 fn field<L: FpBackend>(c: &mut Criterion<Cycles>, label: &str, enc: usize) {
     use sqisign_verify::fp::{Fp, Fp2};
     use sqisign_verify::rng::Rng;

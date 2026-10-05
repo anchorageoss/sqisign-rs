@@ -95,7 +95,7 @@ conversion of round-2 keys or signatures.
 
 ### Not in this release
 
-- SQIsign-RK on round 3: not planned; it lives in prism-rs on ECLIPSE keys.
+- SQIsign-RK on round 3: not planned; it lives in eclipse-rs on ECLIPSE keys.
 - The compact format at levels III and V (derived, not built).
 
 ### Migration

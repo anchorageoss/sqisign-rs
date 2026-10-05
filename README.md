@@ -151,7 +151,7 @@ pk.verify(b"hello world", &sig)?;
 ## Not in this release
 
 SQIsign-RK (rerandomizable keys) is not planned for this crate; it lives
-in prism-rs on ECLIPSE keys. The compact format at levels III and V is
+in eclipse-rs on ECLIPSE keys. The compact format at levels III and V is
 derived in [docs/COMPACT_R3.md](docs/COMPACT_R3.md) but not built.
 
 ## About

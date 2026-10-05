@@ -90,7 +90,7 @@ pin it from below:
   below), so a good `q` exists with overwhelming probability;
 - Nakagawa–Onuki (ePrint 2025/1602) recommend a degree of at least `4λ/3`
   bits for a revealed isogeny of large prime-like degree
-  (prism-rs `docs/PRISM_4D_FEASIBILITY.md` Section 3): `4λ/3 = 170.7 / 256.0 / 341.3`
+  (eclipse-rs `docs/PRISM_4D_FEASIBILITY.md` Section 3): `4λ/3 = 170.7 / 256.0 / 341.3`
   against `e = 174 / 264 / 346`; the margin clears it at every
   level, and 8 bits would not at level I.
 
@@ -162,7 +162,7 @@ signing time. This is where the format is cheap where PRISM-4D was not: the
 signer chooses `q` among `2^22` lattice vectors and needs one primality
 event, whereas PRISM-4D's hash had to hit a prime `q` with `2^a − q` prime at
 once, a second-order event measured at 94.7 / 240.8 / 447.6 Mcycles per
-signature (P18, prism-rs `docs/PRISM_4D_FEASIBILITY.md` Section 2).
+signature (P18, eclipse-rs `docs/PRISM_4D_FEASIBILITY.md` Section 2).
 
 ## 3. Sizes
 

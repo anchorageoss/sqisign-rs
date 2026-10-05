@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emit the x86-64 field backends `crates/prism-verify/src/fp/<prime>_asm.rs`
+"""Emit the x86-64 field backends `crates/eclipse-verify/src/fp/<prime>_asm.rs`
 (inline assembly with BMI2 and ADX, or portable kernels of the same
 schedule, chosen at run time by `fp::dispatch`) for the SQIsign round-3 primes
 `p = c 2^e - 1`: saturated 64-bit limbs, Montgomery form with `R = 2^(64 n)`,
@@ -17,7 +17,7 @@ Also emits `<dir>/../mont_asm.rs`, the variable-modulus kernels of the
 Miller-Rabin test (6 to 11 words).
 
 Usage: gen_fp_asm.py [--check] [--crate-path <prefix>] [--without-mont] <dir>
-(prism-rs: default dir crates/prism-verify/src/fp, prefix `crate`; sqisign-rs:
+(eclipse-rs: default dir crates/eclipse-verify/src/fp, prefix `crate`; sqisign-rs:
 `--crate-path crate::v3 --without-mont crates/verify/src/v3/fp`, no
 Miller-Rabin kernels since that crate has no hash-to-prime)
 """
@@ -34,7 +34,7 @@ PRIMES = [
 GP = ["r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"]
 
 # The path of the field module's parent crate root in `use` lines of the
-# generated code: `crate` in prism-rs, `crate::v3` in sqisign-rs.
+# generated code: `crate` in eclipse-rs, `crate::v3` in sqisign-rs.
 CRATE = "crate"
 
 
@@ -1389,7 +1389,7 @@ def main():
         CRATE = args[i + 1]
         del args[i : i + 2]
     args = [a for a in args if a not in ("--check", "--without-mont")]
-    d = args[0] if args else "crates/prism-verify/src/fp"
+    d = args[0] if args else "crates/eclipse-verify/src/fp"
     bad = 0
     outputs = [(os.path.join(d, f"{name}_asm.rs"), lambda t=(name, c, e, n, enc, origin): generate(*t)) for name, c, e, n, enc, origin in PRIMES]
     if not without_mont:

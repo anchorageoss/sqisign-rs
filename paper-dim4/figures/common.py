@@ -4,7 +4,7 @@ Every number a figure or table shows is read from a file of this repository
 (paper-dim4/BENCH.md, docs/COMPACT_R3.md, COMPRESSION.md, README.md) by one of these
 helpers; nothing is typed into a script.  Output is deterministic: PDF and
 SVG metadata carry no timestamps, so a second ``make figures`` reproduces
-the bytes.  The layout is that of prism-rs ``paper/prism-suf/figures``.
+the bytes.  The layout is that of eclipse-rs ``paper/prism-suf/figures``.
 """
 import csv
 import os

@@ -5,7 +5,7 @@
 # of the data figure) and tables/*.tex; then figures/bundle.py inlines all
 # of it into main_standalone.tex, the one file to paste into Overleaf next
 # to refs.bib.  `make check` runs the generation twice and verifies the
-# output is byte-identical.  Same layout as prism-rs paper/prism-suf.
+# output is byte-identical.  Same layout as eclipse-rs paper/prism-suf.
 PY ?= python3
 FIGS := values fig02_tradeoff
 TABS := tab1_parameters tab2_sizes tab3_bench tab4_ms tab5_loop

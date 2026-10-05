@@ -3,7 +3,7 @@
 //! compute anyway.
 //!
 //! **This format is not in the SQIsign specification.** It is the P21
-//! method of prism-rs carried to SQIsign round 3.
+//! method of eclipse-rs carried to SQIsign round 3.
 //!
 //! # What the pairings give
 //!

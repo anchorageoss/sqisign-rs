@@ -41,16 +41,16 @@ section was added.
    counted). The doc's estimate for both half-chains kept was about
    1.53 MiB.
 8. **Section 6.** ECLIPSE appears once in prose plus the footnote, whose
-   text is `docs/NAMING.md` of prism-rs with the citation key changed; the
+   text is `docs/NAMING.md` of eclipse-rs with the citation key changed; the
    section title carries the name because the ticket's section list does.
    The feasibility study is cited in prose ("a feasibility study carried
-   out for prism-rs") with `\cite{PRISMrs}`; the repository path was
+   out for eclipse-rs") with `\cite{PRISMrs}`; the repository path was
    removed from the text on 2026-09-26 at the author's request, as was
    the SQIsignHD library's script path in Section 3.
 9. **The "only implementation" claim.** Sourced to a GitHub search on
    2026-09-26 (`SQIsignHD`, `SQISignHD`, `Theta_dim4`), which returned
    the SQIsignHD authors' two repositories; no W01 lit-review record on
-   dimension-4 code was found in prism-rs. The paragraph says what was
+   dimension-4 code was found in eclipse-rs. The paragraph says what was
    searched and what would change if something was missed.
 10. **SQIsign v1 "signed in seconds".** Stated with the citation to
     DKLPW20 and no number; the author may want the paper's own figure.
@@ -89,7 +89,7 @@ section was added.
     marks the transfer to `e` as ours. The SQIsignHD pointers (Lemma 4,
     Lemma 12, Sections 4, 4.2, 4.4, 4.5, 6.1) were checked against both
     the ePrint of 2024-09-20 and the EUROCRYPT 2024 chapter (the author's
-    copy); the numbering agrees in both. `anchorlabsinc/prism-rs` is an
+    copy); the numbering agrees in both. `anchorlabsinc/eclipse-rs` is an
     INTERNAL repository at the time of writing, so the URL in
     `\cite{PRISMrs}` does not yet resolve for readers; the author's
     decision is to keep it, since the repository is released shortly.
