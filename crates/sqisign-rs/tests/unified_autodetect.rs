@@ -52,7 +52,7 @@ fn dim2_all_formats_autodetect_and_verify() {
     pk.verify(msg, &any).expect("expanded must verify");
 
     // Compressed (129 B).
-    let cmp = sig.compress();
+    let cmp = sig.compress().expect("compress");
     let any = AnySignature::<Level1>::from_bytes(&cmp.to_bytes()).expect("compressed parse");
     assert!(!is_compact(&any), "129 B must route to dim-2");
     pk.verify(msg, &any).expect("compressed must verify");

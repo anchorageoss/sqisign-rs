@@ -442,7 +442,7 @@ fn verify_all_formats_generic<L: FpBackend + LevelPrecomp>(
 
         // Compressed verification
         {
-            let compressed = sig.compress();
+            let compressed = sig.compress().expect("compress");
 
             pk.verify(msg, &compressed).unwrap_or_else(|e| {
                 let pow_dim2 =
@@ -991,49 +991,50 @@ fn diagnostic_matrix_bit_structure() {
 }
 
 #[test]
-fn diagnostic_det_hint_distribution() {
+fn diagnostic_hint_bit_distribution() {
     use hybrid_array::typenum::Unsigned;
 
     let content = KAT_LVL1;
     let entries = parse_kat_entries(content, 100);
 
     let e_rsp = L1::E_RSP as usize;
-    let mut hint_hist = [0u32; 4];
-    let mut hint_by_bt = [[0u32; 4]; 4]; // [bt][hint]
-    let mut hint_by_parity = [[0u32; 4]; 2]; // [m00_odd][hint]
-    let mut hint_by_trl = [[0u32; 4]; 16]; // [trl][hint]
+    let mut hint_hist = [0u32; 2];
+    let mut hint_by_bt = [[0u32; 2]; 8]; // [bt][h]
+    let mut hint_by_parity = [[0u32; 2]; 2]; // [m00_odd][h]
+    let mut hint_by_trl = [[0u32; 2]; 16]; // [trl][h]
 
     for (idx, entry) in entries.iter().enumerate() {
         let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
-        let compressed = sig.compress();
+        let compressed = sig.compress().expect("compress");
 
         let bt = sig.backtracking() as usize;
         let trl = sig.two_resp_length() as usize;
-        let pow_dim2 = e_rsp - trl - bt;
-        let det_precision = pow_dim2 + trl;
+        // Entry width N = E_RSP + 2 - n_bt; the determinant recovers N - 1 bits.
+        let entry_bits = e_rsp + 2 - bt;
         let m00_odd = sig.mat()[0][0].digits()[0] & 1 != 0;
 
-        // Read hint from the wire format: packed meta byte is right after Fp2
+        // Read the hint from the wire format: the metadata byte
+        // [r:4 | h:1 | n_bt:3] is right after the Fp2.
         let wire = compressed.to_bytes();
         let fp2_len = <L1 as SecurityLevel>::Fp2EncodedBytes::USIZE;
         let packed = wire[fp2_len];
-        let hint = (packed >> 2) & 0x03;
+        assert_eq!((packed & 0x07) as usize, bt, "KAT {idx}: n_bt field");
+        assert_eq!((packed >> 4) as usize, trl, "KAT {idx}: r field");
+        let hint = (packed >> 3) & 0x01;
         hint_hist[hint as usize] += 1;
         hint_by_bt[bt][hint as usize] += 1;
         hint_by_parity[m00_odd as usize][hint as usize] += 1;
-        if trl < 16 {
-            hint_by_trl[trl][hint as usize] += 1;
-        }
+        hint_by_trl[trl][hint as usize] += 1;
 
         eprintln!(
-            "KAT {:3}: bt={} trl={} m00_odd={} det_prec={:3} hint={}",
-            idx, bt, trl, m00_odd as u8, det_precision, hint,
+            "KAT {:3}: bt={} trl={} m00_odd={} N={:3} h={}",
+            idx, bt, trl, m00_odd as u8, entry_bits, hint,
         );
     }
 
-    eprintln!("\n=== DET_HINT DISTRIBUTION ===");
+    eprintln!("\n=== HINT BIT DISTRIBUTION ===");
     for (h, &count) in hint_hist.iter().enumerate() {
-        eprintln!("  hint={}: {:3}/100 ({:2}%)", h, count, count);
+        eprintln!("  h={}: {:3}/100 ({:2}%)", h, count, count);
     }
 
     eprintln!("\n=== BY BACKTRACKING ===");
@@ -1041,8 +1042,8 @@ fn diagnostic_det_hint_distribution() {
         let total: u32 = row.iter().sum();
         if total > 0 {
             eprintln!(
-                "  bt={}: hint[0]={} hint[1]={} hint[2]={} hint[3]={} (total={})",
-                bt, row[0], row[1], row[2], row[3], total,
+                "  bt={}: h[0]={} h[1]={} (total={})",
+                bt, row[0], row[1], total,
             );
         }
     }
@@ -1052,12 +1053,10 @@ fn diagnostic_det_hint_distribution() {
         let total: u32 = row.iter().sum();
         if total > 0 {
             eprintln!(
-                "  m00_{}:  hint[0]={} hint[1]={} hint[2]={} hint[3]={} (total={})",
+                "  m00_{}:  h[0]={} h[1]={} (total={})",
                 if p == 0 { "even" } else { "odd " },
                 row[0],
                 row[1],
-                row[2],
-                row[3],
                 total,
             );
         }
@@ -1068,13 +1067,13 @@ fn diagnostic_det_hint_distribution() {
         let total: u32 = row.iter().sum();
         if total > 0 {
             eprintln!(
-                "  trl={}: hint[0]={} hint[1]={} hint[2]={} hint[3]={} (total={})",
-                trl, row[0], row[1], row[2], row[3], total,
+                "  trl={}: h[0]={} h[1]={} (total={})",
+                trl, row[0], row[1], total,
             );
         }
     }
 
-    let uniform_expected = 25.0f64;
+    let uniform_expected = 50.0f64;
     let chi2: f64 = hint_hist
         .iter()
         .map(|&c| {
@@ -1083,10 +1082,10 @@ fn diagnostic_det_hint_distribution() {
         })
         .sum();
     eprintln!(
-        "\nChi-squared vs uniform: {:.2} (critical value at p=0.05, df=3: 7.81)",
+        "\nChi-squared vs uniform: {:.2} (critical value at p=0.05, df=1: 3.84)",
         chi2,
     );
-    if chi2 < 7.81 {
+    if chi2 < 3.84 {
         eprintln!("Distribution is consistent with uniform random (cannot reject H0).");
     } else {
         eprintln!("Distribution is NOT uniform, there may be exploitable structure.");
@@ -1095,8 +1094,6 @@ fn diagnostic_det_hint_distribution() {
     if hint_hist.contains(&100) {
         eprintln!("\nALL entries have the same hint value! The hint is unnecessary.");
         eprintln!("128 bytes achievable without any signer changes.");
-    } else if hint_hist.contains(&0) {
-        eprintln!("\nSome hint values never appear, partial structure exists.");
     }
 }
 
@@ -1411,7 +1408,7 @@ fn test_compress_and_verify_kat_entry_0() {
     let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
     let msg = &entry.sm[L1_SIG_BYTES..];
 
-    let compressed = sig.compress();
+    let compressed = sig.compress().expect("compress");
     pk.verify(msg, &compressed)
         .expect("compressed verification failed on KAT entry 0");
 }
@@ -1426,7 +1423,7 @@ fn test_compress_and_verify_all_kat_entries() {
         let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
         let msg = &entry.sm[L1_SIG_BYTES..];
 
-        let compressed = sig.compress();
+        let compressed = sig.compress().expect("compress");
         pk.verify(msg, &compressed)
             .unwrap_or_else(|e| panic!("KAT {}: compressed verify failed: {:?}", i, e));
     }
@@ -1444,7 +1441,7 @@ fn test_compressed_serialization_roundtrip_kat() {
     let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
     let msg = &entry.sm[L1_SIG_BYTES..];
 
-    let compressed = sig.compress();
+    let compressed = sig.compress().expect("compress");
     let wire = compressed.to_bytes();
     let decoded =
         CompressedSignature::<L1>::from_bytes(&wire[..CompressedSignature::<L1>::WIRE_BYTES])
@@ -1463,7 +1460,7 @@ fn test_compressed_rejects_wrong_message() {
     let pk = PublicKey::<L1>::from_bytes(&entry.pk).unwrap();
     let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
 
-    let compressed = sig.compress();
+    let compressed = sig.compress().expect("compress");
     assert!(
         pk.verify(b"wrong message", &compressed).is_err(),
         "compressed verify should reject wrong message"
@@ -1482,7 +1479,7 @@ fn test_compressed_any_signature_dispatch() {
     let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
     let msg = &entry.sm[L1_SIG_BYTES..];
 
-    let compressed = sig.compress();
+    let compressed = sig.compress().expect("compress");
     let any = AnySignature::Compressed(compressed);
     assert_eq!(any.format(), SignatureFormat::Compressed);
     pk.verify(msg, &any)
@@ -1499,7 +1496,7 @@ fn test_compress_decompress_byte_identical_all_100() {
         let pk = PublicKey::<L1>::from_bytes(&entry.pk)
             .unwrap_or_else(|_| panic!("KAT {}: failed to decode public key", i));
         let sig = Signature::<L1>::from_bytes(&entry.sm[..L1_SIG_BYTES]).unwrap();
-        let compressed = sig.compress();
+        let compressed = sig.compress().expect("compress");
         let recovered = compressed
             .decompress(&pk)
             .unwrap_or_else(|e| panic!("KAT {}: decompress failed: {:?}", i, e));

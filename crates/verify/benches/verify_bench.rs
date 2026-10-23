@@ -110,7 +110,7 @@ fn bench_verify_compressed(c: &mut Criterion) {
     let msg = &entry.sm[SIGNATURE_BYTES..];
 
     let sig = Signature::<L1>::from_bytes(sig_bytes).unwrap();
-    let compressed = sig.compress();
+    let compressed = sig.compress().expect("compress");
 
     c.bench_function("verify_compressed (Level 1)", |b| {
         b.iter(|| {

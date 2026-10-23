@@ -22,7 +22,7 @@ let sig = sk.sign(b"hello world", &mut rng)?;
 pk.verify(b"hello world", &sig)?;
 
 // Compress to a 129-byte wire format; it verifies with the same call.
-pk.verify(b"hello world", &sig.compress())?;
+pk.verify(b"hello world", &sig.compress()?)?;
 ```
 
 The compact scheme produces the smallest signature (108 bytes), and higher security levels are a single type parameter:

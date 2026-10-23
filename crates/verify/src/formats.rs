@@ -7,9 +7,11 @@
 //! | Expanded | 212 B | Pre-evaluated kernel points, faster verify |
 //! | Compressed | 129 B | 3 of 4 matrix entries, 4th via determinant |
 //!
-//! The standard format is the NIST v2.0 wire format and is the only one
-//! validated against KAT vectors. The other two are defined by the
-//! SQIsign specification as optional compression levels.
+//! The standard format is the NIST v2.0 wire format and the one the KAT
+//! vectors are given in. The other two are defined by the SQIsign
+//! specification as optional compression levels; the compressed format is
+//! validated by round-tripping every KAT vector through it
+//! (`crates/kat/tests/kat_compressed.rs`).
 
 use crate::ec::basis::{
     difference_point, difference_point_with_hint, ec_curve_to_basis_2f_to_hint,
@@ -303,28 +305,32 @@ fn mp_mul_mod(out: &mut [u64], a: &[u64], b: &[u64], mod_bits: usize) {
     mp_mod_2exp(out, mod_bits);
 }
 
-/// Right-shift a digit array by `shift` bits.
-fn mp_shiftr(a: &mut [u64], shift: usize) {
-    let n = a.len();
-    let word_shift = shift / 64;
-    let bit_shift = shift % 64;
-
-    if word_shift >= n {
-        a.fill(0);
-        return;
-    }
-
-    if bit_shift == 0 {
-        for i in 0..n - word_shift {
-            a[i] = a[i + word_shift];
+/// Add `2^bit` to a digit array, propagating the carry (wrapping at the top).
+fn mp_add_pow2(a: &mut [u64], bit: usize) {
+    let mut limb = bit / 64;
+    let mut addend = 1u64 << (bit % 64);
+    while limb < a.len() {
+        let (sum, overflow) = a[limb].overflowing_add(addend);
+        a[limb] = sum;
+        if !overflow {
+            break;
         }
-    } else {
-        for i in 0..n - word_shift - 1 {
-            a[i] = (a[i + word_shift] >> bit_shift) | (a[i + word_shift + 1] << (64 - bit_shift));
-        }
-        a[n - word_shift - 1] = a[n - 1] >> bit_shift;
+        addend = 1;
+        limb += 1;
     }
-    a[n - word_shift..n].fill(0);
+}
+
+/// Read bit `bit` of a digit array (bits past the end read as 0).
+fn mp_bit(a: &[u64], bit: usize) -> bool {
+    a.get(bit / 64)
+        .is_some_and(|limb| (limb >> (bit % 64)) & 1 != 0)
+}
+
+/// Set bit `bit` of a digit array (bits past the end are ignored).
+fn mp_set_bit(a: &mut [u64], bit: usize) {
+    if let Some(limb) = a.get_mut(bit / 64) {
+        *limb |= 1u64 << (bit % 64);
+    }
 }
 
 /// Mask a digit array to `e` bits.
@@ -401,18 +407,49 @@ fn hensel_inv_mod_2e(out: &mut [u64], a: &[u64], e: usize) {
     }
 }
 
-/// Set bits `[start_bit..start_bit+n_bits)` from a hint byte.
-fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) {
-    for b in 0..n_bits {
-        if hint & (1u8 << b) != 0 {
-            let pos = start_bit + b;
-            let limb = pos / 64;
-            let bit = pos % 64;
-            if limb < digits.len() {
-                digits[limb] |= 1u64 << bit;
-            }
-        }
-    }
+/// Entry width `N = E_RSP + HD_EXTRA_TORSION - backtracking`: the basis-change
+/// matrix acts on the `2^N`-torsion, so every entry is an `N`-bit integer.
+fn matrix_entry_bits<L: SecurityLevel>(backtracking: u8) -> usize {
+    L::E_RSP as usize + HD_EXTRA_TORSION as usize - backtracking as usize
+}
+
+/// Pack the compressed-format metadata byte.
+///
+/// Layout, most significant bit first: `[r:4 | h:1 | n_bt:3]`
+///
+/// - bits 7..4: `two_resp_length` r, in `0..16`
+/// - bit 3: `h`, bit `N-1` of the dropped matrix entry, where
+///   `N = E_RSP + 2 - n_bt` is the entry width
+/// - bits 2..0: `backtracking` n_bt, in `0..8`
+///
+/// Why one bit is enough: for an honest signature the determinant satisfies
+/// `det(M) = y + 2^(N-2) * u (mod 2^N)` with `u` in `{1, 3}`, where `y` is
+/// the Weil pairing discrete logarithm at the full order `2^N`. Hence
+/// `det(M) mod 2^(N-1) = (y + 2^(N-2)) mod 2^(N-1)` needs no hint at all,
+/// and the two candidates for the dropped entry (`u = 1` and `u = 3`), both
+/// solutions of `pivot * x = det + (product of the other two entries)
+/// mod 2^N`, differ exactly in bit `N-1`. `h` therefore carries the same one
+/// bit as `u` (`u = 1` as 0 and `u = 3` as 1 would be the direct encoding),
+/// but encoding `u` itself would require the two pairings at compression
+/// time, which the entry bit avoids.
+///
+/// Callers guarantee the ranges; `compress()` rejects anything wider rather
+/// than truncating.
+fn pack_meta(backtracking: u8, dropped_top_bit: bool, two_resp_length: u8) -> u8 {
+    debug_assert!(backtracking < 8, "invariant: backtracking < 8");
+    debug_assert!(two_resp_length < 16, "invariant: two_resp_length < 16");
+    (two_resp_length << 4) | ((dropped_top_bit as u8) << 3) | backtracking
+}
+
+/// Unpack the metadata byte into `(backtracking, dropped_top_bit, two_resp_length)`.
+///
+/// Total on all 256 byte values: every bit is a field, so nothing is rejected
+/// here; semantic range checks happen in `decompress()`.
+fn unpack_meta(packed: u8) -> (u8, bool, u8) {
+    let backtracking = packed & 0x07;
+    let dropped_top_bit = (packed >> 3) & 0x01 != 0;
+    let two_resp_length = packed >> 4;
+    (backtracking, dropped_top_bit, two_resp_length)
 }
 
 /// Compressed signature: 3 of 4 matrix coefficients stored.
@@ -426,10 +463,11 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 /// - **M₀₀ even**: drop M₁₀, store M₁₁ as `mat_var`.
 ///   Recover M₁₀ = (M₀₀·M₁₁ - det) · M₀₁⁻¹.
 ///
-/// The Weil pairing determinant gives `E_RSP - bt` bits of precision,
-/// leaving exactly 2 unknown bits (HD_EXTRA_TORSION). These are packed
-/// into bits 2-3 of the backtracking byte on the wire (129 bytes at
-/// Level 1).
+/// With `N = E_RSP + 2 - backtracking` the entry width, the Weil pairing
+/// determinant pins down the dropped entry modulo `2^(N-1)`; the single
+/// remaining bit `N-1` travels as the hint bit `h` of the metadata byte
+/// `[r:4 | h:1 | n_bt:3]` (see `pack_meta`). The three transmitted entries
+/// stay `N` bits wide on the wire.
 ///
 /// The canonical basis hints for E_chall and E_aux are not stored;
 /// they are recomputed from the curves during decompression.
@@ -442,7 +480,7 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 /// use sqisign_verify::{PublicKey, Signature, CompressedSignature, Verifier};
 ///
 /// # fn example(pk: &PublicKey, sig: &Signature) -> Result<(), sqisign_verify::Error> {
-/// let compressed = sig.compress();
+/// let compressed = sig.compress()?;
 /// pk.verify(b"message", &compressed)?;
 ///
 /// // Serialize / deserialize
@@ -455,9 +493,10 @@ fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) 
 pub struct CompressedSignature<L: SecurityLevel = Level1> {
     /// Montgomery A-coefficient of the auxiliary curve E_aux.
     pub(crate) e_aux_a: Fp2<L>,
-    /// Number of backtracking steps (0-3).
+    /// Number of backtracking steps n_bt, in `0..8` (3 bits on the wire).
     pub(crate) backtracking: u8,
-    /// Length of the initial 2-isogeny chain in the response.
+    /// Length of the initial 2-isogeny chain in the response, in `0..16`
+    /// (4 bits on the wire).
     pub(crate) two_resp_length: u8,
     /// Matrix entry M₀₀.
     pub(crate) mat_00: Scalar<L>,
@@ -467,9 +506,10 @@ pub struct CompressedSignature<L: SecurityLevel = Level1> {
     pub(crate) mat_var: Scalar<L>,
     /// Challenge coefficient (LAMBDA bits).
     pub(crate) chall_coeff: Scalar<L>,
-    /// 2-bit hint: bits of the dropped entry above what the Weil pairing
-    /// determinant recovers.
-    pub(crate) det_hint: u8,
+    /// The hint bit `h`: bit `N-1` of the dropped matrix entry, where
+    /// `N = E_RSP + 2 - backtracking` is the entry width. The determinant
+    /// recovers the entry modulo `2^(N-1)`; this is the one bit it cannot.
+    pub(crate) dropped_top_bit: bool,
 }
 
 impl<L: FpBackend> core::fmt::Debug for CompressedSignature<L> {
@@ -488,25 +528,7 @@ impl<L: FpBackend> core::fmt::Debug for CompressedSignature<L> {
         fmt_scalar(f, &self.mat_var)?;
         f.write_str(", chall: ")?;
         fmt_scalar(f, &self.chall_coeff)?;
-        write!(f, ", det_hint: 0x{:02x} }}", self.det_hint)
-    }
-}
-
-impl<L: SecurityLevel> CompressedSignature<L> {
-    /// Pack backtracking (2 bits), det_hint (2 bits), and
-    /// two_resp_length (4 bits) into one metadata byte.
-    ///
-    /// Layout: `[trl:4 | det_hint:2 | bt:2]` (LSB first).
-    fn pack_meta(&self) -> u8 {
-        (self.backtracking & 0x03) | ((self.det_hint & 0x03) << 2) | (self.two_resp_length << 4)
-    }
-
-    /// Unpack the metadata byte into (backtracking, det_hint, two_resp_length).
-    fn unpack_meta(packed: u8) -> (u8, u8, u8) {
-        let backtracking = packed & 0x03;
-        let det_hint = (packed >> 2) & 0x03;
-        let two_resp_length = (packed >> 4) & 0x0F;
-        (backtracking, det_hint, two_resp_length)
+        write!(f, ", h: {} }}", self.dropped_top_bit as u8)
     }
 }
 
@@ -516,9 +538,9 @@ impl<L: FpBackend> CompressedSignature<L> {
     /// Layout: `Fp2 (e_aux) | packed_meta |
     ///          3 × matrix_entry_bytes | LAMBDA/8 (challenge)`
     ///
-    /// The packed metadata byte holds backtracking (bits 0-1),
-    /// det_hint (bits 2-3), and two_resp_length (bits 4-7).
-    /// Canonical basis hints are not stored.
+    /// The packed metadata byte is `[r:4 | h:1 | n_bt:3]`: two_resp_length
+    /// in bits 7..4, the hint bit `h` in bit 3, backtracking in bits 2..0
+    /// (see `pack_meta`). Canonical basis hints are not stored.
     pub const WIRE_BYTES: usize = <L as SecurityLevel>::Fp2EncodedBytes::USIZE
         + 3 * ((<L as SecurityLevel>::E_RSP as usize + 9) / 8)
         + <L as SecurityLevel>::LAMBDA as usize / 8
@@ -546,7 +568,7 @@ impl<L: FpBackend> CompressedSignature<L> {
         let e_aux_a = Fp2::<L>::decode(&bytes[pos..pos + fp2_len]).ok_or(Error::MalformedInput)?;
         pos += fp2_len;
 
-        let (backtracking, det_hint, two_resp_length) = Self::unpack_meta(bytes[pos]);
+        let (backtracking, dropped_top_bit, two_resp_length) = unpack_meta(bytes[pos]);
         pos += 1;
 
         let mut mat_00 = Scalar::<L>::default();
@@ -579,7 +601,7 @@ impl<L: FpBackend> CompressedSignature<L> {
             mat_01,
             mat_var,
             chall_coeff,
-            det_hint,
+            dropped_top_bit,
         })
     }
 
@@ -595,7 +617,11 @@ impl<L: FpBackend> CompressedSignature<L> {
         buf[pos..pos + fp2_len].copy_from_slice(&enc);
         pos += fp2_len;
 
-        buf[pos] = self.pack_meta();
+        buf[pos] = pack_meta(
+            self.backtracking,
+            self.dropped_top_bit,
+            self.two_resp_length,
+        );
         pos += 1;
 
         encode_digits(&mut buf[pos..], self.mat_00.digits.as_slice(), mat_bytes);
@@ -619,8 +645,12 @@ impl<L: FpBackend> CompressedSignature<L> {
 
     /// Decompress into a standard signature by recovering the dropped entry.
     ///
-    /// The Weil pairing determinant gives `pow_dim2 + trl` bits of det(M).
-    /// The remaining 2 bits (HD_EXTRA_TORSION) come from `det_hint`.
+    /// With `N = E_RSP + 2 - backtracking` the entry width, the Weil pairing
+    /// discrete logarithm `y` at order `2^N` satisfies
+    /// `det(M) = y + 2^(N-2) * u (mod 2^N)`, `u` in `{1, 3}`, for an honest
+    /// signature, so `det(M) mod 2^(N-1) = (y + 2^(N-2)) mod 2^(N-1)`. That
+    /// pins the dropped entry down modulo `2^(N-1)`; bit `N-1` is the hint
+    /// bit `h` from the metadata byte.
     pub fn decompress(&self, pk: &PublicKey<L>) -> Result<Signature<L>, Error>
     where
         L: LevelPrecomp,
@@ -631,10 +661,12 @@ impl<L: FpBackend> CompressedSignature<L> {
             return Err(Error::InvalidSignature);
         }
         let pow_dim2 = pow_dim2 as usize;
-        let trl = self.two_resp_length as usize;
-        let det_precision = pow_dim2 + trl;
-        let f = det_precision + HD_EXTRA_TORSION as usize;
+        // Entry width N: the challenge-curve pairing runs at the full order
+        // 2^N (f = N), the auxiliary one at 2^g.
+        let f = matrix_entry_bits::<L>(self.backtracking);
         let g = pow_dim2 + HD_EXTRA_TORSION as usize;
+        // Bits of the dropped entry that the determinant pins down: N - 1.
+        let known_bits = f - 1;
         let nw = L::MpLimbs::USIZE;
 
         let m00_odd = self.mat_00.digits[0] & 1 != 0;
@@ -648,7 +680,7 @@ impl<L: FpBackend> CompressedSignature<L> {
             &self.mat_01
         };
 
-        // Compute det(M) mod 2^det_precision via Weil pairing --
+        // Compute det(M) mod 2^(N-1) via Weil pairing.
         // Basis hints are not stored; recompute them from the curves.
 
         let mut e_chall =
@@ -676,24 +708,28 @@ impl<L: FpBackend> CompressedSignature<L> {
             f as u32,
         )
         .ok_or(Error::InvalidSignature)?;
-        mp_mod_2exp(&mut det_digits[..nw], det_precision);
+        // det(M) mod 2^(N-1) = (y + 2^(N-2)) mod 2^(N-1).
+        mp_add_pow2(&mut det_digits[..nw], f - 2);
+        mp_mod_2exp(&mut det_digits[..nw], known_bits);
 
-        // Recover the dropped entry mod 2^det_precision, then set 2 hint bits
+        // Recover the dropped entry mod 2^(N-1) with the three transmitted
+        // entries taken mod 2^(N-1), then set bit N-1 from the hint.
 
         let mut inv_pivot = Scalar::<L>::default();
         hensel_inv_mod_2e(
             inv_pivot.digits.as_mut_slice(),
             pivot.digits.as_slice(),
-            det_precision,
+            known_bits,
         );
 
         let (mat_10, mat_11) = if m00_odd {
+            // M11 = (det + M01 * M10) * M00^-1
             let mut product = Scalar::<L>::default();
             mp_mul_mod(
                 product.digits.as_mut_slice(),
                 self.mat_01.digits.as_slice(),
                 self.mat_var.digits.as_slice(),
-                det_precision,
+                known_bits,
             );
             let mut numerator = Scalar::<L>::default();
             let mut carry: u64 = 0;
@@ -702,29 +738,27 @@ impl<L: FpBackend> CompressedSignature<L> {
                 numerator.digits[i] = sum as u64;
                 carry = (sum >> 64) as u64;
             }
-            mp_mod_2exp(numerator.digits.as_mut_slice(), det_precision);
+            mp_mod_2exp(numerator.digits.as_mut_slice(), known_bits);
 
             let mut recovered = Scalar::<L>::default();
             mp_mul_mod(
                 recovered.digits.as_mut_slice(),
                 numerator.digits.as_slice(),
                 inv_pivot.digits.as_slice(),
-                det_precision,
+                known_bits,
             );
-            set_high_bits(
-                recovered.digits.as_mut_slice(),
-                self.det_hint,
-                det_precision,
-                HD_EXTRA_TORSION as usize,
-            );
+            if self.dropped_top_bit {
+                mp_set_bit(recovered.digits.as_mut_slice(), known_bits);
+            }
             (self.mat_var.clone(), recovered)
         } else {
+            // M10 = (M00 * M11 - det) * M01^-1
             let mut product = Scalar::<L>::default();
             mp_mul_mod(
                 product.digits.as_mut_slice(),
                 self.mat_00.digits.as_slice(),
                 self.mat_var.digits.as_slice(),
-                det_precision,
+                known_bits,
             );
             let mut numerator = Scalar::<L>::default();
             let mut borrow: u64 = 0;
@@ -734,21 +768,18 @@ impl<L: FpBackend> CompressedSignature<L> {
                 numerator.digits[i] = diff2;
                 borrow = (b1 as u64) + (b2 as u64);
             }
-            mp_mod_2exp(numerator.digits.as_mut_slice(), det_precision);
+            mp_mod_2exp(numerator.digits.as_mut_slice(), known_bits);
 
             let mut recovered = Scalar::<L>::default();
             mp_mul_mod(
                 recovered.digits.as_mut_slice(),
                 numerator.digits.as_slice(),
                 inv_pivot.digits.as_slice(),
-                det_precision,
+                known_bits,
             );
-            set_high_bits(
-                recovered.digits.as_mut_slice(),
-                self.det_hint,
-                det_precision,
-                HD_EXTRA_TORSION as usize,
-            );
+            if self.dropped_top_bit {
+                mp_set_bit(recovered.digits.as_mut_slice(), known_bits);
+            }
             (recovered, self.mat_var.clone())
         };
 
@@ -961,21 +992,20 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
 
     /// Compress by dropping one second-row entry based on M₀₀ parity.
     ///
-    /// The Weil pairing recovers `det_precision = pow_dim2 + trl` bits of
-    /// the dropped entry. The remaining 2 bits are stored as `det_hint`,
-    /// packed into the backtracking byte on the wire.
-    pub fn compress(&self) -> CompressedSignature<L> {
-        // Invariant: a Signature reaching here has in-range response parameters
-        // (Signature::from_bytes rejects two_resp_length + backtracking >= E_RSP,
-        // and the signer never produces them), so this subtraction cannot
-        // underflow.
-        debug_assert!(
-            (L::E_RSP as usize) > self.two_resp_length as usize + self.backtracking as usize,
-            "invariant: E_RSP > two_resp_length + backtracking"
-        );
-        let pow_dim2 =
-            L::E_RSP as usize - self.two_resp_length as usize - self.backtracking as usize;
-        let det_precision = pow_dim2 + self.two_resp_length as usize;
+    /// The Weil pairing determinant recovers the dropped entry modulo
+    /// `2^(N-1)`, `N = E_RSP + 2 - backtracking`; its bit `N-1` is stored as
+    /// the hint bit `h` of the metadata byte `[r:4 | h:1 | n_bt:3]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MalformedInput`] when `backtracking >= 8` or
+    /// `two_resp_length >= 16`: neither fits its metadata field, and the
+    /// value is never truncated.
+    pub fn compress(&self) -> Result<CompressedSignature<L>, Error> {
+        if self.backtracking >= 8 || self.two_resp_length >= 16 {
+            return Err(Error::MalformedInput);
+        }
+        let entry_bits = matrix_entry_bits::<L>(self.backtracking);
 
         let m00_odd = self.mat[0][0].digits[0] & 1 != 0;
         let (kept, dropped) = if m00_odd {
@@ -983,12 +1013,9 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
         } else {
             (&self.mat[1][1], &self.mat[1][0])
         };
+        let dropped_top_bit = mp_bit(dropped.digits.as_slice(), entry_bits - 1);
 
-        let mut dropped_shifted = dropped.clone();
-        mp_shiftr(dropped_shifted.digits.as_mut_slice(), det_precision);
-        let det_hint = dropped_shifted.digits[0] as u8 & 0x03;
-
-        CompressedSignature {
+        Ok(CompressedSignature {
             e_aux_a: self.e_aux_a.clone(),
             backtracking: self.backtracking,
             two_resp_length: self.two_resp_length,
@@ -996,8 +1023,8 @@ impl<L: FpBackend + LevelPrecomp> Signature<L> {
             mat_01: self.mat[0][1].clone(),
             mat_var: kept.clone(),
             chall_coeff: self.chall_coeff.clone(),
-            det_hint,
-        }
+            dropped_top_bit,
+        })
     }
 }
 
@@ -1270,22 +1297,92 @@ mod tests {
     fn compressed_serialization_roundtrip() {
         let sig = CompressedSignature::<Level1> {
             e_aux_a: Fp2::zero(),
-            backtracking: 2,
+            backtracking: 4,
             two_resp_length: 1,
             mat_00: Scalar::default(),
             mat_01: Scalar::default(),
             mat_var: Scalar::default(),
             chall_coeff: Scalar::default(),
-            det_hint: 0x03,
+            dropped_top_bit: true,
         };
         let buf = sig.to_bytes();
         let decoded = CompressedSignature::<Level1>::from_bytes(
             &buf[..CompressedSignature::<Level1>::WIRE_BYTES],
         )
         .expect("roundtrip decode failed");
-        assert_eq!(decoded.backtracking, 2);
+        assert_eq!(decoded.backtracking, 4);
         assert_eq!(decoded.two_resp_length, 1);
-        assert_eq!(decoded.det_hint, 0x03);
+        assert!(decoded.dropped_top_bit);
+    }
+
+    #[test]
+    fn meta_byte_layout() {
+        // [r:4 | h:1 | n_bt:3]: r = 1010, h = 1, n_bt = 101 -> 1010 1 101 = 0xAD.
+        assert_eq!(pack_meta(5, true, 10), 0xAD);
+        assert_eq!(unpack_meta(0xAD), (5, true, 10));
+        // Field boundaries: each field alone lands in its own bits.
+        assert_eq!(pack_meta(7, false, 0), 0x07);
+        assert_eq!(pack_meta(0, true, 0), 0x08);
+        assert_eq!(pack_meta(0, false, 15), 0xF0);
+    }
+
+    #[test]
+    fn meta_pack_unpack_inverse_high_backtracking() {
+        // n_bt = 4..=7 did not fit the old 2-bit field; every combination with
+        // the r extremes and both hint values must round-trip exactly.
+        for n_bt in 4u8..=7 {
+            for r in [0u8, 7, 15] {
+                for h in [false, true] {
+                    let packed = pack_meta(n_bt, h, r);
+                    assert_eq!(
+                        unpack_meta(packed),
+                        (n_bt, h, r),
+                        "pack/unpack not inverse for n_bt={n_bt} r={r} h={h}"
+                    );
+                }
+            }
+        }
+        // unpack_meta is total: every byte round-trips through pack_meta.
+        for packed in 0u8..=255 {
+            let (n_bt, h, r) = unpack_meta(packed);
+            assert_eq!(pack_meta(n_bt, h, r), packed);
+        }
+    }
+
+    #[test]
+    fn compress_rejects_out_of_range_metadata() {
+        let mut sig = Signature::<Level1>::default();
+        sig.set_backtracking(8);
+        assert_eq!(sig.compress().err(), Some(Error::MalformedInput));
+
+        let mut sig = Signature::<Level1>::default();
+        sig.set_two_resp_length(16);
+        assert_eq!(sig.compress().err(), Some(Error::MalformedInput));
+
+        let mut sig = Signature::<Level1>::default();
+        sig.set_backtracking(7);
+        sig.set_two_resp_length(15);
+        assert!(sig.compress().is_ok());
+    }
+
+    #[test]
+    fn compress_hint_is_bit_n_minus_1_of_dropped_entry() {
+        // M00 odd: M11 is dropped. N = E_RSP + 2 - n_bt = 126 + 2 - 3 = 125,
+        // so h is bit 124 of M11 (limb 1, bit 60).
+        let mut sig = Signature::<Level1>::default();
+        sig.set_backtracking(3);
+        sig.mat_mut()[0][0].digits[0] = 1;
+        sig.mat_mut()[1][1].digits[1] = 1u64 << 60;
+        assert!(sig.compress().unwrap().dropped_top_bit);
+        sig.mat_mut()[1][1].digits[1] = 1u64 << 59;
+        assert!(!sig.compress().unwrap().dropped_top_bit);
+
+        // M00 even: M10 is dropped instead.
+        let mut sig = Signature::<Level1>::default();
+        sig.set_backtracking(3);
+        sig.mat_mut()[0][1].digits[0] = 1;
+        sig.mat_mut()[1][0].digits[1] = 1u64 << 60;
+        assert!(sig.compress().unwrap().dropped_top_bit);
     }
 
     #[test]
@@ -1298,9 +1395,20 @@ mod tests {
     #[test]
     fn compress_default_signature() {
         let sig = Signature::<Level1>::default();
-        let compressed = sig.compress();
+        let compressed = sig.compress().expect("default signature compresses");
         assert_eq!(compressed.backtracking, 0);
         assert_eq!(compressed.two_resp_length, 0);
+        assert!(!compressed.dropped_top_bit);
+    }
+
+    #[test]
+    fn mp_add_pow2_carries() {
+        let mut a = [u64::MAX, 0, 0, 0];
+        mp_add_pow2(&mut a, 0);
+        assert_eq!(a, [0, 1, 0, 0]);
+        let mut a = [0, 1u64 << 63, 0, 0];
+        mp_add_pow2(&mut a, 127);
+        assert_eq!(a, [0, 0, 1, 0]);
     }
 
     #[test]
