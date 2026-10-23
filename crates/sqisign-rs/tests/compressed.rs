@@ -1,5 +1,5 @@
-//! The compressed signature format (three matrix entries, the fourth
-//! recovered from two Weil pairings): the round trip at each level, the
+//! The compressed signature format (three matrix entries and three bits,
+//! the fourth entry recovered from two Weil pairings): the round trip at each level, the
 //! decoder's rejections, tampering, and the acceptance measurement on
 //! generated signatures (`SQISIGN_SURVEY_SIGS` per level, default 3: every
 //! honest signature must compress, verify compressed, and decompress to a
@@ -89,10 +89,10 @@ fn decoder_and_tampering() {
         t[2 * fp + eb] &= !1;
         assert_eq!(decode(&t), Err(Error::MalformedInput));
     }
-    // the bits byte outside its four bits
+    // the bits byte outside its three bits
     {
         let mut t = cb;
-        t[n - 3] |= 0x10;
+        t[n - 3] |= 0x08;
         assert_eq!(decode(&t), Err(Error::MalformedInput));
     }
     // a non-canonical field element
@@ -120,7 +120,7 @@ fn decoder_and_tampering() {
     // the standard verifier accepts the signature it stands for (the
     // standard format's own freedom in those bits, nothing more)
     let mut accepted = 0;
-    for v in 0..16u8 {
+    for v in 0..8u8 {
         let mut t = cb;
         t[n - 3] = v;
         let c = CompressedSignature::<Level1>::from_bytes(&t).unwrap();
@@ -144,7 +144,7 @@ fn survey<L: SigningLevel>(count: usize) {
     let params = &L::PARAMS;
     let mut r = rng(&format!("survey {}", L::NAME), b"cmp");
     let (pk, sk) = generate::<L>(&mut r);
-    let mut bits_hist = [0usize; 16];
+    let mut bits_hist = [0usize; 8];
     for i in 0..count {
         let msg = (i as u64).to_le_bytes();
         let sig = sk.sign(&msg, &mut r).expect("sign");
@@ -164,7 +164,7 @@ fn survey<L: SigningLevel>(count: usize) {
     }
     eprintln!(
         "{}: {count} signatures compressed, verified compressed, decompressed to standard \
-         signatures the standard verifier accepts; the four transmitted bits' histogram {bits_hist:?}",
+         signatures the standard verifier accepts; the three transmitted bits' histogram {bits_hist:?}",
         L::NAME
     );
 }

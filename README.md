@@ -108,7 +108,13 @@ holds here.
 
 The compressed format drops one entry of the basis-change matrix and
 recovers it from two Weil pairings the verifier computes on data it
-already has. It is not in the specification.
+already has. It is not in the specification. Every earlier version is
+deprecated for compressed signatures: `sqisign-verify` and `sqisign-rs`
+0.1.0 to 0.5.0 (round 2) truncated the backtracking count to two bits
+and could not decompress about one signature in 300 (round-2 KAT level
+III entry 97), and 0.6.0 and 0.6.1 carried an earlier round-3 byte that
+0.7 does not decode. Nothing they verified is affected; recompress from
+the standard format.
 
 ### Compact (dimension 4), experimental
 

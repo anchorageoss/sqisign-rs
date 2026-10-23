@@ -78,7 +78,7 @@ medians; the workspace's `BENCH.md` has the whole table):
   `no_std` and heap-free; it is checked on `thumbv7em-none-eabihf`.
 
 ```toml
-sqisign-verify = { version = "0.6", default-features = false }
+sqisign-verify = { version = "0.7", default-features = false }
 ```
 
 ## Types
