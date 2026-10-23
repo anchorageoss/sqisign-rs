@@ -1,0 +1,547 @@
+    Finished `release` profile [optimized] target(s) in 8.13s
+     Running tests/paper_pairing_audit.rs (target/release/deps/paper_pairing_audit-8d8f5df553a02b73)
+
+running 3 tests
+test task1_formula_audit_l1 ... ==================== TASK 1: Level 1 (p = 5*2^248 - 1) ====================
+E_RSP = 126 (params/level*.rs const E_RSP), HD_EXTRA_TORSION = 2 (theta/mod.rs:19), F = F_CHR = 248 (params/level*.rs const F_CHR), c = (p+1)/2^F = 5 (precomp/level*/mod.rs P_COFACTOR_FOR_2F), LAMBDA = 128
+N = E_RSP + HD_EXTRA_TORSION - n_bt (verify.rs:112 check_canonical_basis_change_matrix; = f below); matrix entry wire bytes = floor((E_RSP + 9)/8) = 16 (types.rs:520)
+per-vector: f = pow_dim2 + 2 + trl (formats.rs:636), g = pow_dim2 + 2 (formats.rs:637), d = det_precision = pow_dim2 + trl (formats.rs:635), pow_dim2 = E_RSP - trl - bt (formats.rs:628)
+pow_dim2 of vector 0 = 125 (sanity: E_RSP - trl - bt)
+ranges over 100 vectors: n_bt in [0, 3], r' = two_resp_length in [0, 7], f = N in [125, 128], g in [121, 128], d in [123, 126]
+n_bt histogram: {0: 77, 1: 20, 2: 1, 3: 2}
+r'  histogram: {0: 48, 1: 24, 2: 18, 3: 4, 4: 3, 6: 2, 7: 1}
+recomputed canonical-basis hints equal the transmitted hints on 100/100 vectors
+order(w_f) == 2^f on 100/100, order(w_g) == 2^g on 100/100
+--- (a) y = log_{w_f}(w_g^-1) at order 2^f [fp2_dlog_2e_pub(det, w_g^-1, w_f^-1, f)] vs det M ---
+dlog succeeded on 100/100
+largest k with y == det M mod 2^k on ALL vectors (absolute): k = 123 (per-vector k ranges over [123, 126])
+per vector, first mismatch bit k vs d = E_RSP - n_bt: k == d on 100/100, k > d on 0/100, k < d on 0/100
+histogram of (k - d): {0: 100}
+  (n_bt=0, r'=0): 36 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=1): 19 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=2): 13 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=3): 3 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=4): 3 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=6): 2 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=0, r'=7): 1 vectors, k in [126, 126], d = 126, f = 128
+  (n_bt=1, r'=0): 10 vectors, k in [125, 125], d = 125, f = 127
+  (n_bt=1, r'=1): 4 vectors, k in [125, 125], d = 125, f = 127
+  (n_bt=1, r'=2): 5 vectors, k in [125, 125], d = 125, f = 127
+  (n_bt=1, r'=3): 1 vectors, k in [125, 125], d = 125, f = 127
+  (n_bt=2, r'=1): 1 vectors, k in [124, 124], d = 124, f = 126
+  (n_bt=3, r'=0): 2 vectors, k in [123, 123], d = 123, f = 125
+--- (b) relations between w_g and w_f^exp (both sides raised to 2^raise; raise=2^(f-g) is the task's 2^(f-g)) ---
+  [0] det raise=2^0                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [1] det raise=2^1                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:  28/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 18), 3: (0, 4), 4: (0, 3), 6: (0, 2), 7: (0, 1)})
+  [2] det raise=2^2                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 48), 1: (0, 24), 2: (0, 18), 3: (0, 4), 4: (0, 3), 6: (0, 2), 7: (0, 1)})
+  [3] det raise=2^3                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 48), 1: (0, 24), 2: (0, 18), 3: (0, 4), 4: (0, 3), 6: (0, 2), 7: (0, 1)})
+  [4] det*c raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [5] det*c raise=2^1                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [6] det*c raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [7] det*c raise=2^3                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [8] det*2 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [9] det*2 raise=2^1                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [10] det*2 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [11] det*2 raise=2^3                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [12] det*4 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [13] det*4 raise=2^1                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [14] det*4 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [15] det*4 raise=2^3                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [16] det*8 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [17] det*8 raise=2^1                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [18] det*8 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [19] det*8 raise=2^3                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [20] det*16 raise=2^0                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [21] det*16 raise=2^1                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [22] det*16 raise=2^2                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [23] det*16 raise=2^3                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  [24] -det raise=2^0 (w_g = w_f^-det | w_g = w_f^det) w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 7: (0, 0)})
+  (raise labels above are from vector 0; for a vector with r' = t the entries 'raise=2^{f-g}' use 2^t and 'raise=2^{f-g+2}' use 2^(t+2))
+--- (c) direct isotropy: e = e_{2^f}(P', Q') with P' = [M00]P + [M10]Q, Q' = [M01]P + [M11]Q ---
+e_{2^f}(P', Q') == w_f^(det M mod 2^f) exactly on 100/100
+  s = 1: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 2: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 4: e^s * w_g^(+s) == 1 on 100/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 1: e^s * w_g^(+s) == 1 on   0/52   e^s * w_g^(-s) == 1 on   0/52   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 2: e^s * w_g^(+s) == 1 on   0/52   e^s * w_g^(-s) == 1 on   0/52   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 4: e^s * w_g^(+s) == 1 on  52/52   e^s * w_g^(-s) == 1 on   0/52   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+--- Check A: z = w_f^(det M mod 2^N) * w_g ---
+z == 1: 0/100, z == -1: 0/100, z^2 == -1 (primitive 4th root): 100/100, none: 0/100
+(det M - y) mod 2^N: == 0: 0/100, == 2^(N-2): 48/100, == 2*2^(N-2): 0/100, == 3*2^(N-2): 52/100, other: 0/100
+--- Check B: v_2(det M) tabulated against r' ---
+  r' = 0: v_2(det M) histogram {"0": 48}
+  r' = 1: v_2(det M) histogram {"1": 24}
+  r' = 2: v_2(det M) histogram {"2": 18}
+  r' = 3: v_2(det M) histogram {"3": 4}
+  r' = 4: v_2(det M) histogram {"4": 3}
+  r' = 6: v_2(det M) histogram {"6": 2}
+  r' = 7: v_2(det M) histogram {"7": 1}
+v_2(det M) == r' on 100/100 vectors
+both M[0][0] and M[0][1] even: 0/100; both M[0][0] and M[1][0] even: 14/100; M00 even: 28/100, M01 even: 33/100, M10 even: 42/100, M11 even: 56/100
+convention (verify.rs:260-283 matrix_scalar_application_even_basis): P' = [M[0][0]]P + [M[1][0]]Q, Q' = [M[0][1]]P + [M[1][1]]Q (column j of M = coefficients of the j-th new point); 2^r' kernel is Q' iff M[0][0] and M[1][0] are both even (verify.rs:389)
+--- per-vector ---
+KAT   0: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   1: bt=1 trl=2 f=127 g=125 d=125 ord(w_f)=2^127 ord(w_g)=2^125 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   2: bt=0 trl=6 f=128 g=122 d=126 ord(w_f)=2^128 ord(w_g)=2^122 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(6) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   3: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   4: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   5: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   6: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   7: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   8: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   9: bt=2 trl=1 f=126 g=125 d=124 ord(w_f)=2^126 ord(w_g)=2^125 dlog_ok=true k=124 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  10: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  11: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  12: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  13: bt=0 trl=3 f=128 g=125 d=126 ord(w_f)=2^128 ord(w_g)=2^125 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  14: bt=1 trl=2 f=127 g=125 d=125 ord(w_f)=2^127 ord(w_g)=2^125 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  15: bt=0 trl=4 f=128 g=124 d=126 ord(w_f)=2^128 ord(w_g)=2^124 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  16: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  17: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  18: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  19: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  20: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  21: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  22: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  23: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  24: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  25: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  26: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  27: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  28: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  29: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  30: bt=0 trl=3 f=128 g=125 d=126 ord(w_f)=2^128 ord(w_g)=2^125 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  31: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  32: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  33: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  34: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  35: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  36: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  37: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  38: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  39: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  40: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  41: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  42: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  43: bt=1 trl=1 f=127 g=126 d=125 ord(w_f)=2^127 ord(w_g)=2^126 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  44: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  45: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  46: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  47: bt=0 trl=4 f=128 g=124 d=126 ord(w_f)=2^128 ord(w_g)=2^124 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  48: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  49: bt=0 trl=6 f=128 g=122 d=126 ord(w_f)=2^128 ord(w_g)=2^122 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(6) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  50: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  51: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  52: bt=1 trl=1 f=127 g=126 d=125 ord(w_f)=2^127 ord(w_g)=2^126 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  53: bt=3 trl=0 f=125 g=125 d=123 ord(w_f)=2^125 ord(w_g)=2^125 dlog_ok=true k=123 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  54: bt=0 trl=4 f=128 g=124 d=126 ord(w_f)=2^128 ord(w_g)=2^124 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  55: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  56: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  57: bt=3 trl=0 f=125 g=125 d=123 ord(w_f)=2^125 ord(w_g)=2^125 dlog_ok=true k=123 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  58: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  59: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  60: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  61: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  62: bt=1 trl=2 f=127 g=125 d=125 ord(w_f)=2^127 ord(w_g)=2^125 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  63: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  64: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  65: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  66: bt=1 trl=2 f=127 g=125 d=125 ord(w_f)=2^127 ord(w_g)=2^125 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  67: bt=1 trl=1 f=127 g=126 d=125 ord(w_f)=2^127 ord(w_g)=2^126 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  68: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  69: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  70: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  71: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  72: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  73: bt=1 trl=3 f=127 g=124 d=125 ord(w_f)=2^127 ord(w_g)=2^124 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  74: bt=1 trl=1 f=127 g=126 d=125 ord(w_f)=2^127 ord(w_g)=2^126 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  75: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  76: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  77: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  78: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  79: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  80: bt=0 trl=7 f=128 g=121 d=126 ord(w_f)=2^128 ord(w_g)=2^121 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(7) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  81: bt=1 trl=2 f=127 g=125 d=125 ord(w_f)=2^127 ord(w_g)=2^125 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  82: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  83: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  84: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  85: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  86: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  87: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  88: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  89: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  90: bt=0 trl=3 f=128 g=125 d=126 ord(w_f)=2^128 ord(w_g)=2^125 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  91: bt=1 trl=0 f=127 g=127 d=125 ord(w_f)=2^127 ord(w_g)=2^127 dlog_ok=true k=125 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  92: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  93: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  94: bt=0 trl=1 f=128 g=127 d=126 ord(w_f)=2^128 ord(w_g)=2^127 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  95: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  96: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  97: bt=0 trl=2 f=128 g=126 d=126 ord(w_f)=2^128 ord(w_g)=2^126 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  98: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  99: bt=0 trl=0 f=128 g=128 d=126 ord(w_f)=2^128 ord(w_g)=2^128 dlog_ok=true k=126 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+ok
+test task1_formula_audit_l3 ... ==================== TASK 1: Level 3 (p = 65*2^376 - 1) ====================
+E_RSP = 192 (params/level*.rs const E_RSP), HD_EXTRA_TORSION = 2 (theta/mod.rs:19), F = F_CHR = 376 (params/level*.rs const F_CHR), c = (p+1)/2^F = 65 (precomp/level*/mod.rs P_COFACTOR_FOR_2F), LAMBDA = 192
+N = E_RSP + HD_EXTRA_TORSION - n_bt (verify.rs:112 check_canonical_basis_change_matrix; = f below); matrix entry wire bytes = floor((E_RSP + 9)/8) = 25 (types.rs:520)
+per-vector: f = pow_dim2 + 2 + trl (formats.rs:636), g = pow_dim2 + 2 (formats.rs:637), d = det_precision = pow_dim2 + trl (formats.rs:635), pow_dim2 = E_RSP - trl - bt (formats.rs:628)
+pow_dim2 of vector 0 = 188 (sanity: E_RSP - trl - bt)
+ranges over 100 vectors: n_bt in [0, 4], r' = two_resp_length in [0, 8], f = N in [190, 194], g in [186, 194], d in [188, 192]
+n_bt histogram: {0: 68, 1: 25, 2: 5, 3: 1, 4: 1}
+r'  histogram: {0: 39, 1: 25, 2: 18, 3: 10, 4: 6, 6: 1, 8: 1}
+recomputed canonical-basis hints equal the transmitted hints on 100/100 vectors
+order(w_f) == 2^f on 100/100, order(w_g) == 2^g on 100/100
+--- (a) y = log_{w_f}(w_g^-1) at order 2^f [fp2_dlog_2e_pub(det, w_g^-1, w_f^-1, f)] vs det M ---
+dlog succeeded on 100/100
+largest k with y == det M mod 2^k on ALL vectors (absolute): k = 188 (per-vector k ranges over [188, 192])
+per vector, first mismatch bit k vs d = E_RSP - n_bt: k == d on 100/100, k > d on 0/100, k < d on 0/100
+histogram of (k - d): {0: 100}
+  (n_bt=0, r'=0): 25 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=1): 15 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=2): 13 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=3): 9 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=4): 4 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=6): 1 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=0, r'=8): 1 vectors, k in [192, 192], d = 192, f = 194
+  (n_bt=1, r'=0): 11 vectors, k in [191, 191], d = 191, f = 193
+  (n_bt=1, r'=1): 7 vectors, k in [191, 191], d = 191, f = 193
+  (n_bt=1, r'=2): 5 vectors, k in [191, 191], d = 191, f = 193
+  (n_bt=1, r'=3): 1 vectors, k in [191, 191], d = 191, f = 193
+  (n_bt=1, r'=4): 1 vectors, k in [191, 191], d = 191, f = 193
+  (n_bt=2, r'=0): 3 vectors, k in [190, 190], d = 190, f = 192
+  (n_bt=2, r'=1): 2 vectors, k in [190, 190], d = 190, f = 192
+  (n_bt=3, r'=1): 1 vectors, k in [189, 189], d = 189, f = 191
+  (n_bt=4, r'=4): 1 vectors, k in [188, 188], d = 188, f = 190
+--- (b) relations between w_g and w_f^exp (both sides raised to 2^raise; raise=2^(f-g) is the task's 2^(f-g)) ---
+  [0] det raise=2^0                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [1] det raise=2^4                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:  36/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 18), 3: (0, 10), 4: (0, 6), 6: (0, 1), 8: (0, 1)})
+  [2] det raise=2^2                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 39), 1: (0, 25), 2: (0, 18), 3: (0, 10), 4: (0, 6), 6: (0, 1), 8: (0, 1)})
+  [3] det raise=2^6                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 39), 1: (0, 25), 2: (0, 18), 3: (0, 10), 4: (0, 6), 6: (0, 1), 8: (0, 1)})
+  [4] det*c raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [5] det*c raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [6] det*c raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [7] det*c raise=2^6                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [8] det*2 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [9] det*2 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [10] det*2 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [11] det*2 raise=2^6                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [12] det*4 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [13] det*4 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [14] det*4 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [15] det*4 raise=2^6                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [16] det*8 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [17] det*8 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [18] det*8 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [19] det*8 raise=2^6                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [20] det*16 raise=2^0                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [21] det*16 raise=2^4                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [22] det*16 raise=2^2                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [23] det*16 raise=2^6                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  [24] -det raise=2^0 (w_g = w_f^-det | w_g = w_f^det) w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 6: (0, 0), 8: (0, 0)})
+  (raise labels above are from vector 0; for a vector with r' = t the entries 'raise=2^{f-g}' use 2^t and 'raise=2^{f-g+2}' use 2^(t+2))
+--- (c) direct isotropy: e = e_{2^f}(P', Q') with P' = [M00]P + [M10]Q, Q' = [M01]P + [M11]Q ---
+e_{2^f}(P', Q') == w_f^(det M mod 2^f) exactly on 100/100
+  s = 1: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 2: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 4: e^s * w_g^(+s) == 1 on 100/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 1: e^s * w_g^(+s) == 1 on   0/61   e^s * w_g^(-s) == 1 on   0/61   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 2: e^s * w_g^(+s) == 1 on   0/61   e^s * w_g^(-s) == 1 on   0/61   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 4: e^s * w_g^(+s) == 1 on  61/61   e^s * w_g^(-s) == 1 on   0/61   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+--- Check A: z = w_f^(det M mod 2^N) * w_g ---
+z == 1: 0/100, z == -1: 0/100, z^2 == -1 (primitive 4th root): 100/100, none: 0/100
+(det M - y) mod 2^N: == 0: 0/100, == 2^(N-2): 49/100, == 2*2^(N-2): 0/100, == 3*2^(N-2): 51/100, other: 0/100
+--- Check B: v_2(det M) tabulated against r' ---
+  r' = 0: v_2(det M) histogram {"0": 39}
+  r' = 1: v_2(det M) histogram {"1": 25}
+  r' = 2: v_2(det M) histogram {"2": 18}
+  r' = 3: v_2(det M) histogram {"3": 10}
+  r' = 4: v_2(det M) histogram {"4": 6}
+  r' = 6: v_2(det M) histogram {"6": 1}
+  r' = 8: v_2(det M) histogram {"8": 1}
+v_2(det M) == r' on 100/100 vectors
+both M[0][0] and M[0][1] even: 0/100; both M[0][0] and M[1][0] even: 21/100; M00 even: 37/100, M01 even: 33/100, M10 even: 57/100, M11 even: 52/100
+convention (verify.rs:260-283 matrix_scalar_application_even_basis): P' = [M[0][0]]P + [M[1][0]]Q, Q' = [M[0][1]]P + [M[1][1]]Q (column j of M = coefficients of the j-th new point); 2^r' kernel is Q' iff M[0][0] and M[1][0] are both even (verify.rs:389)
+--- per-vector ---
+KAT   0: bt=0 trl=4 f=194 g=190 d=192 ord(w_f)=2^194 ord(w_g)=2^190 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   1: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   2: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   3: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   4: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   5: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   6: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   7: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   8: bt=1 trl=3 f=193 g=190 d=191 ord(w_f)=2^193 ord(w_g)=2^190 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   9: bt=2 trl=0 f=192 g=192 d=190 ord(w_f)=2^192 ord(w_g)=2^192 dlog_ok=true k=190 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  10: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  11: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  12: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  13: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  14: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  15: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  16: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  17: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  18: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  19: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  20: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  21: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  22: bt=1 trl=2 f=193 g=191 d=191 ord(w_f)=2^193 ord(w_g)=2^191 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  23: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  24: bt=1 trl=2 f=193 g=191 d=191 ord(w_f)=2^193 ord(w_g)=2^191 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  25: bt=2 trl=0 f=192 g=192 d=190 ord(w_f)=2^192 ord(w_g)=2^192 dlog_ok=true k=190 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  26: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  27: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  28: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  29: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  30: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  31: bt=0 trl=4 f=194 g=190 d=192 ord(w_f)=2^194 ord(w_g)=2^190 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  32: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  33: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  34: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  35: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  36: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  37: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  38: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  39: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  40: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  41: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  42: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  43: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  44: bt=2 trl=1 f=192 g=191 d=190 ord(w_f)=2^192 ord(w_g)=2^191 dlog_ok=true k=190 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  45: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  46: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  47: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  48: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  49: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  50: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  51: bt=2 trl=0 f=192 g=192 d=190 ord(w_f)=2^192 ord(w_g)=2^192 dlog_ok=true k=190 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  52: bt=1 trl=2 f=193 g=191 d=191 ord(w_f)=2^193 ord(w_g)=2^191 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  53: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  54: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  55: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  56: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  57: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  58: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  59: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  60: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  61: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  62: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  63: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  64: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  65: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  66: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  67: bt=0 trl=6 f=194 g=188 d=192 ord(w_f)=2^194 ord(w_g)=2^188 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(6) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  68: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  69: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  70: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  71: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  72: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  73: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  74: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  75: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  76: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  77: bt=1 trl=4 f=193 g=189 d=191 ord(w_f)=2^193 ord(w_g)=2^189 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  78: bt=0 trl=4 f=194 g=190 d=192 ord(w_f)=2^194 ord(w_g)=2^190 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  79: bt=3 trl=1 f=191 g=190 d=189 ord(w_f)=2^191 ord(w_g)=2^190 dlog_ok=true k=189 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  80: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  81: bt=0 trl=4 f=194 g=190 d=192 ord(w_f)=2^194 ord(w_g)=2^190 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  82: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  83: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  84: bt=1 trl=2 f=193 g=191 d=191 ord(w_f)=2^193 ord(w_g)=2^191 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  85: bt=0 trl=3 f=194 g=191 d=192 ord(w_f)=2^194 ord(w_g)=2^191 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  86: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  87: bt=2 trl=1 f=192 g=191 d=190 ord(w_f)=2^192 ord(w_g)=2^191 dlog_ok=true k=190 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  88: bt=0 trl=8 f=194 g=186 d=192 ord(w_f)=2^194 ord(w_g)=2^186 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(8) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  89: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  90: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  91: bt=1 trl=1 f=193 g=192 d=191 ord(w_f)=2^193 ord(w_g)=2^192 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  92: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  93: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  94: bt=1 trl=0 f=193 g=193 d=191 ord(w_f)=2^193 ord(w_g)=2^193 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  95: bt=0 trl=2 f=194 g=192 d=192 ord(w_f)=2^194 ord(w_g)=2^192 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  96: bt=1 trl=2 f=193 g=191 d=191 ord(w_f)=2^193 ord(w_g)=2^191 dlog_ok=true k=191 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  97: bt=4 trl=4 f=190 g=186 d=188 ord(w_f)=2^190 ord(w_g)=2^186 dlog_ok=true k=188 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  98: bt=0 trl=0 f=194 g=194 d=192 ord(w_f)=2^194 ord(w_g)=2^194 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  99: bt=0 trl=1 f=194 g=193 d=192 ord(w_f)=2^194 ord(w_g)=2^193 dlog_ok=true k=192 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+ok
+test task1_formula_audit_l5 ... ==================== TASK 1: Level 5 (p = 27*2^500 - 1) ====================
+E_RSP = 253 (params/level*.rs const E_RSP), HD_EXTRA_TORSION = 2 (theta/mod.rs:19), F = F_CHR = 500 (params/level*.rs const F_CHR), c = (p+1)/2^F = 27 (precomp/level*/mod.rs P_COFACTOR_FOR_2F), LAMBDA = 256
+N = E_RSP + HD_EXTRA_TORSION - n_bt (verify.rs:112 check_canonical_basis_change_matrix; = f below); matrix entry wire bytes = floor((E_RSP + 9)/8) = 32 (types.rs:520)
+per-vector: f = pow_dim2 + 2 + trl (formats.rs:636), g = pow_dim2 + 2 (formats.rs:637), d = det_precision = pow_dim2 + trl (formats.rs:635), pow_dim2 = E_RSP - trl - bt (formats.rs:628)
+pow_dim2 of vector 0 = 251 (sanity: E_RSP - trl - bt)
+ranges over 100 vectors: n_bt in [0, 3], r' = two_resp_length in [0, 5], f = N in [252, 255], g in [249, 255], d in [250, 253]
+n_bt histogram: {0: 74, 1: 17, 2: 7, 3: 2}
+r'  histogram: {0: 47, 1: 30, 2: 14, 3: 5, 4: 2, 5: 2}
+recomputed canonical-basis hints equal the transmitted hints on 100/100 vectors
+order(w_f) == 2^f on 100/100, order(w_g) == 2^g on 100/100
+--- (a) y = log_{w_f}(w_g^-1) at order 2^f [fp2_dlog_2e_pub(det, w_g^-1, w_f^-1, f)] vs det M ---
+dlog succeeded on 100/100
+largest k with y == det M mod 2^k on ALL vectors (absolute): k = 250 (per-vector k ranges over [250, 253])
+per vector, first mismatch bit k vs d = E_RSP - n_bt: k == d on 100/100, k > d on 0/100, k < d on 0/100
+histogram of (k - d): {0: 100}
+  (n_bt=0, r'=0): 33 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=0, r'=1): 23 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=0, r'=2): 11 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=0, r'=3): 4 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=0, r'=4): 2 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=0, r'=5): 1 vectors, k in [253, 253], d = 253, f = 255
+  (n_bt=1, r'=0): 9 vectors, k in [252, 252], d = 252, f = 254
+  (n_bt=1, r'=1): 5 vectors, k in [252, 252], d = 252, f = 254
+  (n_bt=1, r'=2): 1 vectors, k in [252, 252], d = 252, f = 254
+  (n_bt=1, r'=3): 1 vectors, k in [252, 252], d = 252, f = 254
+  (n_bt=1, r'=5): 1 vectors, k in [252, 252], d = 252, f = 254
+  (n_bt=2, r'=0): 5 vectors, k in [251, 251], d = 251, f = 253
+  (n_bt=2, r'=2): 2 vectors, k in [251, 251], d = 251, f = 253
+  (n_bt=3, r'=1): 2 vectors, k in [250, 250], d = 250, f = 252
+--- (b) relations between w_g and w_f^exp (both sides raised to 2^raise; raise=2^(f-g) is the task's 2^(f-g)) ---
+  [0] det raise=2^0                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [1] det raise=2^2                                w_g == w_f^exp:   0/100   w_g == w_f^-exp:  23/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 14), 3: (0, 5), 4: (0, 2), 5: (0, 2)})
+  [2] det raise=2^2                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 47), 1: (0, 30), 2: (0, 14), 3: (0, 5), 4: (0, 2), 5: (0, 2)})
+  [3] det raise=2^4                                w_g == w_f^exp:   0/100   w_g == w_f^-exp: 100/100   (by r': {0: (0, 47), 1: (0, 30), 2: (0, 14), 3: (0, 5), 4: (0, 2), 5: (0, 2)})
+  [4] det*c raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [5] det*c raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [6] det*c raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [7] det*c raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [8] det*2 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [9] det*2 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [10] det*2 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [11] det*2 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [12] det*4 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [13] det*4 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [14] det*4 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [15] det*4 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [16] det*8 raise=2^0                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [17] det*8 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [18] det*8 raise=2^2                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [19] det*8 raise=2^4                              w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [20] det*16 raise=2^0                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [21] det*16 raise=2^2                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [22] det*16 raise=2^2                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [23] det*16 raise=2^4                             w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  [24] -det raise=2^0 (w_g = w_f^-det | w_g = w_f^det) w_g == w_f^exp:   0/100   w_g == w_f^-exp:   0/100   (by r': {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0), 4: (0, 0), 5: (0, 0)})
+  (raise labels above are from vector 0; for a vector with r' = t the entries 'raise=2^{f-g}' use 2^t and 'raise=2^{f-g+2}' use 2^(t+2))
+--- (c) direct isotropy: e = e_{2^f}(P', Q') with P' = [M00]P + [M10]Q, Q' = [M01]P + [M11]Q ---
+e_{2^f}(P', Q') == w_f^(det M mod 2^f) exactly on 100/100
+  s = 1: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 2: e^s * w_g^(+s) == 1 on   0/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 4: e^s * w_g^(+s) == 1 on 100/100   e^s * w_g^(-s) == 1 on   0/100   (pre-chain, order 2^f on E_chall)
+  s = 1: e^s * w_g^(+s) == 1 on   0/53   e^s * w_g^(-s) == 1 on   0/53   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 2: e^s * w_g^(+s) == 1 on   0/53   e^s * w_g^(-s) == 1 on   0/53   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+  s = 4: e^s * w_g^(+s) == 1 on  53/53   e^s * w_g^(-s) == 1 on   0/53   (post 2^r' chain, order 2^g on E_chall', r' > 0 vectors only)
+--- Check A: z = w_f^(det M mod 2^N) * w_g ---
+z == 1: 0/100, z == -1: 0/100, z^2 == -1 (primitive 4th root): 100/100, none: 0/100
+(det M - y) mod 2^N: == 0: 0/100, == 2^(N-2): 55/100, == 2*2^(N-2): 0/100, == 3*2^(N-2): 45/100, other: 0/100
+--- Check B: v_2(det M) tabulated against r' ---
+  r' = 0: v_2(det M) histogram {"0": 47}
+  r' = 1: v_2(det M) histogram {"1": 30}
+  r' = 2: v_2(det M) histogram {"2": 14}
+  r' = 3: v_2(det M) histogram {"3": 5}
+  r' = 4: v_2(det M) histogram {"4": 2}
+  r' = 5: v_2(det M) histogram {"5": 2}
+v_2(det M) == r' on 100/100 vectors
+both M[0][0] and M[0][1] even: 0/100; both M[0][0] and M[1][0] even: 18/100; M00 even: 36/100, M01 even: 37/100, M10 even: 53/100, M11 even: 54/100
+convention (verify.rs:260-283 matrix_scalar_application_even_basis): P' = [M[0][0]]P + [M[1][0]]Q, Q' = [M[0][1]]P + [M[1][1]]Q (column j of M = coefficients of the j-th new point); 2^r' kernel is Q' iff M[0][0] and M[1][0] are both even (verify.rs:389)
+--- per-vector ---
+KAT   0: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   1: bt=1 trl=1 f=254 g=253 d=252 ord(w_f)=2^254 ord(w_g)=2^253 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   2: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   3: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   4: bt=0 trl=5 f=255 g=250 d=253 ord(w_f)=2^255 ord(w_g)=2^250 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(5) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   5: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   6: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT   7: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   8: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT   9: bt=2 trl=0 f=253 g=253 d=251 ord(w_f)=2^253 ord(w_g)=2^253 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  10: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  11: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  12: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  13: bt=1 trl=1 f=254 g=253 d=252 ord(w_f)=2^254 ord(w_g)=2^253 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  14: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  15: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  16: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  17: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  18: bt=0 trl=3 f=255 g=252 d=253 ord(w_f)=2^255 ord(w_g)=2^252 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  19: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  20: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  21: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  22: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  23: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  24: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  25: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  26: bt=1 trl=1 f=254 g=253 d=252 ord(w_f)=2^254 ord(w_g)=2^253 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  27: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  28: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  29: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  30: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  31: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  32: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  33: bt=3 trl=1 f=252 g=251 d=250 ord(w_f)=2^252 ord(w_g)=2^251 dlog_ok=true k=250 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  34: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  35: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  36: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  37: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  38: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  39: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  40: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  41: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  42: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  43: bt=2 trl=0 f=253 g=253 d=251 ord(w_f)=2^253 ord(w_g)=2^253 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  44: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  45: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  46: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  47: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  48: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  49: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  50: bt=1 trl=1 f=254 g=253 d=252 ord(w_f)=2^254 ord(w_g)=2^253 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  51: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  52: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  53: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  54: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  55: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  56: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  57: bt=1 trl=1 f=254 g=253 d=252 ord(w_f)=2^254 ord(w_g)=2^253 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  58: bt=2 trl=0 f=253 g=253 d=251 ord(w_f)=2^253 ord(w_g)=2^253 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  59: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  60: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  61: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  62: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  63: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  64: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  65: bt=1 trl=0 f=254 g=254 d=252 ord(w_f)=2^254 ord(w_g)=2^254 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  66: bt=1 trl=5 f=254 g=249 d=252 ord(w_f)=2^254 ord(w_g)=2^249 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(5) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  67: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  68: bt=0 trl=4 f=255 g=251 d=253 ord(w_f)=2^255 ord(w_g)=2^251 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  69: bt=0 trl=3 f=255 g=252 d=253 ord(w_f)=2^255 ord(w_g)=2^252 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  70: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  71: bt=0 trl=3 f=255 g=252 d=253 ord(w_f)=2^255 ord(w_g)=2^252 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  72: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  73: bt=1 trl=2 f=254 g=252 d=252 ord(w_f)=2^254 ord(w_g)=2^252 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  74: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  75: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  76: bt=2 trl=0 f=253 g=253 d=251 ord(w_f)=2^253 ord(w_g)=2^253 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  77: bt=2 trl=2 f=253 g=251 d=251 ord(w_f)=2^253 ord(w_g)=2^251 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  78: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  79: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  80: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  81: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  82: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  83: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  84: bt=0 trl=4 f=255 g=251 d=253 ord(w_f)=2^255 ord(w_g)=2^251 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(4) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  85: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  86: bt=1 trl=3 f=254 g=251 d=252 ord(w_f)=2^254 ord(w_g)=2^251 dlog_ok=true k=252 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  87: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  88: bt=0 trl=2 f=255 g=253 d=253 ord(w_f)=2^255 ord(w_g)=2^253 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  89: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  90: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  91: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  92: bt=0 trl=3 f=255 g=252 d=253 ord(w_f)=2^255 ord(w_g)=2^252 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(3) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  93: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  94: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=3 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  95: bt=0 trl=1 f=255 g=254 d=253 ord(w_f)=2^255 ord(w_g)=2^254 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  96: bt=3 trl=1 f=252 g=251 d=250 ord(w_f)=2^252 ord(w_g)=2^251 dlog_ok=true k=250 k-d=0 zclass=2 diffclass=3 v2det=Some(1) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  97: bt=2 trl=2 f=253 g=251 d=251 ord(w_f)=2^253 ord(w_g)=2^251 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=1 v2det=Some(2) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=Some([(false, false), (false, false), (true, false)])
+KAT  98: bt=0 trl=0 f=255 g=255 d=253 ord(w_f)=2^255 ord(w_g)=2^255 dlog_ok=true k=253 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+KAT  99: bt=2 trl=0 f=253 g=253 d=251 ord(w_f)=2^253 ord(w_g)=2^253 dlog_ok=true k=251 k-d=0 zclass=2 diffclass=1 v2det=Some(0) pre(s=1,2,4)=[(false, false), (false, false), (true, false)] post=None
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.28s
+
