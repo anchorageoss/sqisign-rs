@@ -1,0 +1,24 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running tests/paper_timing.rs (target/release/deps/paper_timing-0e16228b68e9a85d)
+
+running 1 test
+test paper_timing_level1_breakdown ... ==== level I (p324_3): 100 KAT vectors, e_rsp = 196, N = 198, signature 200 bytes, compressed 174 bytes; per vector the median of 200 iterations after 5 warm-ups, then over the vectors the median (min, max); kernels: x86-64 assembly (mulx, adcx, adox) ====
+component (microseconds)                              S med    S min    S max      C med    C min    C max
+decoding                                                0.3      0.3      0.3        2.4      2.3      2.4
+E_aux from A_aux                                        0.1      0.1      0.2        0.1      0.1      0.1
+challenge derivation E_pk -> E_chl                    583.5    582.4    599.1      583.4    582.4    585.5
+bases from the hints at 2^N, both curves              215.4    215.2    341.7      215.4    215.2    217.9
+two Weil pairings at 2^N                                  -        -        -      559.9    559.0    562.0
+two inversions and the discrete logarithm                 -        -        -      189.5    189.3    190.0
+det M and the dropped entry                               -        -        -        0.1      0.1      0.1
+matrix range and normal-form check                      0.0      0.0      0.0        0.0      0.0      0.0
+basis change, apply M                                 368.0    336.8    648.8      365.9    333.5    658.5
+(2^e_rsp, 2^e_rsp) theta chain to E_com              2908.5   2906.2   2914.8     2908.6   2906.0   2920.4
+challenge hash and compare                             15.3     10.5     20.2       15.3     10.5     20.2
+sum of component medians                             4091.2                       4840.7                  
+FULL verification from bytes, prepared key           4103.3   4066.8   4383.1     4855.5   4819.0   5144.6
+integrated overhead, the components the compressed path adds (pairings 559.9 + inversions and dlog 189.5 + recovery 0.1 + decoding 2.4 - 0.3): 751.6 us, 18.3% of the standard verification (4103.3 us); full medians differ by 752.2 us (18.3%)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 373.26s
+
