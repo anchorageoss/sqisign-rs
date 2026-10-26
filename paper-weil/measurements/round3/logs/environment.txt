@@ -1,0 +1,4 @@
+rustc 1.99.0 (b940084d7 2026-09-28)
+cargo 1.99.0 (5f94df478 2026-08-27)
+release profile of Cargo.toml: lto = fat, codegen-units = 1; no target-cpu flag; field kernels: x86-64 assembly (mulx, adcx, adox)
+date: 2026-10-26

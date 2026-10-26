@@ -1,0 +1,17 @@
+start 2026-10-22T22:17:06Z load: 0.58 0.60 0.47 2/1532 1439922
+
+     Running tests/kat_verify_l3.rs (target/release/deps/kat_verify_l3-a0e758d0cd84d2a2)
+
+running 1 test
+test kat_verify_level3 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/kat_verify_l5.rs (target/release/deps/kat_verify_l5-56bad0229405fd11)
+
+running 1 test
+test kat_verify_level5 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+kat_verify exit=0

@@ -28,7 +28,7 @@ fn verify(pk: &[u8], sig: &[u8], msg: &[u8]) -> Result<(), sqisign_verify::Error
 169 / 406 bytes). A `PreparedPublicKey` (`pk.prepare()`) does the per-key
 work once for a verifier that sees many signatures under one key, and
 `verify_batch` takes a slice of `(key, message, signature)` items. The
-compressed format (`CompressedSignature`, 176 / 269 / 353 bytes) verifies
+compressed format (`CompressedSignature`, 174 / 267 / 352 bytes) verifies
 with `pk.verify_compressed` or the same `Verifier` trait; it is not in the
 specification and needs this crate to open.
 
@@ -43,7 +43,7 @@ The slice API of `sqisign_verify::sqisign` (`verify`, `verify_prepared`,
 |---|---|---|---|---|
 | public key | 83 | 129 | 169 | yes |
 | signature | 200 | 306 | 406 | yes |
-| compressed signature | 176 | 269 | 353 | no (this crate) |
+| compressed signature | 174 | 267 | 352 | no (this crate) |
 
 Decoders are strict about lengths and field elements; the verifier applies
 the specification's range and sign check on the basis-change matrix.
@@ -78,7 +78,7 @@ medians; the workspace's `BENCH.md` has the whole table):
   `no_std` and heap-free; it is checked on `thumbv7em-none-eabihf`.
 
 ```toml
-sqisign-verify = { version = "0.6", default-features = false }
+sqisign-verify = { version = "0.7", default-features = false }
 ```
 
 ## Types

@@ -1,0 +1,25 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running tests/paper_pairing_audit.rs (target/release/deps/paper_pairing_audit-788aa0e869119af5)
+
+running 3 tests
+test task3_end_to_end_tate_l1 ... ==================== TASK 3: level I (p324_3) ====================
+p = 3 2^324 - 1, lambda = 128, e_rsp = RESPONSE_BITS = 196, N = e_rsp + 2 = 198, g = N - 1 = 197, F = 324, field kernels: x86-64 assembly (mulx, adcx, adox)
+the decompressor with det M from one Tate ladder per curve on the scaled full-order bases (y_m + 2^(g-1) mod 2^g, y_m below 2^(2m-F)), the reconstructed signature given to the standard verifier
+m = 260 (2m - F = 196): dlog ok 100/100; standard verifier accepts 60/100; recovered dropped entry equals the signer's mod 2^g 47/100, differs in bit e_rsp only 53/100, differs otherwise 0/100; accepted with a wrong entry 13/100, rejected with the right entry 0/100
+m = 261 (2m - F = 198): dlog ok 100/100; standard verifier accepts 100/100; recovered dropped entry equals the signer's mod 2^g 100/100, differs in bit e_rsp only 0/100, differs otherwise 0/100; accepted with a wrong entry 0/100, rejected with the right entry 0/100
+ok
+test task3_end_to_end_tate_l3 ... ==================== TASK 3: level III (p500_27) ====================
+p = 27 2^500 - 1, lambda = 192, e_rsp = RESPONSE_BITS = 302, N = e_rsp + 2 = 304, g = N - 1 = 303, F = 500, field kernels: x86-64 assembly (mulx, adcx, adox)
+the decompressor with det M from one Tate ladder per curve on the scaled full-order bases (y_m + 2^(g-1) mod 2^g, y_m below 2^(2m-F)), the reconstructed signature given to the standard verifier
+m = 401 (2m - F = 302): dlog ok 100/100; standard verifier accepts 61/100; recovered dropped entry equals the signer's mod 2^g 47/100, differs in bit e_rsp only 53/100, differs otherwise 0/100; accepted with a wrong entry 14/100, rejected with the right entry 0/100
+m = 402 (2m - F = 304): dlog ok 100/100; standard verifier accepts 100/100; recovered dropped entry equals the signer's mod 2^g 100/100, differs in bit e_rsp only 0/100, differs otherwise 0/100; accepted with a wrong entry 0/100, rejected with the right entry 0/100
+ok
+test task3_end_to_end_tate_l5 ... ==================== TASK 3: level V (p664_17) ====================
+p = 17 2^664 - 1, lambda = 256, e_rsp = RESPONSE_BITS = 400, N = e_rsp + 2 = 402, g = N - 1 = 401, F = 664, field kernels: x86-64 assembly (mulx, adcx, adox)
+the decompressor with det M from one Tate ladder per curve on the scaled full-order bases (y_m + 2^(g-1) mod 2^g, y_m below 2^(2m-F)), the reconstructed signature given to the standard verifier
+m = 532 (2m - F = 400): dlog ok 100/100; standard verifier accepts 71/100; recovered dropped entry equals the signer's mod 2^g 62/100, differs in bit e_rsp only 38/100, differs otherwise 0/100; accepted with a wrong entry 9/100, rejected with the right entry 0/100
+m = 533 (2m - F = 402): dlog ok 100/100; standard verifier accepts 100/100; recovered dropped entry equals the signer's mod 2^g 100/100, differs in bit e_rsp only 0/100, differs otherwise 0/100; accepted with a wrong entry 0/100, rejected with the right entry 0/100
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.94s
+
