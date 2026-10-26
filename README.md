@@ -10,7 +10,7 @@ NIST's post-quantum signature process (the submission of 2026-09-01,
 the-sqisign at tag `nist-v3`): key generation, signing and verification
 at levels I, III and V, with 83 / 129 / 169-byte public keys and
 200 / 306 / 406-byte signatures, and a compressed format of
-176 / 269 / 353 bytes of this crate's own. Round 3 changes the primes
+174 / 266 / 352 bytes of this crate's own. Round 3 changes the primes
 (`3·2^324 − 1`, `27·2^500 − 1`, `17·2^664 − 1`) and the parameters of
 the two-dimensional verification; for the security rationale of the new
 parameters see Wesolowski, [ePrint 2026/1486](https://eprint.iacr.org/2026/1486).
@@ -46,7 +46,7 @@ let pk = PublicKey::<Level1>::from_bytes(&pk_bytes)?;
 let sig = Signature::<Level1>::from_bytes(&sig_bytes)?;
 pk.verify(b"hello world", &sig)?;
 
-// the compressed format, 176 bytes; needs the key to open
+// the compressed format, 174 bytes; needs the key to open
 pk.verify_compressed(b"hello world", &sig.compress())?;
 
 // levels III and V are a type parameter
@@ -104,16 +104,17 @@ holds here.
 | format | I | III | V | verifies with |
 |---|---|---|---|---|
 | specification | 200 B | 306 B | 406 B | any round-3 verifier |
-| compressed ([COMPRESSION.md](COMPRESSION.md)) | 176 B | 269 B | 353 B | this crate |
+| compressed ([COMPRESSION.md](COMPRESSION.md)) | 174 B | 266 B | 352 B | this crate |
 
-The compressed format drops one entry of the basis-change matrix and
+The compressed format drops one entry of the basis-change matrix,
 recovers it from two Weil pairings the verifier computes on data it
-already has. It is not in the specification. Every earlier version is
+already has, and packs every field at its bit width. It is not in the
+specification. Every earlier version is
 deprecated for compressed signatures: `sqisign-verify` and `sqisign-rs`
 0.1.0 to 0.5.0 (round 2) truncated the backtracking count to two bits
 and could not decompress about one signature in 300 (round-2 KAT level
-III entry 97), and 0.6.0 and 0.6.1 carried an earlier round-3 byte that
-0.7 does not decode. Nothing they verified is affected; recompress from
+III entry 97), and 0.6.0 and 0.6.1 carried an earlier round-3 layout (176 / 269 / 353
+bytes) that 0.7 does not decode. Nothing they verified is affected; recompress from
 the standard format.
 
 ### Compact (dimension 4), experimental

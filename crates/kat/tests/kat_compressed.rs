@@ -4,15 +4,15 @@
 //! entries per level). For each entry the public key and the signature
 //! (the first `SIGNATURE_BYTES` of `sm`; the message follows) are decoded
 //! and the signature must verify; its compressed form must encode to the
-//! level's length (`compressed_bytes`: 176 / 269 / 353), decode back to
+//! level's length (`compressed_bytes`: 174 / 266 / 352), decode back to
 //! the same bytes, verify on the entry's message and fail on a modified
 //! one, and decompress to a signature the standard verifier accepts.
 //!
 //! Per level one line reports what the format's description predicts and
 //! the paper tabulates: the sizes, how many entries take the pivot path
 //! (`m00` even, so the third transmitted entry is `m11`), the histogram of
-//! the three-bit `bits` byte, and how many recovered matrices equal the
-//! signer's exactly. A recovered matrix has bit `RESPONSE_BITS + 1` of
+//! bit `RESPONSE_BITS` of the three transmitted entries, and how many
+//! recovered matrices equal the signer's exactly. A recovered matrix has bit `RESPONSE_BITS + 1` of
 //! every entry zero, so it differs from the signer's exactly when the
 //! signer set that bit somewhere; any other difference, including a wrong
 //! bit `RESPONSE_BITS` of the recovered fourth entry, fails the test.
@@ -78,7 +78,7 @@ fn entries_to_run() -> usize {
 struct Observed {
     /// `m00` is even: the compressed signature carries `m11`, not `m10`.
     pivot: bool,
-    /// The `bits` byte: bit `RESPONSE_BITS` of the three transmitted entries.
+    /// Bit `RESPONSE_BITS` of `m00`, `m01` and `m_var`, in bits 0 to 2.
     bits: u8,
     /// The recovered matrix equals the signer's in all four entries.
     exact: bool,
@@ -172,17 +172,17 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
             let orig = &sig.inner().mat_bchall_can_to_bchall;
             let pivot = orig[0][0][0] & 1 == 0;
             assert_eq!(c2.inner().m00[0] & 1 == 0, pivot, "{what}: pivot");
+            let r = params.response_bits;
+            let top = |x: &Scalar| ((x[(r / 64) as usize] >> (r % 64)) & 1) as u8;
+            let c = c2.inner();
+            let bits = top(&c.m00) | top(&c.m01) << 1 | top(&c.m_var) << 2;
             let exact = matrix_exact(
                 orig,
                 &dec.inner().mat_bchall_can_to_bchall,
                 params.response_bits + 1,
                 &what,
             );
-            Observed {
-                pivot,
-                bits: c2.inner().bits,
-                exact,
-            }
+            Observed { pivot, bits, exact }
         })
         .collect();
     let verified = observed.len();
@@ -190,15 +190,14 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
     let exact = observed.iter().filter(|o| o.exact).count();
     let mut hist = [0usize; 8];
     for o in &observed {
-        assert_eq!(o.bits & !0x07, 0, "{name}: reserved bit set");
-        hist[usize::from(o.bits & 0x07)] += 1;
+        hist[usize::from(o.bits)] += 1;
     }
     let saved = siglen - compressed_len;
     let pct = 100.0 * saved as f64 / siglen as f64;
     println!(
         "{name}: standard {siglen} B, compressed {compressed_len} B, saved {saved} B ({pct:.1}%); \
          verified compressed {verified}/{n}; pivot path (m00 even) {pivot}; \
-         exact matrix {exact}, bit RESPONSE_BITS+1 only {}; bits histogram {hist:?}",
+         exact matrix {exact}, bit RESPONSE_BITS+1 only {}; histogram of bit RESPONSE_BITS of (m00, m01, m_var) {hist:?}",
         verified - exact
     );
 }
@@ -208,7 +207,7 @@ fn kat_compressed_level1() {
     run::<Level1>(
         include_str!("../kat/PQCsignKAT_270_SQIsign_p324_3.rsp"),
         "p324_3",
-        176,
+        174,
     );
 }
 
@@ -217,7 +216,7 @@ fn kat_compressed_level3() {
     run::<Level3>(
         include_str!("../kat/PQCsignKAT_417_SQIsign_p500_27.rsp"),
         "p500_27",
-        269,
+        266,
     );
 }
 
@@ -226,6 +225,6 @@ fn kat_compressed_level5() {
     run::<Level5>(
         include_str!("../kat/PQCsignKAT_549_SQIsign_p664_17.rsp"),
         "p664_17",
-        353,
+        352,
     );
 }

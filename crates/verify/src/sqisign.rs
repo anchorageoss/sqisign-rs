@@ -45,6 +45,9 @@ pub struct VerifyParams {
     pub torsion_even_power: u32,
     /// Bytes of a canonical `Fp` element.
     pub fp_encoded_bytes: usize,
+    /// `ceil(log2 p)`, the bits of a canonical `Fp` element: `f` plus the
+    /// bit length of the odd cofactor `c` of `p = c 2^f - 1`.
+    pub fp_bits: u32,
     /// Encoded sizes.
     pub publickey_bytes: usize,
     /// Encoded sizes.
@@ -54,10 +57,11 @@ pub struct VerifyParams {
 }
 
 macro_rules! level {
-    ($(#[$m:meta])* $name:ident, $modname:ident) => {
+    ($(#[$m:meta])* $name:ident, $modname:ident, $prime:ident) => {
         $(#[$m])*
         pub const fn $name() -> VerifyParams {
             use crate::params::sqisign_v3::$modname as l;
+            use crate::params::$prime as P;
             VerifyParams {
                 challenge_bits: l::LAMBDA,
                 response_bits: l::RESPONSE_BITS,
@@ -65,6 +69,7 @@ macro_rules! level {
                 challenge_bytes: l::CHALLENGE_BYTES,
                 torsion_even_power: l::TORSION_EVEN_POWER,
                 fp_encoded_bytes: (l::PUBLICKEY_BYTES - 1) / 2,
+                fp_bits: <P as Prime>::TWO_ADIC_EXPONENT + <P as Prime>::COFACTOR_BITLENGTH as u32,
                 publickey_bytes: l::PUBLICKEY_BYTES,
                 secretkey_bytes: l::SECRETKEY_BYTES,
                 signature_bytes: l::SIGNATURE_BYTES,
@@ -75,15 +80,15 @@ macro_rules! level {
 
 level!(
     /// NIST level I, `p324_3` ([`crate::P324_3`]).
-    level1, p324_3
+    level1, p324_3, P324_3
 );
 level!(
     /// NIST level III, `p500_27` ([`crate::P500_27`]).
-    level3, p500_27
+    level3, p500_27, P500_27
 );
 level!(
     /// NIST level V, `p664_17` ([`crate::P664_17`]).
-    level5, p664_17
+    level5, p664_17, P664_17
 );
 
 /// `public_key_t`.

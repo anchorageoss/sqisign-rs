@@ -1,6 +1,6 @@
 //! The compressed signature: three of the four entries of the basis-change
 //! matrix, the fourth recovered from two Weil pairings the verifier can
-//! compute anyway.
+//! compute anyway, every field packed at its own bit width.
 //!
 //! **This format is not in the SQIsign specification.** It is the P21
 //! method of eclipse-rs carried to SQIsign round 3.
@@ -23,26 +23,35 @@
 //! the points `P'`, `Q'` themselves, and its acceptance depends on bit
 //! `RESPONSE_BITS` of the entries while bit `RESPONSE_BITS + 1` of every
 //! entry is free (measured on generated signatures against this verifier
-//! and the reference). So the format carries bit `RESPONSE_BITS` of the
-//! three transmitted entries, computes it for the dropped one, and drops
-//! the bit above.
+//! and the reference). So the format carries each transmitted entry modulo
+//! `2^(RESPONSE_BITS + 1)`, computes the dropped one to that modulus, and
+//! leaves bit `RESPONSE_BITS + 1` of every entry zero.
 //!
 //! # The format
 //!
+//! One bit string, bit `i` of the string being bit `i mod 8` of byte
+//! `i / 8`, each field the low bits of its little-endian integer:
+//!
 //! ```text
-//! A_aux | m00 | m01 | (m10 if m00 is odd, else m11) | challenge | bits | hint_aux | hint_chall
+//! field       bits               content
+//! A_aux       2 fp_bits          real then imaginary part, each in [0, p)
+//! m00, m01    RESPONSE_BITS + 1  the first row of the matrix
+//! m_var       RESPONSE_BITS + 1  m10 if m00 is odd, else m11
+//! chl         CHALLENGE_BITS     the challenge scalar
+//! hint_aux    8                  as in the standard format
+//! hint_chall  8                  as in the standard format
+//! padding     0 to 7             zero, to a byte boundary
 //! ```
 //!
-//! The three entries are the low `RESPONSE_BITS` bits, `ceil(RESPONSE_BITS
-//! / 8)` bytes each; `bits` holds bit `RESPONSE_BITS` of `m00`, `m01` and
-//! the third transmitted entry in its bits 0 to 2, and its bit 3 is
-//! reserved (zero). The verifier recovers the dropped entry modulo
-//! `2^(RESPONSE_BITS + 1)` from `det M` modulo `2^(RESPONSE_BITS + 1)` and
-//! the other three (the pivot is odd, the determinant being odd), leaves
-//! bit `RESPONSE_BITS + 1` of every entry zero, and runs the standard
-//! verification on the result. Sizes `2 fp + 3 ceil(rb / 8) + cb + 3`:
-//! 176 / 269 / 353 bytes against 200 / 306 / 406. The recovery costs two
-//! Weil pairings and one variable-base discrete logarithm at `2^t`.
+//! with `fp_bits = ceil(log2 p)`: `2 fp_bits + 3 (RESPONSE_BITS + 1) +
+//! CHALLENGE_BITS + 16` bits, 174 / 266 / 352 bytes against 200 / 306 /
+//! 406. The decoder rejects a wrong length, a coordinate at or above `p`,
+//! a non-zero padding bit and two even pivots. The verifier recovers the
+//! dropped entry modulo `2^(RESPONSE_BITS + 1)` from `det M` to that
+//! modulus and the other three (the pivot is odd, the determinant being
+//! odd), and runs the standard verification on the result. The recovery
+//! costs two Weil pairings and one variable-base discrete logarithm at
+//! `2^t`.
 
 use crate::ec::pairing::{fp2_dlog_2e, weil};
 use crate::ec::{EcBasis, EcCurve, MAX_ORDER_WORDS};
@@ -52,17 +61,22 @@ use crate::precomp::PrimePrecomp;
 use crate::sqisign::{
     challenge_state, check_canonical_basis_change_matrix, digits_from_bytes, digits_to_bytes,
     finish, level5, ChallengeState, PreparedPublicKey, PublicKey, Scalar, Signature, VerifyParams,
-    HD_EXTRA_TORSION,
+    HD_EXTRA_TORSION, MAX_PUBLICKEY_BYTES,
 };
 
-/// Bytes of one transmitted entry: `ceil(RESPONSE_BITS / 8)`.
-pub const fn entry_bytes(params: &VerifyParams) -> usize {
-    (params.response_bits as usize).div_ceil(8)
+/// Bits of one transmitted entry: `RESPONSE_BITS + 1`.
+pub const fn entry_bits(params: &VerifyParams) -> usize {
+    params.response_bits as usize + 1
+}
+
+/// Bits of a compressed signature before the padding.
+pub const fn compressed_bits(params: &VerifyParams) -> usize {
+    2 * params.fp_bits as usize + 3 * entry_bits(params) + params.challenge_bits as usize + 16
 }
 
 /// Encoded length of a compressed signature at these parameters.
 pub const fn compressed_bytes(params: &VerifyParams) -> usize {
-    2 * params.fp_encoded_bytes + 3 * entry_bytes(params) + params.challenge_bytes + 3
+    compressed_bits(params).div_ceil(8)
 }
 
 /// The largest compressed signature of the three levels (`p664_17`).
@@ -73,17 +87,15 @@ pub const MAX_COMPRESSED_BYTES: usize = compressed_bytes(&level5());
 pub struct CompressedSignature<L: Prime> {
     /// Montgomery coefficient of the auxiliary curve.
     pub e_aux_a: Fp2<L>,
-    /// `M_00 mod 2^RESPONSE_BITS`.
+    /// `M_00 mod 2^(RESPONSE_BITS + 1)`.
     pub m00: Scalar,
-    /// `M_01 mod 2^RESPONSE_BITS`.
+    /// `M_01 mod 2^(RESPONSE_BITS + 1)`.
     pub m01: Scalar,
-    /// `M_10` when `M_00` is odd, `M_11` otherwise, modulo `2^RESPONSE_BITS`.
+    /// `M_10` when `M_00` is odd, `M_11` otherwise, modulo
+    /// `2^(RESPONSE_BITS + 1)`.
     pub m_var: Scalar,
     /// The challenge scalar.
     pub chall_coeff: Scalar,
-    /// Bit `RESPONSE_BITS` of `m00`, `m01` and `m_var` in bits 0 to 2; bit
-    /// 3 is reserved and zero.
-    pub bits: u8,
     /// Basis hint of the auxiliary curve.
     pub hint_aux: u8,
     /// Basis hint of the challenge curve.
@@ -173,24 +185,71 @@ fn inv_mod_2exp(a: &Scalar, t: u32) -> Option<Scalar> {
     Some(x)
 }
 
-fn bit_at(x: &Scalar, k: u32) -> u8 {
-    ((x[(k / 64) as usize] >> (k % 64)) & 1) as u8
-}
-
 fn set_bit(x: &mut Scalar, k: u32, v: u8) {
     x[(k / 64) as usize] |= ((v & 1) as u64) << (k % 64);
 }
 
+// ---- bit strings -------------------------------------------------------------
+
+#[inline]
+fn bit(bytes: &[u8], i: usize) -> u8 {
+    (bytes[i / 8] >> (i % 8)) & 1
+}
+
+/// Write the low `width` bits of the little-endian `src` at bit `pos` of
+/// `out`, whose bits there are zero.
+fn put_bits(out: &mut [u8], pos: usize, src: &[u8], width: usize) {
+    for i in 0..width {
+        out[(pos + i) / 8] |= bit(src, i) << ((pos + i) % 8);
+    }
+}
+
+/// The `width` bits at `pos` of `inp` as a little-endian integer in `dst`
+/// (cleared first; at least `ceil(width / 8)` bytes).
+fn get_bits(inp: &[u8], pos: usize, width: usize, dst: &mut [u8]) {
+    dst.iter_mut().for_each(|b| *b = 0);
+    for i in 0..width {
+        dst[i / 8] |= bit(inp, pos + i) << (i % 8);
+    }
+}
+
+/// A cursor over the bit string of a compressed signature.
+struct Bits<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl Bits<'_> {
+    fn scalar(&mut self, width: usize) -> Scalar {
+        let mut buf = [0u8; 8 * MAX_ORDER_WORDS];
+        let k = width.div_ceil(8);
+        get_bits(self.bytes, self.pos, width, &mut buf[..k]);
+        self.pos += width;
+        digits_from_bytes(&buf[..k])
+    }
+
+    fn byte(&mut self) -> u8 {
+        let mut buf = [0u8; 1];
+        get_bits(self.bytes, self.pos, 8, &mut buf);
+        self.pos += 8;
+        buf[0]
+    }
+
+    /// Whether every bit from the cursor to the end is zero.
+    fn rest_is_zero(&self) -> bool {
+        (self.pos..8 * self.bytes.len()).all(|i| bit(self.bytes, i) == 0)
+    }
+}
+
 // ---- compression -----------------------------------------------------------
 
-/// Compress a signature: keep the low `RESPONSE_BITS` bits of three
-/// entries and bit `RESPONSE_BITS` of those three. `None` if the matrix has
-/// an even determinant (not a signature).
+/// Compress a signature: three entries modulo `2^(RESPONSE_BITS + 1)`.
+/// `None` if the matrix has an even determinant (not a signature).
 pub fn compress<L: FpBackend>(
     params: &VerifyParams,
     sig: &Signature<L>,
 ) -> Option<CompressedSignature<L>> {
-    let r = params.response_bits;
+    let t = params.response_bits + 1;
     let m = &sig.mat_bchall_can_to_bchall;
     let det_odd = (m[0][0][0] & m[1][1][0] ^ m[0][1][0] & m[1][0][0]) & 1 == 1;
     if !det_odd {
@@ -201,38 +260,28 @@ pub fn compress<L: FpBackend>(
     } else {
         &m[1][1]
     };
-    let bits = bit_at(&m[0][0], r) | bit_at(&m[0][1], r) << 1 | bit_at(m_var, r) << 2;
     Some(CompressedSignature {
         e_aux_a: sig.e_aux_a.clone(),
-        m00: reduced(&m[0][0], r),
-        m01: reduced(&m[0][1], r),
-        m_var: reduced(m_var, r),
+        m00: reduced(&m[0][0], t),
+        m01: reduced(&m[0][1], t),
+        m_var: reduced(m_var, t),
         chall_coeff: sig.chall_coeff,
-        bits,
         hint_aux: sig.hint_aux,
         hint_chall: sig.hint_chall,
     })
 }
 
-/// The matrix from the three transmitted entries (their low
-/// `RESPONSE_BITS` bits and the three bits of `bits`) and the determinant
-/// modulo `2^(RESPONSE_BITS + 1)`. The dropped entry comes out modulo
-/// `2^(RESPONSE_BITS + 1)`, so its bit `RESPONSE_BITS` is computed, not
-/// transmitted; bit `RESPONSE_BITS + 1` of every entry is zero. `None` if
-/// the pivot is even.
+/// The matrix from the three transmitted entries and the determinant
+/// modulo `2^(RESPONSE_BITS + 1)`. The dropped entry comes out to that
+/// modulus; bit `RESPONSE_BITS + 1` of every entry is zero. `None` if the
+/// pivot is even.
 fn reconstruct(
     params: &VerifyParams,
     c: &CompressedSignature<impl Prime>,
     det: &Scalar,
 ) -> Option<[[Scalar; 2]; 2]> {
-    let r = params.response_bits;
-    let t = r + 1;
-    let mut m00 = c.m00;
-    set_bit(&mut m00, r, c.bits);
-    let mut m01 = c.m01;
-    set_bit(&mut m01, r, c.bits >> 1);
-    let mut m_var = c.m_var;
-    set_bit(&mut m_var, r, c.bits >> 2);
+    let t = params.response_bits + 1;
+    let (m00, m01, m_var) = (c.m00, c.m01, c.m_var);
     let (m10, m11) = if m00[0] & 1 == 1 {
         // m11 = (det + m01 m10) / m00
         let num = add_mod_2exp(det, &mul_mod_2exp(&m01, &m_var, t), t);
@@ -257,25 +306,36 @@ pub fn compressed_to_bytes<L: FpBackend>(
     if out.len() < n {
         return None;
     }
+    let out = &mut out[..n];
+    out.iter_mut().for_each(|b| *b = 0);
+    let fp = params.fp_encoded_bytes;
+    let fb = params.fp_bits as usize;
     let enc = c.e_aux_a.encode();
-    let mut pos = enc.len();
-    out[..pos].copy_from_slice(&enc[..]);
-    let eb = entry_bytes(params);
+    let mut pos = 0;
+    put_bits(out, pos, &enc[..fp], fb);
+    pos += fb;
+    put_bits(out, pos, &enc[fp..2 * fp], fb);
+    pos += fb;
+    let eb = entry_bits(params);
+    let mut buf = [0u8; 8 * MAX_ORDER_WORDS];
     for x in [&c.m00, &c.m01, &c.m_var] {
-        digits_to_bytes(x, &mut out[pos..pos + eb]);
+        digits_to_bytes(x, &mut buf[..eb.div_ceil(8)]);
+        put_bits(out, pos, &buf, eb);
         pos += eb;
     }
-    digits_to_bytes(&c.chall_coeff, &mut out[pos..pos + params.challenge_bytes]);
-    pos += params.challenge_bytes;
-    out[pos] = c.bits & 0x0f;
-    out[pos + 1] = c.hint_aux;
-    out[pos + 2] = c.hint_chall;
-    debug_assert_eq!(pos + 3, n);
+    let cb = params.challenge_bits as usize;
+    digits_to_bytes(&c.chall_coeff, &mut buf[..params.challenge_bytes]);
+    put_bits(out, pos, &buf, cb);
+    pos += cb;
+    put_bits(out, pos, &[c.hint_aux], 8);
+    pos += 8;
+    put_bits(out, pos, &[c.hint_chall], 8);
+    pos += 8;
+    debug_assert_eq!(pos, compressed_bits(params));
     Some(n)
 }
 
-/// Decode: the length, a canonical `A_aux`, entries below
-/// `2^RESPONSE_BITS`, the bits byte within its three bits, an odd pivot.
+/// Decode: the length, a canonical `A_aux`, zero padding, an odd pivot.
 pub fn compressed_from_bytes<L: FpBackend>(
     params: &VerifyParams,
     bytes: &[u8],
@@ -283,30 +343,29 @@ pub fn compressed_from_bytes<L: FpBackend>(
     if bytes.len() != compressed_bytes(params) {
         return None;
     }
-    let r = params.response_bits;
-    let mut pos = 2 * params.fp_encoded_bytes;
-    let e_aux_a = Fp2::<L>::decode(&bytes[..pos])?;
-    let eb = entry_bytes(params);
-    let mut next = |n: usize| {
-        let x = digits_from_bytes(&bytes[pos..pos + n]);
-        pos += n;
-        x
-    };
-    let m00 = next(eb);
-    let m01 = next(eb);
-    let m_var = next(eb);
-    let chall_coeff = next(params.challenge_bytes);
-    for x in [&m00, &m01, &m_var] {
-        if reduced(x, r) != *x {
-            return None;
-        }
+    let fp = params.fp_encoded_bytes;
+    let fb = params.fp_bits as usize;
+    let mut r = Bits { bytes, pos: 0 };
+    // the two coordinates, each fp_bits wide, into the canonical encoding
+    let mut enc = [0u8; MAX_PUBLICKEY_BYTES];
+    get_bits(bytes, r.pos, fb, &mut enc[..fp]);
+    r.pos += fb;
+    get_bits(bytes, r.pos, fb, &mut enc[fp..2 * fp]);
+    r.pos += fb;
+    let e_aux_a = Fp2::<L>::decode(&enc[..2 * fp])?;
+    let eb = entry_bits(params);
+    let m00 = r.scalar(eb);
+    let m01 = r.scalar(eb);
+    let m_var = r.scalar(eb);
+    let chall_coeff = r.scalar(params.challenge_bits as usize);
+    let hint_aux = r.byte();
+    let hint_chall = r.byte();
+    debug_assert_eq!(r.pos, compressed_bits(params));
+    if !r.rest_is_zero() {
+        return None;
     }
     // the pivot is odd: m00, or m01 when m00 is even (else det is even)
     if m00[0] & 1 == 0 && m01[0] & 1 == 0 {
-        return None;
-    }
-    let bits = bytes[pos];
-    if bits & !0x07 != 0 {
         return None;
     }
     Some(CompressedSignature {
@@ -315,9 +374,8 @@ pub fn compressed_from_bytes<L: FpBackend>(
         m01,
         m_var,
         chall_coeff,
-        bits,
-        hint_aux: bytes[pos + 1],
-        hint_chall: bytes[pos + 2],
+        hint_aux,
+        hint_chall,
     })
 }
 
