@@ -1,15 +1,4 @@
-start 2026-10-26T02:15:12Z
-    Finished `release` profile [optimized] target(s) in 0.03s
-     Running tests/kat_compressed.rs (target/release/deps/kat_compressed-de2f5833ac4bd613)
-
-running 3 tests
-test kat_compressed_level1 ... p324_3: standard 200 B, compressed 174 B, saved 26 B (13.0%); verified compressed 100/100; pivot path (m00 even) 32; exact matrix 14, bit RESPONSE_BITS+1 only 86; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [12, 13, 21, 6, 14, 8, 10, 16]
-ok
-test kat_compressed_level3 ... p500_27: standard 306 B, compressed 266 B, saved 40 B (13.1%); verified compressed 100/100; pivot path (m00 even) 22; exact matrix 14, bit RESPONSE_BITS+1 only 86; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [20, 14, 14, 16, 8, 13, 6, 9]
-ok
-test kat_compressed_level5 ... p664_17: standard 406 B, compressed 352 B, saved 54 B (13.3%); verified compressed 100/100; pivot path (m00 even) 37; exact matrix 13, bit RESPONSE_BITS+1 only 87; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [10, 10, 14, 12, 17, 7, 20, 10]
-ok
-
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.46s
-
-kat_compressed exit=0
+test kat_compressed_level1 ... p324_3: standard 200 B, compressed 174 B, saved 26 B (13.0%); verified compressed 100/100; pivot path (m00 even) 32; decompressed signature equal to the signer's 100/100; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [12, 13, 21, 6, 14, 8, 10, 16]
+test kat_compressed_level3 ... p500_27: standard 306 B, compressed 267 B, saved 39 B (12.7%); verified compressed 100/100; pivot path (m00 even) 22; decompressed signature equal to the signer's 100/100; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [20, 14, 14, 16, 8, 13, 6, 9]
+test kat_compressed_level5 ... p664_17: standard 406 B, compressed 352 B, saved 54 B (13.3%); verified compressed 100/100; pivot path (m00 even) 37; decompressed signature equal to the signer's 100/100; histogram of bit RESPONSE_BITS of (m00, m01, m_var) [10, 10, 14, 12, 17, 7, 20, 10]
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.47s

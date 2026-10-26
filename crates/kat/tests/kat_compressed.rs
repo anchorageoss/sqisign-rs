@@ -4,18 +4,15 @@
 //! entries per level). For each entry the public key and the signature
 //! (the first `SIGNATURE_BYTES` of `sm`; the message follows) are decoded
 //! and the signature must verify; its compressed form must encode to the
-//! level's length (`compressed_bytes`: 174 / 266 / 352), decode back to
+//! level's length (`compressed_bytes`: 174 / 267 / 352), decode back to
 //! the same bytes, verify on the entry's message and fail on a modified
-//! one, and decompress to a signature the standard verifier accepts.
+//! one, and decompress to the signer's signature, byte for byte.
 //!
 //! Per level one line reports what the format's description predicts and
 //! the paper tabulates: the sizes, how many entries take the pivot path
 //! (`m00` even, so the third transmitted entry is `m11`), the histogram of
-//! bit `RESPONSE_BITS` of the three transmitted entries, and how many
-//! recovered matrices equal the signer's exactly. A recovered matrix has bit `RESPONSE_BITS + 1` of
-//! every entry zero, so it differs from the signer's exactly when the
-//! signer set that bit somewhere; any other difference, including a wrong
-//! bit `RESPONSE_BITS` of the recovered fourth entry, fails the test.
+//! bit `RESPONSE_BITS` of the three transmitted entries, and that every
+//! decompressed signature equals the signer's.
 //!
 //! All 100 entries run in release; a debug build runs the first two unless
 //! `SQISIGN_KAT_ENTRIES` says otherwise. `SQISIGN_FORCE_PORTABLE=1` runs
@@ -80,35 +77,8 @@ struct Observed {
     pivot: bool,
     /// Bit `RESPONSE_BITS` of `m00`, `m01` and `m_var`, in bits 0 to 2.
     bits: u8,
-    /// The recovered matrix equals the signer's in all four entries.
+    /// The decompressed signature equals the signer's byte for byte.
     exact: bool,
-}
-
-/// Whether `rec` equals `orig` in every entry. Any difference must be bit
-/// `free_bit` of an entry alone (the recovered matrix has it zero); another
-/// difference fails the test.
-fn matrix_exact(
-    orig: &[[Scalar; 2]; 2],
-    rec: &[[Scalar; 2]; 2],
-    free_bit: u32,
-    what: &str,
-) -> bool {
-    let (word, shift) = ((free_bit / 64) as usize, free_bit % 64);
-    let mut exact = true;
-    for (a, b) in orig.iter().flatten().zip(rec.iter().flatten()) {
-        for (i, (x, y)) in a.iter().zip(b.iter()).enumerate() {
-            let diff = x ^ y;
-            if diff == 0 {
-                continue;
-            }
-            exact = false;
-            assert!(
-                i == word && diff == 1 << shift,
-                "{what}: the recovered matrix differs beyond bit {free_bit}"
-            );
-        }
-    }
-    exact
 }
 
 fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
@@ -135,7 +105,7 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
                 "{what}: verify ({backend})"
             );
             // compression: the level's length, and the bytes round-trip
-            let c = sig.compress();
+            let c = sig.compress().expect("compress");
             let cb = c.to_bytes();
             assert_eq!(cb.len(), compressed_len, "{what}: compressed length");
             assert_eq!(
@@ -163,11 +133,17 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
                 pk.verify_compressed(&bad, &c2).is_err(),
                 "{what}: a modified message verified compressed"
             );
-            // decompression: the standard verifier accepts the result
+            // decompression: the signer's signature, byte for byte, and
+            // the standard verifier accepts it
             let dec = c2.decompress(&pk).expect("decompress");
             assert!(
                 pk.verify(&e.msg, &dec).is_ok(),
                 "{what}: verify decompressed ({backend})"
+            );
+            let exact = dec.to_bytes()[..] == e.sm[..siglen];
+            assert!(
+                exact,
+                "{what}: the decompressed signature is not the signer's"
             );
             let orig = &sig.inner().mat_bchall_can_to_bchall;
             let pivot = orig[0][0][0] & 1 == 0;
@@ -176,12 +152,6 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
             let top = |x: &Scalar| ((x[(r / 64) as usize] >> (r % 64)) & 1) as u8;
             let c = c2.inner();
             let bits = top(&c.m00) | top(&c.m01) << 1 | top(&c.m_var) << 2;
-            let exact = matrix_exact(
-                orig,
-                &dec.inner().mat_bchall_can_to_bchall,
-                params.response_bits + 1,
-                &what,
-            );
             Observed { pivot, bits, exact }
         })
         .collect();
@@ -197,8 +167,7 @@ fn run<L: Level>(rsp: &str, name: &str, compressed_len: usize) {
     println!(
         "{name}: standard {siglen} B, compressed {compressed_len} B, saved {saved} B ({pct:.1}%); \
          verified compressed {verified}/{n}; pivot path (m00 even) {pivot}; \
-         exact matrix {exact}, bit RESPONSE_BITS+1 only {}; histogram of bit RESPONSE_BITS of (m00, m01, m_var) {hist:?}",
-        verified - exact
+         decompressed signature equal to the signer's {exact}/{n}; histogram of bit RESPONSE_BITS of (m00, m01, m_var) {hist:?}"
     );
 }
 
@@ -216,7 +185,7 @@ fn kat_compressed_level3() {
     run::<Level3>(
         include_str!("../kat/PQCsignKAT_417_SQIsign_p500_27.rsp"),
         "p500_27",
-        266,
+        267,
     );
 }
 

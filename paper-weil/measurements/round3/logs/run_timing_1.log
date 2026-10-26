@@ -1,24 +1,28 @@
-    Finished `release` profile [optimized] target(s) in 0.03s
+    Finished `release` profile [optimized] target(s) in 0.02s
      Running tests/paper_timing.rs (target/release/deps/paper_timing-0e16228b68e9a85d)
 
 running 1 test
 test paper_timing_level1_breakdown ... ==== level I (p324_3): 100 KAT vectors, e_rsp = 196, N = 198, signature 200 bytes, compressed 174 bytes; per vector the median of 200 iterations after 5 warm-ups, then over the vectors the median (min, max); kernels: x86-64 assembly (mulx, adcx, adox) ====
 component (microseconds)                              S med    S min    S max      C med    C min    C max
-decoding                                                0.3      0.3      0.3        2.4      2.3      2.4
+decoding                                                0.3      0.3      0.5        2.4      2.3      2.4
 E_aux from A_aux                                        0.1      0.1      0.2        0.1      0.1      0.1
-challenge derivation E_pk -> E_chl                    583.5    582.4    599.1      583.4    582.4    585.5
-bases from the hints at 2^N, both curves              215.4    215.2    341.7      215.4    215.2    217.9
-two Weil pairings at 2^N                                  -        -        -      559.9    559.0    562.0
-two inversions and the discrete logarithm                 -        -        -      189.5    189.3    190.0
+challenge derivation E_pk -> E_chl                    586.0    585.1    588.3      586.0    585.0    588.9
+bases from the hints at 2^N, both curves              215.7    215.5    218.2      215.7    215.5    218.3
+two Weil pairings at 2^N                                  -        -        -      555.9    555.1    561.3
+two inversions and the discrete logarithm                 -        -        -      186.9    186.8    188.6
 det M and the dropped entry                               -        -        -        0.1      0.1      0.1
 matrix range and normal-form check                      0.0      0.0      0.0        0.0      0.0      0.0
-basis change, apply M                                 368.0    336.8    648.8      365.9    333.5    658.5
-(2^e_rsp, 2^e_rsp) theta chain to E_com              2908.5   2906.2   2914.8     2908.6   2906.0   2920.4
-challenge hash and compare                             15.3     10.5     20.2       15.3     10.5     20.2
-sum of component medians                             4091.2                       4840.7                  
-FULL verification from bytes, prepared key           4103.3   4066.8   4383.1     4855.5   4819.0   5144.6
-integrated overhead, the components the compressed path adds (pairings 559.9 + inversions and dlog 189.5 + recovery 0.1 + decoding 2.4 - 0.3): 751.6 us, 18.3% of the standard verification (4103.3 us); full medians differ by 752.2 us (18.3%)
+basis change, apply M                                 377.0    344.8    656.8      380.3    347.0    657.4
+(2^e_rsp, 2^e_rsp) theta chain to E_com              2927.3   2925.0   2933.8     2927.2   2924.8   2944.4
+challenge hash and compare                             15.4     10.6     20.2       15.4     10.6     20.2
+Tate: bases from the hints at 2^m*, both curves           -        -        -      130.0    129.9    130.3
+Tate: two ladders at 2^m*                                 -        -        -      391.9    389.5    394.0
+Tate: reduction of the bases to 2^N                       -        -        -      124.2    124.1    124.4
+sum of component medians                             4121.9                       4870.1                  
+FULL verification from bytes, prepared key           4115.2   4078.3   4391.7     4869.5   4832.9   5146.8
+integrated overhead, the components the compressed path adds (pairings 555.9 + inversions and dlog 186.9 + recovery 0.1 + decoding 2.4 - 0.3): 745.1 us, 18.1% of the standard verification (4115.2 us); full medians differ by 754.3 us (18.3%)
+pairing stage, medians over the vectors: Weil (bases at 2^N + two Weil pairings, the two table rows) 771.6 us; Tate (bases at 2^m* + two ladders + reduction to 2^N, m* = 261) 646.1 us; saving 125.5 us (16.3%); overhead with the Tate ladders 619.6 us, 15.1% of the standard verification
 ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 373.26s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 387.92s
 

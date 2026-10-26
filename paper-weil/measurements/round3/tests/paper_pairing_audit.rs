@@ -41,6 +41,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use rayon::prelude::*;
+use sqisign_verify::compressed::compress;
 use sqisign_verify::ec::basis::{
     difference_point, ec_curve_to_basis_2f_from_hint, ec_curve_to_basis_2f_to_hint,
 };
@@ -50,7 +51,6 @@ use sqisign_verify::ec::point::{ec_dbl_iter, ec_dbl_iter_basis, ec_ladder3pt};
 use sqisign_verify::ec::{EcBasis, EcCurve, MAX_ORDER_WORDS};
 use sqisign_verify::fp::Fp2;
 use sqisign_verify::precomp::EXTRA_TORSION;
-use sqisign_verify::compressed::compress;
 use sqisign_verify::sqisign::{
     public_key_from_bytes, signature_from_bytes, verify, Scalar, Signature, HD_EXTRA_TORSION,
 };
@@ -294,7 +294,11 @@ fn basis_eq<L: Level>(a: &EcBasis<L>, b: &EcBasis<L>) -> bool {
 
 /// A curve with its verifier basis at order `2^n` and the full-order basis
 /// adjusted to it (`ec_curve_to_basis_2f_to_hint(curve, F, n)`).
-fn bases<L: Level>(curve: &mut EcCurve<L>, n: u32, hint: u8) -> (EcBasis<L>, EcBasis<L>, bool, bool) {
+fn bases<L: Level>(
+    curve: &mut EcCurve<L>,
+    n: u32,
+    hint: u8,
+) -> (EcBasis<L>, EcBasis<L>, bool, bool) {
     let fc = L::TWO_ADIC_EXPONENT;
     let b = ec_curve_to_basis_2f_from_hint(curve, n, hint).expect("basis from hint");
     let (full, h) = ec_curve_to_basis_2f_to_hint(curve, fc, n).expect("basis to hint");
@@ -307,7 +311,8 @@ fn setup<L: Level>(idx: usize, e: &Entry) -> Setup<L> {
     assert_eq!(e.count, idx, "KAT entries in order");
     let params = &L::PARAMS;
     let pk = public_key_from_bytes::<L>(params, &e.pk).expect("pk decode");
-    let sig = signature_from_bytes::<L>(params, &e.sm[..params.signature_bytes]).expect("sig decode");
+    let sig =
+        signature_from_bytes::<L>(params, &e.sm[..params.signature_bytes]).expect("sig decode");
     let n = params.response_bits + HD_EXTRA_TORSION;
 
     // E_chl exactly as the verifier derives it (sqisign::challenge_state)
@@ -323,7 +328,8 @@ fn setup<L: Level>(idx: usize, e: &Entry) -> Setup<L> {
     )
     .expect("challenge kernel");
     let mut e_chall = iso_isogeny_2chain_from(&e_pk, &kernel, f_chall).expect("challenge chain");
-    let (b_chall, b_chall_full, hint_chall_ok, scaled_chall_ok) = bases(&mut e_chall, n, sig.hint_chall);
+    let (b_chall, b_chall_full, hint_chall_ok, scaled_chall_ok) =
+        bases(&mut e_chall, n, sig.hint_chall);
 
     let mut e_aux = EcCurve::<L>::from_a(&sig.e_aux_a).expect("aux curve");
     let (b_aux, b_aux_full, hint_aux_ok, scaled_aux_ok) = bases(&mut e_aux, n, sig.hint_aux);
@@ -397,14 +403,24 @@ fn task1_vector<L: Level>(s: &Setup<L>) -> T1 {
     let mut e_aux = s.e_aux.clone();
 
     // the decompressor's pairings and discrete logarithm (compressed::pairing_dlog)
-    let omega = weil::<L>(n as u32, &s.b_chall.p, &s.b_chall.q, &s.b_chall.pmq, &mut e_chall);
+    let omega = weil::<L>(
+        n as u32,
+        &s.b_chall.p,
+        &s.b_chall.q,
+        &s.b_chall.pmq,
+        &mut e_chall,
+    );
     let eta = weil::<L>(n as u32, &s.b_aux.p, &s.b_aux.q, &s.b_aux.pmq, &mut e_aux);
     let y = dlog::<L>(&eta.inv(), &omega, n);
     let det_n = masked(&s.det, n);
     let (dlog_ok, agree_g, k) = match y {
         Some(y) => {
             let yp = masked(&add_wide(&y, &pow2(g - 1)), n);
-            (true, agree(&yp, &det_n, g), first_mismatch(&yp, &det_n, n).unwrap_or(n))
+            (
+                true,
+                agree(&yp, &det_n, g),
+                first_mismatch(&yp, &det_n, n).unwrap_or(n),
+            )
         }
         None => (false, false, 0),
     };
@@ -524,8 +540,12 @@ fn run_task1<L: Level>(label: &str, kat: &str) {
             r.agree_g, r.k, r.z_class, r.u, r.v2_det, r.m00_even, r.m01_even, r.m10_even, r.m11_even
         );
     }
-    assert!(results.iter().all(|r| r.dlog_ok && r.agree_g && r.z_class == 2 && r.u != 0));
-    assert!(results.iter().all(|r| r.v2_det == Some(0) && !(r.m00_even && r.m01_even)));
+    assert!(results
+        .iter()
+        .all(|r| r.dlog_ok && r.agree_g && r.z_class == 2 && r.u != 0));
+    assert!(results
+        .iter()
+        .all(|r| r.v2_det == Some(0) && !(r.m00_even && r.m01_even)));
     assert!(results.iter().all(|r| r.hints_ok && r.scaled_ok));
 }
 
@@ -564,7 +584,10 @@ struct Cell {
 }
 
 const NV: usize = 2;
-const VARIANTS: [&str; NV] = ["a: verifier's order-2^N bases", "c: full-order bases scaled to 2^m"];
+const VARIANTS: [&str; NV] = [
+    "a: verifier's order-2^N bases",
+    "c: full-order bases scaled to 2^m",
+];
 
 struct Sweep {
     rows: Vec<(usize, [Cell; NV])>,
@@ -630,7 +653,17 @@ fn sweep_vector<L: Level>(s: &Setup<L>) -> Sweep {
 struct Agg {
     n: usize,
     /// per variant: (ord_c min, max), (ord_a min, max), both orders == 2^max(2m - F, 0), dlog failures, min k, ok_g, ok_e
-    v: [(usize, usize, usize, usize, usize, usize, usize, usize, usize); NV],
+    v: [(
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+        usize,
+    ); NV],
 }
 
 const NOT_POW2: usize = usize::MAX - 1;
@@ -722,7 +755,12 @@ fn run_task2<L: Level>(label: &str, kat: &str) {
     }
     println!("--- full table, one row per m ---");
     for (m, a) in &table {
-        println!("m={m:3} 2m-F={:4} n={} |{}", 2 * *m as i64 - fc as i64, a.n, agg_body(a));
+        println!(
+            "m={m:3} 2m-F={:4} n={} |{}",
+            2 * *m as i64 - fc as i64,
+            a.n,
+            agg_body(a)
+        );
     }
     println!("--- compressed table (runs of m with identical cells) ---");
     let mut i = 0;
@@ -738,7 +776,12 @@ fn run_task2<L: Level>(label: &str, kat: &str) {
         } else {
             format!("m={m0}..{m1}")
         };
-        println!("{mr:>12} 2m-F=[{},{}] |{}", 2 * *m0 as i64 - fc as i64, 2 * m1 as i64 - fc as i64, agg_body(a));
+        println!(
+            "{mr:>12} 2m-F=[{},{}] |{}",
+            2 * *m0 as i64 - fc as i64,
+            2 * m1 as i64 - fc as i64,
+            agg_body(a)
+        );
         i = j + 1;
     }
 
@@ -746,8 +789,14 @@ fn run_task2<L: Level>(label: &str, kat: &str) {
     let bound_g = (fc + g).div_ceil(2);
     let bound_e = (fc + g - 1).div_ceil(2);
     for (vi, name) in VARIANTS.iter().enumerate() {
-        let first_g = table.iter().find(|(_, a)| a.v[vi].7 == a.n).map(|(m, _)| *m);
-        let first_e = table.iter().find(|(_, a)| a.v[vi].8 == a.n).map(|(m, _)| *m);
+        let first_g = table
+            .iter()
+            .find(|(_, a)| a.v[vi].7 == a.n)
+            .map(|(m, _)| *m);
+        let first_e = table
+            .iter()
+            .find(|(_, a)| a.v[vi].8 == a.n)
+            .map(|(m, _)| *m);
         let max_g = table.iter().map(|(_, a)| a.v[vi].7).max().unwrap();
         let max_e = table.iter().map(|(_, a)| a.v[vi].8).max().unwrap();
         println!(
@@ -773,12 +822,25 @@ fn run_task2<L: Level>(label: &str, kat: &str) {
                 })
             })
             .count();
-        println!("    order(T_chl) == order(T_aux) == 2^max(2m-F,0) at every m in [N, F]: {ord_ok}/100");
+        println!(
+            "    order(T_chl) == order(T_aux) == 2^max(2m-F,0) at every m in [N, F]: {ord_ok}/100"
+        );
     }
     // the sanity row for the paper
-    let ok_c = table.iter().find(|(m, _)| *m == bound_g).map(|(_, a)| a.v[1].7).unwrap();
-    let below = table.iter().find(|(m, _)| *m + 1 == bound_g).map(|(_, a)| a.v[1].7).unwrap_or(0);
-    println!("variant c at m = {bound_g}: ok_g on {ok_c}/100; at m = {}: {below}/100", bound_g - 1);
+    let ok_c = table
+        .iter()
+        .find(|(m, _)| *m == bound_g)
+        .map(|(_, a)| a.v[1].7)
+        .unwrap();
+    let below = table
+        .iter()
+        .find(|(m, _)| *m + 1 == bound_g)
+        .map(|(_, a)| a.v[1].7)
+        .unwrap_or(0);
+    println!(
+        "variant c at m = {bound_g}: ok_g on {ok_c}/100; at m = {}: {below}/100",
+        bound_g - 1
+    );
 }
 
 #[test]
@@ -908,7 +970,12 @@ struct T3 {
     dlog_ok: bool,
 }
 
-fn task3_vector<L: Level>(s: &Setup<L>, pk: &sqisign_verify::sqisign::PublicKey<L>, msg: &[u8], m: usize) -> T3 {
+fn task3_vector<L: Level>(
+    s: &Setup<L>,
+    pk: &sqisign_verify::sqisign::PublicKey<L>,
+    msg: &[u8],
+    m: usize,
+) -> T3 {
     let params = &L::PARAMS;
     let r = params.response_bits;
     let n = (r + HD_EXTRA_TORSION) as usize;
@@ -926,7 +993,12 @@ fn task3_vector<L: Level>(s: &Setup<L>, pk: &sqisign_verify::sqisign::PublicKey<
         _ => None,
     };
     let Some(y) = y else {
-        return T3 { pass: false, entry_exact: false, entry_bit_only: false, dlog_ok: false };
+        return T3 {
+            pass: false,
+            entry_exact: false,
+            entry_bit_only: false,
+            dlog_ok: false,
+        };
     };
     // det M = y_m + 2^(g-1) mod 2^g, with y_m as the ladder gives it, below 2^(2m-F)
     let mut y_s = [0u64; MAX_ORDER_WORDS];
@@ -936,7 +1008,12 @@ fn task3_vector<L: Level>(s: &Setup<L>, pk: &sqisign_verify::sqisign::PublicKey<
     let det = add_mod_2exp(&y_s, &two, g as u32);
     let c = compress(params, &s.sig).expect("compress");
     let Some(mat) = reconstruct::<L>(r, &c, &det) else {
-        return T3 { pass: false, entry_exact: false, entry_bit_only: false, dlog_ok: true };
+        return T3 {
+            pass: false,
+            entry_exact: false,
+            entry_bit_only: false,
+            dlog_ok: true,
+        };
     };
     let rec = Signature {
         e_aux_a: s.sig.e_aux_a.clone(),
@@ -946,8 +1023,15 @@ fn task3_vector<L: Level>(s: &Setup<L>, pk: &sqisign_verify::sqisign::PublicKey<
         hint_chall: s.sig.hint_chall,
     };
     let pass = verify(params, pk, &rec, msg);
-    let dropped = if s.sig.mat_bchall_can_to_bchall[0][0][0] & 1 == 1 { (1, 1) } else { (1, 0) };
-    let orig = reduced(&s.sig.mat_bchall_can_to_bchall[dropped.0][dropped.1], g as u32);
+    let dropped = if s.sig.mat_bchall_can_to_bchall[0][0][0] & 1 == 1 {
+        (1, 1)
+    } else {
+        (1, 0)
+    };
+    let orig = reduced(
+        &s.sig.mat_bchall_can_to_bchall[dropped.0][dropped.1],
+        g as u32,
+    );
     let got = reduced(&mat[dropped.0][dropped.1], g as u32);
     let mut diff = [0u64; MAX_ORDER_WORDS];
     for i in 0..MAX_ORDER_WORDS {
@@ -957,7 +1041,12 @@ fn task3_vector<L: Level>(s: &Setup<L>, pk: &sqisign_verify::sqisign::PublicKey<
     let mut bit = [0u64; MAX_ORDER_WORDS];
     bit[(r / 64) as usize] |= 1u64 << (r % 64);
     let entry_bit_only = diff == bit;
-    T3 { pass, entry_exact, entry_bit_only, dlog_ok: true }
+    T3 {
+        pass,
+        entry_exact,
+        entry_bit_only,
+        dlog_ok: true,
+    }
 }
 
 fn run_task3<L: Level>(label: &str, kat: &str) {

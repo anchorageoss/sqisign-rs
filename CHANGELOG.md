@@ -10,17 +10,22 @@ verification result of a signature that did decompress was affected.
 
 - Round 3: the compressed format is one bit string, each field at its
   own width: the two coordinates of `A_aux` at `ceil(log2 p)` bits (326 /
-  505 / 669), three matrix entries at `RESPONSE_BITS + 1` bits (197 / 303
-  / 401), the challenge at `lambda` bits, the two hints at 8 bits each,
-  zero-padded to a byte: 174 / 266 / 352 bytes (`compressed_bits`,
-  `compressed_bytes`; `entry_bits` replaces `entry_bytes`, and
-  `VerifyParams` gains `fp_bits`). The fourth entry's bit
-  `RESPONSE_BITS` is computed from the determinant, which the two Weil
-  pairings give modulo `2^(RESPONSE_BITS + 1)`; the decoder rejects a
-  non-zero padding bit. Signatures compressed by `sqisign-verify` and
-  `sqisign-rs` 0.6.0 and 0.6.1 on crates.io, and by the GitHub releases
-  v0.6.34 to v0.6.38 (176 / 269 / 353 bytes, four bits in a byte), do
-  not decode.
+  505 / 669), the low `RESPONSE_BITS + 1` bits of three matrix entries
+  (197 / 303 / 401 each), three top bits (bit `RESPONSE_BITS + 1` of the
+  dropped entry and of the two transmitted entries other than the first
+  entry in wire order with a non-zero low part, whose top bit the
+  signer's normalisation fixes at zero), the challenge at `lambda` bits,
+  the two hints at 8 bits each, zero-padded to a byte: 174 / 267 / 352
+  bytes (`compressed_bits`, `compressed_bytes`; `entry_bits` replaces
+  `entry_bytes`, and `VerifyParams` gains `fp_bits`). The fourth entry
+  is recovered modulo `2^(RESPONSE_BITS + 1)` from the determinant, which
+  the two Weil pairings give to that modulus, and its top bit from the
+  string, so decompression returns the signer's signature exactly;
+  `Signature::compress` returns `Err` for a matrix the verifier's checks
+  reject. The decoder rejects a non-zero padding bit. Signatures
+  compressed by `sqisign-verify` and `sqisign-rs` 0.6.0 and 0.6.1 on
+  crates.io, and by the GitHub releases v0.6.34 to v0.6.38 (176 / 269 /
+  353 bytes, four bits in a byte), do not decode.
 - Round 2, on the `fix/compressed-nbt-round2` branch from tag v0.4.31
   (the round-2 code is not in this tree): the metadata byte is
   `[r:4 | h:1 | n_bt:3]`, the hint is one bit (the top bit of the dropped
@@ -78,7 +83,7 @@ conversion of round-2 keys or signatures.
   the signature length.
 - The compressed format for round 3: 176 / 269 / 353 bytes, three matrix
   entries and four bits, the fourth entry recovered from two Weil
-  pairings (changed in 0.7.0 to a bit-packed 174 / 266 / 352 bytes). `Signature::compress`,
+  pairings (changed in 0.7.0 to a bit-packed 174 / 267 / 352 bytes). `Signature::compress`,
   `CompressedSignature::{from_bytes, to_bytes, decompress}`,
   `PublicKey::verify_compressed`, and the slice API in
   `sqisign_verify::compressed`. Not in the specification. Recovery costs

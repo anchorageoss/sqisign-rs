@@ -2,7 +2,13 @@
 //! round 3: level I, every component of the standard path and of the
 //! compressed path timed on a copy of the state its own path feeds it, on
 //! each of the 100 KAT vectors (the median of 200 iterations after 5
-//! warm-ups per vector), reported as the median over the vectors.
+//! warm-ups per vector), reported as the median over the vectors. The
+//! same per-vector method times the Tate alternative to the pairing stage
+//! (the bases from the hints at order `2^m*`, `m* = ceil((F + g)/2)`, one
+//! Tate ladder per curve, and the reduction of the two points of each
+//! basis to order `2^N` with the difference point, which gives the
+//! verifier's bases), so that the paper's pairing-stage comparison and its
+//! cost table rest on one run.
 //!
 //! Both paths run under a prepared public key (`PreparedPublicKey`, the
 //! per-key basis work done once). The standard path is
@@ -23,10 +29,10 @@ use sqisign_verify::compressed::{
     compress, compressed_from_bytes, compressed_to_bytes, verify_compressed_prepared,
     CompressedSignature, MAX_COMPRESSED_BYTES,
 };
-use sqisign_verify::ec::basis::ec_curve_to_basis_2f_from_hint;
+use sqisign_verify::ec::basis::{difference_point, ec_curve_to_basis_2f_from_hint};
 use sqisign_verify::ec::isogeny::iso_isogeny_2chain_from;
-use sqisign_verify::ec::pairing::{fp2_dlog_2e, weil};
-use sqisign_verify::ec::point::{ec_biscalar_mul_verif, ec_ladder3pt};
+use sqisign_verify::ec::pairing::{fp2_dlog_2e, reduced_tate, weil};
+use sqisign_verify::ec::point::{ec_biscalar_mul_verif, ec_dbl_iter, ec_ladder3pt};
 use sqisign_verify::ec::{EcBasis, EcCurve, MAX_ORDER_WORDS};
 use sqisign_verify::fp::Fp2;
 use sqisign_verify::precomp::EXTRA_TORSION;
@@ -331,6 +337,10 @@ struct Comps {
     chain: f64,
     hash: f64,
     full: f64,
+    /// the Tate alternative to the pairing stage (compressed path only)
+    tate_bases: f64,
+    tate_ladders: f64,
+    tate_reduce: f64,
 }
 
 impl Comps {
@@ -392,10 +402,18 @@ fn shared<L: Level>(
     .median_us;
     let mut e_chall2 = e_chall.clone();
     let b_chall2 = basis_change(params, m, &b_chall, &mut e_chall2);
-    c.chain = measure(|| (), |_| theta(params, &e_chall2, &e_aux, &b_chall2, &b_aux)).median_us;
+    c.chain = measure(
+        || (),
+        |_| theta(params, &e_chall2, &e_aux, &b_chall2, &b_aux),
+    )
+    .median_us;
     let e_com = theta(params, &e_chall2, &e_aux, &b_chall2, &b_aux);
     assert_eq!(hash_to_challenge(params, pk, &e_com, msg), *chall);
-    c.hash = measure(|| (), |_| hash_to_challenge(params, pk, &e_com, msg) == *chall).median_us;
+    c.hash = measure(
+        || (),
+        |_| hash_to_challenge(params, pk, &e_com, msg) == *chall,
+    )
+    .median_us;
 }
 
 /// Both paths on one vector.
@@ -414,7 +432,11 @@ fn vector_breakdown<L: Level>(params: &VerifyParams, e: &Entry) -> (Comps, Comps
 
     // ---- the standard path, on the decoded signature's state
     let mut s = Comps::default();
-    s.decode = measure(|| (), |_| signature_from_bytes::<L>(params, sig_bytes).unwrap()).median_us;
+    s.decode = measure(
+        || (),
+        |_| signature_from_bytes::<L>(params, sig_bytes).unwrap(),
+    )
+    .median_us;
     shared(
         params,
         &pk,
@@ -428,17 +450,24 @@ fn vector_breakdown<L: Level>(params: &VerifyParams, e: &Entry) -> (Comps, Comps
         msg,
         &mut s,
     );
-    s.full = measure(|| (), |_| {
-        let s = signature_from_bytes::<L>(params, sig_bytes).unwrap();
-        assert!(verify_prepared(params, &key, &s, msg))
-    })
+    s.full = measure(
+        || (),
+        |_| {
+            let s = signature_from_bytes::<L>(params, sig_bytes).unwrap();
+            assert!(verify_prepared(params, &key, &s, msg))
+        },
+    )
     .median_us;
 
     // ---- the compressed path, on the decoded compressed signature's state:
     // the pairings, the discrete logarithm and the recovery come first,
     // the shared components then run on the recovered matrix
     let mut c = Comps::default();
-    c.decode = measure(|| (), |_| compressed_from_bytes::<L>(params, cbytes).unwrap()).median_us;
+    c.decode = measure(
+        || (),
+        |_| compressed_from_bytes::<L>(params, cbytes).unwrap(),
+    )
+    .median_us;
     let cs = compressed_from_bytes::<L>(params, cbytes).unwrap();
     let mut ec = challenge_curve(params, &e_pk, &b_pk, &cs.chall_coeff);
     let mut ea = EcCurve::<L>::from_a(&cs.e_aux_a).unwrap();
@@ -454,6 +483,58 @@ fn vector_breakdown<L: Level>(params: &VerifyParams, e: &Entry) -> (Comps, Comps
         },
     )
     .median_us;
+    // the Tate alternative: bases at 2^m*, one ladder per curve, and the
+    // two points of each basis brought down to order 2^N with the
+    // difference point at that order (the verifier's bases)
+    let fc = L::TWO_ADIC_EXPONENT;
+    let m_star = (fc + n - 1).div_ceil(2);
+    let e_chall0 = challenge_curve(params, &e_pk, &b_pk, &cs.chall_coeff);
+    let e_aux0 = EcCurve::<L>::from_a(&cs.e_aux_a).unwrap();
+    c.tate_bases = measure(
+        || (e_chall0.clone(), e_aux0.clone()),
+        |(mut e1, mut e2)| {
+            (
+                ec_curve_to_basis_2f_from_hint(&mut e1, m_star, cs.hint_chall).unwrap(),
+                ec_curve_to_basis_2f_from_hint(&mut e2, m_star, cs.hint_aux).unwrap(),
+            )
+        },
+    )
+    .median_us;
+    let (mut e3, mut e4) = (e_chall0.clone(), e_aux0.clone());
+    let bc_m = ec_curve_to_basis_2f_from_hint(&mut e3, m_star, cs.hint_chall).unwrap();
+    let ba_m = ec_curve_to_basis_2f_from_hint(&mut e4, m_star, cs.hint_aux).unwrap();
+    c.tate_ladders = measure(
+        || (e3.clone(), e4.clone()),
+        |(mut e1, mut e2)| {
+            (
+                reduced_tate::<L>(m_star, &bc_m.p, &bc_m.q, &bc_m.pmq, &mut e1),
+                reduced_tate::<L>(m_star, &ba_m.p, &ba_m.q, &ba_m.pmq, &mut e2),
+            )
+        },
+    )
+    .median_us;
+    let reduce = |bm: &EcBasis<L>, e: &mut EcCurve<L>| {
+        let p = ec_dbl_iter(&bm.p, (m_star - n) as usize, e);
+        let q = ec_dbl_iter(&bm.pmq, (m_star - n) as usize, e);
+        let r = difference_point(&p, &q, e);
+        EcBasis::new(p, r, q)
+    };
+    c.tate_reduce = measure(
+        || (e3.clone(), e4.clone()),
+        |(mut e1, mut e2)| (reduce(&bc_m, &mut e1), reduce(&ba_m, &mut e2)),
+    )
+    .median_us;
+    let (rc, ra) = (
+        reduce(&bc_m, &mut e3.clone()),
+        reduce(&ba_m, &mut e4.clone()),
+    );
+    let same = |a: &EcBasis<L>, b: &EcBasis<L>| {
+        bool::from(a.p.ct_equal(&b.p) & a.q.ct_equal(&b.q) & a.pmq.ct_equal(&b.pmq))
+    };
+    assert!(
+        same(&rc, &bc) && same(&ra, &ba),
+        "the reduction gives the verifier's bases"
+    );
     let (mut e1, mut e2) = (ec.clone(), ea.clone());
     let g = weil::<L>(n, &bc.p, &bc.q, &bc.pmq, &mut e1);
     let h = weil::<L>(n, &ba.p, &ba.q, &ba.pmq, &mut e2);
@@ -471,7 +552,11 @@ fn vector_breakdown<L: Level>(params: &VerifyParams, e: &Entry) -> (Comps, Comps
     let m_rec = recover_entry(params, &cs, &y).unwrap();
     // the recovered matrix equals the signer's below bit RESPONSE_BITS + 1
     let t = params.response_bits + 1;
-    for (a, b) in m_rec.iter().flatten().zip(sig.mat_bchall_can_to_bchall.iter().flatten()) {
+    for (a, b) in m_rec
+        .iter()
+        .flatten()
+        .zip(sig.mat_bchall_can_to_bchall.iter().flatten())
+    {
         assert_eq!(reduced(a, t), reduced(b, t), "recovery");
     }
     shared(
@@ -487,10 +572,13 @@ fn vector_breakdown<L: Level>(params: &VerifyParams, e: &Entry) -> (Comps, Comps
         msg,
         &mut c,
     );
-    c.full = measure(|| (), |_| {
-        let c = compressed_from_bytes::<L>(params, cbytes).unwrap();
-        assert!(verify_compressed_prepared(params, &key, &c, msg))
-    })
+    c.full = measure(
+        || (),
+        |_| {
+            let c = compressed_from_bytes::<L>(params, cbytes).unwrap();
+            assert!(verify_compressed_prepared(params, &key, &c, msg))
+        },
+    )
     .median_us;
     (s, c)
 }
@@ -532,14 +620,27 @@ fn breakdown<L: Level>(name: &str, rsp: &str) -> String {
         sqisign_kat::arithmetic_from_env()
     )
     .unwrap();
-    writeln!(w, "{:<50} {:>8} {:>8} {:>8}   {:>8} {:>8} {:>8}", "component (microseconds)", "S med", "S min", "S max", "C med", "C min", "C max").unwrap();
+    writeln!(
+        w,
+        "{:<50} {:>8} {:>8} {:>8}   {:>8} {:>8} {:>8}",
+        "component (microseconds)", "S med", "S min", "S max", "C med", "C min", "C max"
+    )
+    .unwrap();
     let rows: [(&str, fn(&Comps) -> f64, bool); 11] = [
         ("decoding", |c| c.decode, true),
         ("E_aux from A_aux", |c| c.aux_curve, true),
         ("challenge derivation E_pk -> E_chl", |c| c.challenge, true),
-        ("bases from the hints at 2^N, both curves", |c| c.bases, true),
+        (
+            "bases from the hints at 2^N, both curves",
+            |c| c.bases,
+            true,
+        ),
         ("two Weil pairings at 2^N", |c| c.pairings, false),
-        ("two inversions and the discrete logarithm", |c| c.dlog, false),
+        (
+            "two inversions and the discrete logarithm",
+            |c| c.dlog,
+            false,
+        ),
         ("det M and the dropped entry", |c| c.recovery, false),
         ("matrix range and normal-form check", |c| c.check, true),
         ("basis change, apply M", |c| c.change, true),
@@ -560,9 +661,19 @@ fn breakdown<L: Level>(name: &str, rsp: &str) -> String {
         if both {
             let (sm, smin, smax) = agg(f, &s_all);
             sum_s += sm;
-            writeln!(w, "{:<50} {:>8.1} {:>8.1} {:>8.1}   {:>8.1} {:>8.1} {:>8.1}", label, sm, smin, smax, cm, cmin, cmax).unwrap();
+            writeln!(
+                w,
+                "{:<50} {:>8.1} {:>8.1} {:>8.1}   {:>8.1} {:>8.1} {:>8.1}",
+                label, sm, smin, smax, cm, cmin, cmax
+            )
+            .unwrap();
         } else {
-            writeln!(w, "{:<50} {:>8} {:>8} {:>8}   {:>8.1} {:>8.1} {:>8.1}", label, "-", "-", "-", cm, cmin, cmax).unwrap();
+            writeln!(
+                w,
+                "{:<50} {:>8} {:>8} {:>8}   {:>8.1} {:>8.1} {:>8.1}",
+                label, "-", "-", "-", cm, cmin, cmax
+            )
+            .unwrap();
         }
         match label {
             "decoding" => {
@@ -575,10 +686,44 @@ fn breakdown<L: Level>(name: &str, rsp: &str) -> String {
             _ => {}
         }
     }
+    let tate_rows: [(&str, fn(&Comps) -> f64); 3] = [
+        ("Tate: bases from the hints at 2^m*, both curves", |c| {
+            c.tate_bases
+        }),
+        ("Tate: two ladders at 2^m*", |c| c.tate_ladders),
+        ("Tate: reduction of the bases to 2^N", |c| c.tate_reduce),
+    ];
+    let mut tate_stage = 0.0;
+    for (label, f) in tate_rows {
+        let (cm, cmin, cmax) = agg(f, &c_all);
+        tate_stage += cm;
+        writeln!(
+            w,
+            "{:<50} {:>8} {:>8} {:>8}   {:>8.1} {:>8.1} {:>8.1}",
+            label, "-", "-", "-", cm, cmin, cmax
+        )
+        .unwrap();
+    }
     let (full_s, fs_min, fs_max) = agg(|c| c.full, &s_all);
     let (full_c, fc_min, fc_max) = agg(|c| c.full, &c_all);
-    writeln!(w, "{:<50} {:>8.1} {:>8} {:>8}   {:>8.1} {:>8} {:>8}", "sum of component medians", sum_s, "", "", sum_c, "", "").unwrap();
-    writeln!(w, "{:<50} {:>8.1} {:>8.1} {:>8.1}   {:>8.1} {:>8.1} {:>8.1}", "FULL verification from bytes, prepared key", full_s, fs_min, fs_max, full_c, fc_min, fc_max).unwrap();
+    writeln!(
+        w,
+        "{:<50} {:>8.1} {:>8} {:>8}   {:>8.1} {:>8} {:>8}",
+        "sum of component medians", sum_s, "", "", sum_c, "", ""
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "{:<50} {:>8.1} {:>8.1} {:>8.1}   {:>8.1} {:>8.1} {:>8.1}",
+        "FULL verification from bytes, prepared key",
+        full_s,
+        fs_min,
+        fs_max,
+        full_c,
+        fc_min,
+        fc_max
+    )
+    .unwrap();
     let added = med_c.pairings + med_c.dlog + med_c.recovery + med_c.decode - med_s.decode;
     writeln!(
         w,
@@ -593,6 +738,17 @@ fn breakdown<L: Level>(name: &str, rsp: &str) -> String {
         full_s,
         full_c - full_s,
         100.0 * (full_c - full_s) / full_s
+    )
+    .unwrap();
+    let weil_stage = agg(|c| c.bases, &c_all).0 + med_c.pairings;
+    let saving = weil_stage - tate_stage;
+    writeln!(
+        w,
+        "pairing stage, medians over the vectors: Weil (bases at 2^N + two Weil pairings, the two table rows) {weil_stage:.1} us; Tate (bases at 2^m* + two ladders + reduction to 2^N, m* = {}) {tate_stage:.1} us; saving {saving:.1} us ({:.1}%); overhead with the Tate ladders {:.1} us, {:.1}% of the standard verification",
+        (L::TWO_ADIC_EXPONENT + params.response_bits + 1).div_ceil(2),
+        100.0 * saving / weil_stage,
+        added - saving,
+        100.0 * (added - saving) / full_s
     )
     .unwrap();
     let _ = med_s.sum();

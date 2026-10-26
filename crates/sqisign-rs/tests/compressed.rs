@@ -1,9 +1,9 @@
-//! The compressed signature format (three matrix entries, the fourth
-//! recovered from two Weil pairings, the fields bit-packed): the round trip
-//! at each level, the decoder's rejections, tampering, and the acceptance measurement on
-//! generated signatures (`SQISIGN_SURVEY_SIGS` per level, default 3: every
-//! honest signature must compress, verify compressed, and decompress to a
-//! signature the standard verifier accepts).
+//! The compressed signature format (three matrix entries and the top bit
+//! of the fourth, which two Weil pairings recover, the fields bit-packed):
+//! the round trip at each level, the decoder's rejections, tampering, and
+//! the acceptance measurement on generated signatures
+//! (`SQISIGN_SURVEY_SIGS` per level, default 3: every honest signature must
+//! compress, verify compressed, and decompress to itself).
 
 mod common;
 
@@ -19,7 +19,7 @@ fn roundtrip<L: SigningLevel>(expect_len: usize) {
     let (pk, sk) = generate::<L>(&mut r);
     let msg = b"compressed";
     let sig = sk.sign(msg, &mut r).expect("sign");
-    let c = sig.compress();
+    let c = sig.compress().expect("compress");
     let cb = c.to_bytes();
     assert_eq!(cb.len(), expect_len, "{}", L::NAME);
     assert_eq!(compressed_bytes(&L::PARAMS), expect_len);
@@ -31,11 +31,11 @@ fn roundtrip<L: SigningLevel>(expect_len: usize) {
         pk.verify_compressed(b"other", &c2),
         Err(Error::InvalidSignature)
     );
-    // the recovered standard signature verifies and compresses back to the
-    // same bytes (it equals the signer's up to the free top bits)
+    // the recovered standard signature is the signer's, byte for byte
     let back = c2.decompress(&pk).expect("decompress");
+    assert_eq!(back.to_bytes(), sig.to_bytes());
     assert!(pk.verify(msg, &back).is_ok());
-    assert_eq!(back.compress().to_bytes(), cb);
+    assert_eq!(back.compress().expect("compress").to_bytes(), cb);
     // another key does not recover it
     let (pk_other, _) = generate::<L>(&mut r);
     assert!(pk_other.verify_compressed(msg, &c2).is_err());
@@ -55,7 +55,7 @@ fn roundtrip_levels_3_and_5() {
         eprintln!("skipped in a debug build (SQISIGN_ALL_LEVELS=1 to force)");
         return;
     }
-    roundtrip::<Level3>(266);
+    roundtrip::<Level3>(267);
     roundtrip::<Level5>(352);
 }
 
@@ -65,7 +65,7 @@ fn decoder_and_tampering() {
     let (pk, sk) = generate::<Level1>(&mut r);
     let msg = b"strict";
     let sig = sk.sign(msg, &mut r).expect("sign");
-    let cb = sig.compress().to_bytes();
+    let cb = sig.compress().expect("compress").to_bytes();
     let n = cb.len();
     let params = &Level1::PARAMS;
     // the bit layout: A_aux (two coordinates), m00, m01, m_var, chl, hints
@@ -106,8 +106,17 @@ fn decoder_and_tampering() {
         assert_eq!(decode(&t), Err(Error::MalformedInput));
     }
     // every single-bit change outside bit RESPONSE_BITS of the three
-    // entries is rejected by the decoder or the verifier
-    let free = [off_m00 + rb, off_m01 + rb, off_var + rb];
+    // entries and the three top bits is rejected by the decoder or the
+    // verifier
+    let off_top = off_var + eb;
+    let free = [
+        off_m00 + rb,
+        off_m01 + rb,
+        off_var + rb,
+        off_top,
+        off_top + 1,
+        off_top + 2,
+    ];
     for i in (0..8 * n).filter(|i| !free.contains(i)) {
         let mut t = cb;
         flip(&mut t, i);
@@ -117,12 +126,16 @@ fn decoder_and_tampering() {
         };
         assert!(rejected, "bit {i} flipped and accepted");
     }
-    // bit RESPONSE_BITS of the entries: the compressed verifier accepts a
-    // value exactly when the standard verifier accepts the signature it
-    // stands for (the standard format's own freedom in those bits, nothing
-    // more)
+    // bit RESPONSE_BITS of the entries and the top bits: the compressed
+    // verifier accepts a value exactly when the standard verifier accepts
+    // the signature it stands for (the standard format's own freedom in
+    // those bits, nothing more), and the signer's value is accepted
     let mut accepted = 0;
-    for v in 0..8u8 {
+    let signer = free
+        .iter()
+        .enumerate()
+        .fold(0u8, |acc, (k, &i)| acc | ((cb[i / 8] >> (i % 8)) & 1) << k);
+    for v in 0..64u8 {
         let mut t = cb;
         for (k, &i) in free.iter().enumerate() {
             clear(&mut t, i);
@@ -139,11 +152,11 @@ fn decoder_and_tampering() {
             "bits {v:#x}"
         );
         accepted += standard as usize;
+        if v == signer {
+            assert!(standard, "the signer's bits are accepted");
+        }
     }
-    assert!(
-        (1..=2).contains(&accepted),
-        "bits values accepted: {accepted}"
-    );
+    assert!(accepted >= 1, "bits values accepted: {accepted}");
 }
 
 /// Acceptance on generated signatures.
@@ -155,7 +168,7 @@ fn survey<L: SigningLevel>(count: usize) {
     for i in 0..count {
         let msg = (i as u64).to_le_bytes();
         let sig = sk.sign(&msg, &mut r).expect("sign");
-        let cs = sig.compress();
+        let cs = sig.compress().expect("compress");
         let r = params.response_bits;
         let top = |x: &[u64]| ((x[(r / 64) as usize] >> (r % 64)) & 1) as usize;
         let c = cs.inner();
@@ -166,6 +179,12 @@ fn survey<L: SigningLevel>(count: usize) {
             L::NAME
         );
         let lift = cs.decompress(&pk).unwrap();
+        assert_eq!(
+            lift.to_bytes(),
+            sig.to_bytes(),
+            "{}: signature {i}",
+            L::NAME
+        );
         assert!(
             verify(params, pk.inner(), lift.inner(), &msg),
             "{}: signature {i}: the recovered signature fails the standard verifier",
@@ -173,8 +192,8 @@ fn survey<L: SigningLevel>(count: usize) {
         );
     }
     eprintln!(
-        "{}: {count} signatures compressed, verified compressed, decompressed to standard \
-         signatures the standard verifier accepts; histogram of bit RESPONSE_BITS of (m00, m01, m_var) {bits_hist:?}",
+        "{}: {count} signatures compressed, verified compressed, decompressed to \
+         themselves; histogram of bit RESPONSE_BITS of (m00, m01, m_var) {bits_hist:?}",
         L::NAME
     );
 }

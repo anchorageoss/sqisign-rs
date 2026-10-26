@@ -52,9 +52,11 @@
 response. This note states and proves, from the specification's own
 definitions, the Weil pairing relation that recovers one dropped entry of
 that matrix. It gives the pivot rule and a bit-packed layout, and says
-which pairing works and why. Sizes on the NIST known-answer vectors: 200
-to 174 bytes at level~I, 306 to 266 at level~III and 406 to 352 at
-level~V, 13\%; the recovery adds 18\% to a level~I verification.
+which pairing works and why. Sizes on the NIST known-answer vectors:
+200 to 174 bytes at level~I,
+306 to 267 at level~III,
+and 406 to 353 at level~V,
+13\%; the recovery adds 18\% to a level~I verification.
 \end{abstract}
 
 \begin{textabstract}
@@ -62,9 +64,11 @@ SQIsign round 3 transmits the full change-of-basis matrix of the
 response. This note states and proves, from the specification's own
 definitions, the Weil pairing relation that recovers one dropped entry of
 that matrix. It gives the pivot rule and a bit-packed layout, and says
-which pairing works and why. Sizes on the NIST known-answer vectors: 200
-to 174 bytes at level I, 306 to 266 at level III and 406 to 352 at level
-V, 13 percent; the recovery adds 18 percent to a level I verification.
+which pairing works and why. Sizes on the NIST known-answer vectors:
+200 to 174 bytes at level I,
+306 to 267 at level III,
+and 406 to 353 at level V,
+13 percent; the recovery adds 18 percent to a level I verification.
 \end{textabstract}
 
 %% ============================================================
@@ -79,8 +83,9 @@ FESTA~\cite{festa}. It is used in QFESTA~\cite{qfesta} and in
 recovers scalars from pairings in the same
 way~\cite{costello-compression,zanon2018,pereira-barreto}. The round-3
 specification of {\SQIsign}~\cite{sqisign-spec-r3} transmits all four
-entries of $\Mm_{\mathrm{chl}}$ (Chapter~6). The formula for its
-two-dimensional response~\cite{sqisign2d-west} had not been written down.
+entries of $\Mm_{\mathrm{chl}}$ (Chapter~6).
+The formula for its two-dimensional response~\cite{sqisign2d-west} does not appear to have ever been stated explicitly in the literature.
+
 We wrote it down for the maintainers on 8~July 2026, during round 2, as
 issue~19 of the reference repository~\cite{issue19}. Luca De~Feo replied
 for the team that ``we may introduce some compression in round 3,
@@ -190,7 +195,7 @@ of $\varphi_{\mathrm{aux}}(R, S)$.
 
 \paragraph{Pairing facts.}
 For $n$ coprime to $p$, $T, U \in E[n]$ and an isogeny $\varphi$
-\cite[III.8.1]{silverman}, the following properties hold:
+\cite[III.8.1 and III.8.2]{silverman}, the following properties hold:
 \begin{itemize}
     \item[(W1)] bilinearity: $e([\alpha]T,U) = e(T,[\alpha]U) = e(T,U)^{\alpha}$, $\forall\alpha \in \Z/n$;
     \item[(W2)] alternation: $e_n(T, T) = 1$, hence $e_n(T, U) = e_n(U, T)^{-1}$;
@@ -249,10 +254,38 @@ Since $u$ is odd, $2^{N - 2} u \equiv 2^{N - 2} \pmod{2^{N - 1}}$, and
 reducing modulo $2^{N - 1} = 2^g$ gives the formula.
 \end{proof}
 
+\begin{remark}[Inputs to the 2D-isogeny chain are not isotropic at full level]
+\label{rem:isotropy}
+In round 3 the verifier passes $T_1 = (P, C)$ and $T_2 = (Q, D)$ to the
+$(2,2)$-chain (Algorithm~3.24, line~12, and Algorithm~4.133, lines 1
+and 2, of the {\SQIsign} specification).
+The Weil pairing on $\Echl \times \Eaux$
+is the product of the two curves' pairings, so
+\[
+  w_{2^N}(T_1, T_2) \;=\; e_{2^N}(P, Q)\, e_{2^N}(C, D)
+  \;=\; \omega^{\det \Mm} \eta \;=\; \zeta ,
+\]
+a primitive fourth root of unity by Theorem~\ref{thm:main}, whereas
+Section~4.5.4.1 of the specification asks for
+$w_{2^{e+2}}(T_1, T_2) = 1$, with $e + 2 = N$. This does not affect the
+chain: its kernel $\langle [4] T_1, [4] T_2 \rangle$ is isotropic, since
+(W4) and (W1), applied componentwise, give
+$w_{2^{N-2}}([4] T_1, [4] T_2) = w_{2^N}(T_1, T_2)^4 = \zeta^4 = 1$.
+The order-4 value is forced: by Lemma~\ref{lem:records}, $T_1$ and $T_2$
+are the images of $R$ and $S$ under
+$x \mapsto (\varphi_{\mathrm{rsp}}(x), \varphi_{\mathrm{aux}}(x))$, which
+multiplies the pairing by
+$\deg \varphi_{\mathrm{rsp}} + \deg \varphi_{\mathrm{aux}} = 2^{N-2}$.
+Inputs of the form of Equation~(28) of the specification are isotropic
+at full level because of a correction factor $1 - \nu_2 2^e$ that the
+verifier does not apply. The value $\zeta$ is confirmed on all 300
+vectors, all of which verify (Table~\ref{tab:checked}).
+\end{remark}
+
 \begin{corollary}
 \label{cor:valuation}
 $v_2(\det \Mm) = \rrs$; in particular $\det \Mm$ is odd if and only if
-$\rrs = 0$, which is always the case in round 3.
+$\rrs = 0$, which is always the case in the round 3 version of {\SQIsign}.
 \end{corollary}
 
 \begin{proof}
@@ -262,14 +295,16 @@ $t q$ odd and $\rrs < N$.
 \end{proof}
 
 \paragraph{The one free bit.}
-The specification carries the entries, hence $\det \Mm$, modulo $2^N$,
-and Theorem~\ref{thm:main} determines $\det \Mm$ modulo $2^{N - 1}$:
-exactly one bit of $\det \Mm$ is outside the pairings' reach, bit
-$N - 1$, which is the bit $u$ of~\eqref{eq:det-full}. The two
-missing bits of the naive count, $N$ against the $N - 2$ bits of the
-$(2,2)$-chain's length $e'$, are the extra torsion the chain consumes
-(Section~4.5.4.1 of the specification), and Theorem~\ref{thm:main}
-recovers one of them.
+The specification carries the entries, hence $\det \Mm$, modulo $2^N$.
+Step~4 explains why the pairings cannot reach all of it: the degrees in
+the Kani square sum to $2^{N - 2}$, two bits short of the order $2^N$ of
+the bases, which is the extra torsion the $(2,2)$-chain consumes
+(Section~4.5.4.1 of the specification). Knowing only that
+$\omega^{\det \Mm} \eta$ is a fourth root of unity would fix
+$\det \Mm$ modulo $2^{N - 2}$; knowing that it is a primitive one, $u$
+odd in~\eqref{eq:det-full}, also fixes bit $N - 2$. Exactly one bit
+stays outside the pairings' reach: bit $N - 1$, which records whether
+$u = 1$ or $u = 3$.
 
 %% ============================================================
 \section{Recovering the dropped entry}
@@ -302,11 +337,8 @@ the compressor then drops $M_{10}$ and the decompressor computes
   M_{10} \;\equiv\; \bigl(M_{00} M_{11} - \det \Mm\bigr) \cdot M_{01}^{-1}
   \pmod{2^{g}}.
 \end{equation}
-The decompressor reads the path off the parity of the transmitted
-$M_{00}$; the inverse is a Newton iteration from $M_{00}^{-1} \equiv 1
-\pmod 2$, doubling the precision each step. The top bit of the dropped
-entry, bit $N - 1 = \ers + 1$, is outside the recovery; verification
-never reads it (\S\ref{sec:format}), so the format sends nothing for it.
+The decompressor reads the path off the parity of the transmitted $M_{00}$; the inverse is a Newton iteration from $M_{00}^{-1} \equiv 1 \pmod 2$, doubling the precision each step.
+The top bit of the dropped entry, bit $N - 1 = \ers + 1$, is outside the recovery; the compressor, which holds the signer's matrix, sends it as one bit, so the decompressor reconstructs $\Mm$ exactly.
 
 %% ============================================================
 \section{Format}
@@ -331,14 +363,13 @@ signature is $(\mathsf{chl}, \Eaux, \Mm_{\mathrm{chl}},
 % 3.24, Section 9.5, Chapter 6 Table 11.
 
 \paragraph{The compressed signature.}
-Table~\ref{tab:layout3} is the compressed signature: one bit string, bit
-$i$ of the string being bit $i \bmod 8$ of byte $\lfloor i / 8 \rfloor$,
-each field the low bits of its little-endian integer. The two
-coordinates of $A_{\mathrm{aux}}$ take $\lceil \log_2 p \rceil$ bits
-each, the three transmitted matrix entries $\ers + 1$ bits each, the
-challenge $\lambda$ bits, the two hints 8 bits each, and the string is
-padded with zero bits to a byte boundary. The decoder rejects a wrong
-length, a coordinate at or above $p$, a non-zero padding bit, and
+Table~\ref{tab:layout3} is the compressed signature: one bit string, bit $i$ of the string being bit $i \bmod 8$ of byte $\lfloor i / 8 \rfloor$, each field the low bits of its little-endian integer.
+The two coordinates of $A_{\mathrm{aux}}$ take $\lceil \log_2 p \rceil$ bits each,
+the three transmitted matrix entries $\ers + 2$ bits each,
+the top bit of the dropped entry one bit,
+the challenge $\lambda$ bits, the two hints 8 bits each,
+and the string is padded with zero bits to a byte boundary.
+The decoder rejects a wrong length, a coordinate at or above $p$, a non-zero padding bit, and
 $M_{00}$ and $M_{01}$ both even.
 % source: crates/verify/src/compressed.rs at sqisign-rs 0.7 (branch
 % fix/compressed-nbt): compressed_bits() = 2 fp_bits + 3 (rb + 1) + lambda
@@ -348,7 +379,7 @@ $M_{00}$ and $M_{01}$ both even.
 \begin{table}[H]
 \centering
 \caption{The round-3 compressed signature: $2 \lceil \log_2 p \rceil + 3
-(\ers + 1) + \lambda + 16$ bits, zero-padded to 174 / 266 / 352 bytes.}
+(\ers + 2) + 1 + \lambda + 16$ bits, zero-padded to 174 / 267 / 353 bytes.}
 \label{tab:layout3}
 \footnotesize
 \begin{tabular}{l r p{5.6cm}}
@@ -356,65 +387,39 @@ $M_{00}$ and $M_{01}$ both even.
 \textbf{Field} & \textbf{Bits (I / III / V)} & \textbf{Content} \\
 \midrule
 $A_{\mathrm{aux}}$ & $2 \times$ 326 / 505 / 669 & real then imaginary part of the Montgomery coefficient, each in $[0, p)$ \\
-$M_{00}$, $M_{01}$, $M_{\mathrm{var}}$ & $3 \times$ 197 / 303 / 401 & the low $\ers + 1$ bits; $M_{\mathrm{var}} = M_{10}$ if $M_{00}$ is odd, else $M_{11}$ \\
+$M_{00}$, $M_{01}$, $M_{\mathrm{var}}$ & $3 \times$ 198 / 304 / 402 & the full entries; $M_{\mathrm{var}} = M_{10}$ if $M_{00}$ is odd, else $M_{11}$ \\
+$\mathsf{top}$ & 1 & bit $\ers + 1$ of the dropped entry \\
 $\mathsf{chl}$ & 128 / 192 / 256 & the challenge, as in the standard format \\
 $\mathsf{hint}_{\mathrm{aux}}$, $\mathsf{hint}_{\mathrm{chl}}$ & $8 + 8$ & as in the standard format \\
-padding & 5 / 1 / 3 & zero \\
+padding & 1 / 5 / 7 & zero \\
 \midrule
-total & 1392 / 2128 / 2816 & 174 / 266 / 352 bytes \\
+total & 1392 / 2136 / 2824 & 174 / 267 / 353 bytes \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The dropped entry is recovered modulo $2^g = 2^{\ers + 1}$, so its bit
-$\ers$ is computed. Bit $\ers$ of the three transmitted entries is
-carried because the $(2,2)$-chain consumes $P$ and $Q$ themselves, and
-its acceptance depends on that bit on most signatures. Bit $\ers + 1$,
-the top bit, is not needed, for two reasons in the specification.
-% source: paper_pairing_audit.rs task3 (measurements/round3/logs/
-% task3_end_to_end_tate.txt): with the dropped entry's bit e_rsp wrong on
-% 53 / 53 / 38 of 100 vectors, the standard verifier rejects 40 / 39 / 29
-% and accepts 13 / 14 / 9.
-Adding $2^{\ers + 1}$ to
-an entry adds a point of order~2 to $P$ or $Q$; the chain of
-Algorithm~3.20 uses the two points only through their multiples, the
-kernel $\langle [4] P, [4] Q \rangle$ \cite[\S 4.5.4.1 and
-Algorithm~4.132]{sqisign-spec-r3} and the 8-torsion points above it
-that the gluing consumes \cite[\S 4.5.4.2]{sqisign-spec-r3}, which a
-2-torsion summand does not change. And the sign check of
-Algorithm~3.24, line~4, reads that bit only on the first entry that is
-neither $0$ nor $2^{\ers + 1}$, where the signer's normalisation leaves
-it zero. The decompressor sets bit $\ers + 1$ to zero in every entry.
+The dropped entry is recovered modulo $2^g = 2^{\ers + 1}$ and its top
+bit is transmitted, so the decompressed matrix is the signer's, and the verifier's range and normal-form checks (Algorithm~3.24, lines 3 and 4) apply to it unchanged.
 
 \paragraph{Sizes.}
 Table~\ref{tab:sizes} gives the standard and compressed sizes.
-Decompression is a deterministic public map, and the compressed verifier
-accepts exactly when the standard verifier accepts the reconstructed
-signature, so the security reduction for the standard
-format~\cite{sqisign-security} applies unchanged. The reconstructed
-matrix may differ from the signer's in bit $\ers + 1$; this is immaterial
-since {\SQIsign} does not target strong
-unforgeability~\cite[Section~8.4.2]{sqisign-spec-r3}. The two hint
-bytes could be dropped as well, since the decompressor builds both curves
-and can run TorsionBasisToHint on them (the recomputed hints equal the
-transmitted ones on 300 of 300 vectors, \S\ref{sec:checked}), for 172 /
-264 / 350 bytes; we keep them, as the specification does, because they
-are what makes the verifier's bases cheap (Section~3.4.3).
-% source: without the hints the bit string is 1371 / 2111 / 2797 bits,
-% ceil(/8) = 172 / 264 / 350; hint equality from task1_formula_audit.txt.
+Decompression is a deterministic public map that returns the signer's signature, so the compressed verifier accepts exactly when the standard verifier accepts that signature, and the security reduction for the standard format~\cite{sqisign-security} applies unchanged.
+The two hint bytes could be dropped as well, since the decompressor builds both curves and can run TorsionBasisToHint on them (the recomputed hints equal the transmitted ones on 300 of 300 vectors, \S\ref{sec:checked}), for 172 / 265 / 351 bytes; we keep them, as the specification does, because they are what makes the verifier's bases cheap (Section~3.4.3).
+% source: without the hints the bit string is 1375 / 2115 / 2801 bits,
+% ceil(/8) = 172 / 265 / 351; hint equality from task1_formula_audit.txt.
 
 \begin{table}[H]
 \centering
 \caption{Signature sizes in bytes on the NIST known-answer vectors.}
 \label{tab:sizes}
 \small
-\begin{tabular}{l r r r}
+\begin{tabular}{c c c c}
 \toprule
 \textbf{Level} & \textbf{Standard} & \textbf{Compressed} & \textbf{Saved} \\
 \midrule
 I   & 200 & 174 & 26 (13\%) \\
-III & 306 & 266 & 40 (13\%) \\
-V   & 406 & 352 & 54 (13\%) \\
+III & 306 & 267 & 39 (13\%) \\
+V   & 406 & 353 & 53 (13\%) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -585,7 +590,7 @@ Corollary~\ref{cor:tate-threshold}.}
 \label{tab:threshold}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{l r r r r r r r}
+\begin{tabular}{c c c c c c c c}
 \toprule
 \textbf{Level} & $F$ & $N$ & $g$ & $m$, mod $2^g$ & $\lceil (F + g)/2 \rceil$ & $m$, mod $2^{\ers}$ & $\lceil (F + \ers)/2 \rceil$ \\
 \midrule
@@ -689,7 +694,8 @@ $M_{00}$ even (pivot path, $M_{11}$ transmitted) & 32 / 22 / 37 \\
 recomputed hints equal the transmitted ones & 100 / 100 / 100 \\
 $[2^{F - N}]$ of the full-order basis of Proposition~\ref{prop:tate} is the verifier's basis & 100 / 100 / 100 \\
 compressed round trip, verify, decompress and verify & 100 / 100 / 100 \\
-decompressed matrix exact; else differs in bit $\ers + 1$ only & 14 / 14 / 13; 86 / 86 / 87 \\
+%decompressed matrix exact; else differs in bit $\ers + 1$ only & 14 / 14 / 13; 86 / 86 / 87 \\
+decompressed matrix equals the signer's & 100 / 100 / 100 \\
 Tate on the verifier's bases determines $\det \Mm$ modulo $2^{\ers}$, any $m$ & 0 / 0 / 0 \\
 one Tate ladder on the full-order bases, $m = \lceil (F + g)/2 \rceil$; $m$ one less & 100 / 100 / 100; 0 / 0 / 0 \\
 \bottomrule

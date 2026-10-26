@@ -1,6 +1,7 @@
 //! The compressed signature: three of the four entries of the basis-change
 //! matrix, the fourth recovered from two Weil pairings the verifier can
-//! compute anyway, every field packed at its own bit width.
+//! compute anyway, every field packed at its bit width. Compressing then
+//! decompressing gives back the signer's signature exactly.
 //!
 //! **This format is not in the SQIsign specification.** It is the P21
 //! method of eclipse-rs carried to SQIsign round 3.
@@ -18,14 +19,21 @@
 //! `det M = y + 2^RESPONSE_BITS u (mod 2^t)` with `u` in `{1, 3}`. So two
 //! pairings and one discrete logarithm give `det M` modulo
 //! `2^(RESPONSE_BITS + 1)` outright, as `y + 2^RESPONSE_BITS`, and only bit
-//! `RESPONSE_BITS + 1` of it is free. The isogeny depends on the entries
-//! modulo `2^RESPONSE_BITS` only, but the chain that computes it consumes
-//! the points `P'`, `Q'` themselves, and its acceptance depends on bit
-//! `RESPONSE_BITS` of the entries while bit `RESPONSE_BITS + 1` of every
-//! entry is free (measured on generated signatures against this verifier
-//! and the reference). So the format carries each transmitted entry modulo
-//! `2^(RESPONSE_BITS + 1)`, computes the dropped one to that modulus, and
-//! leaves bit `RESPONSE_BITS + 1` of every entry zero.
+//! `RESPONSE_BITS + 1` of it is free. The dropped entry is therefore
+//! recovered modulo `2^(RESPONSE_BITS + 1)` from the other three, and its
+//! top bit, bit `RESPONSE_BITS + 1`, is transmitted.
+//!
+//! The signer normalises the matrix (the verifier's
+//! `check_canonical_basis_change_matrix`): the first entry in wire order
+//! that is neither `0` nor `2^(RESPONSE_BITS + 1)`, that is, whose low
+//! `RESPONSE_BITS + 1` bits are not all zero, has its top bit zero. That
+//! entry is `m00` or `m01` (the pivot is odd), never the dropped one, and
+//! the decoder identifies it from the low bits as the encoder does. So the
+//! format transmits the low `RESPONSE_BITS + 1` bits of the three entries
+//! and three top bits: that of the dropped entry and those of the two
+//! transmitted entries other than the normalising one. `compress` returns
+//! `None` for a matrix the normal-form check rejects, and on every other
+//! signature `decompress` returns the signer's signature.
 //!
 //! # The format
 //!
@@ -35,23 +43,24 @@
 //! ```text
 //! field       bits               content
 //! A_aux       2 fp_bits          real then imaginary part, each in [0, p)
-//! m00, m01    RESPONSE_BITS + 1  the first row of the matrix
-//! m_var       RESPONSE_BITS + 1  m10 if m00 is odd, else m11
+//! m00, m01    RESPONSE_BITS + 1  the low bits of the first row
+//! m_var       RESPONSE_BITS + 1  the low bits of m10 if m00 is odd, else of m11
+//! top         3                  bit RESPONSE_BITS + 1 of the dropped entry, then of
+//!                                the two transmitted entries other than the
+//!                                normalising one, in wire order
 //! chl         CHALLENGE_BITS     the challenge scalar
 //! hint_aux    8                  as in the standard format
 //! hint_chall  8                  as in the standard format
 //! padding     0 to 7             zero, to a byte boundary
 //! ```
 //!
-//! with `fp_bits = ceil(log2 p)`: `2 fp_bits + 3 (RESPONSE_BITS + 1) +
-//! CHALLENGE_BITS + 16` bits, 174 / 266 / 352 bytes against 200 / 306 /
+//! with `fp_bits = ceil(log2 p)`: `2 fp_bits + 3 (RESPONSE_BITS + 1) + 3 +
+//! CHALLENGE_BITS + 16` bits, 174 / 267 / 352 bytes against 200 / 306 /
 //! 406. The decoder rejects a wrong length, a coordinate at or above `p`,
 //! a non-zero padding bit and two even pivots. The verifier recovers the
-//! dropped entry modulo `2^(RESPONSE_BITS + 1)` from `det M` to that
-//! modulus and the other three (the pivot is odd, the determinant being
-//! odd), and runs the standard verification on the result. The recovery
-//! costs two Weil pairings and one variable-base discrete logarithm at
-//! `2^t`.
+//! dropped entry, sets its top bit from the string, and runs the standard
+//! verification on the result. The recovery costs two Weil pairings and
+//! one variable-base discrete logarithm at `2^t`.
 
 use crate::ec::pairing::{fp2_dlog_2e, weil};
 use crate::ec::{EcBasis, EcCurve, MAX_ORDER_WORDS};
@@ -71,7 +80,7 @@ pub const fn entry_bits(params: &VerifyParams) -> usize {
 
 /// Bits of a compressed signature before the padding.
 pub const fn compressed_bits(params: &VerifyParams) -> usize {
-    2 * params.fp_bits as usize + 3 * entry_bits(params) + params.challenge_bits as usize + 16
+    2 * params.fp_bits as usize + 3 * entry_bits(params) + 3 + params.challenge_bits as usize + 16
 }
 
 /// Encoded length of a compressed signature at these parameters.
@@ -87,13 +96,15 @@ pub const MAX_COMPRESSED_BYTES: usize = compressed_bytes(&level5());
 pub struct CompressedSignature<L: Prime> {
     /// Montgomery coefficient of the auxiliary curve.
     pub e_aux_a: Fp2<L>,
-    /// `M_00 mod 2^(RESPONSE_BITS + 1)`.
+    /// `M_00`, below `2^(RESPONSE_BITS + 2)`.
     pub m00: Scalar,
-    /// `M_01 mod 2^(RESPONSE_BITS + 1)`.
+    /// `M_01`, below `2^(RESPONSE_BITS + 2)`.
     pub m01: Scalar,
-    /// `M_10` when `M_00` is odd, `M_11` otherwise, modulo
-    /// `2^(RESPONSE_BITS + 1)`.
+    /// `M_10` when `M_00` is odd, `M_11` otherwise, below
+    /// `2^(RESPONSE_BITS + 2)`.
     pub m_var: Scalar,
+    /// Bit `RESPONSE_BITS + 1` of the dropped entry.
+    pub top: u8,
     /// The challenge scalar.
     pub chall_coeff: Scalar,
     /// Basis hint of the auxiliary curve.
@@ -189,6 +200,17 @@ fn set_bit(x: &mut Scalar, k: u32, v: u8) {
     x[(k / 64) as usize] |= ((v & 1) as u64) << (k % 64);
 }
 
+fn bit_at(x: &Scalar, k: u32) -> u8 {
+    ((x[(k / 64) as usize] >> (k % 64)) & 1) as u8
+}
+
+/// Whether `m00`, the first entry in wire order, is the normalising one
+/// (its low `t = RESPONSE_BITS + 1` bits are not all zero); otherwise it
+/// is `m01`.
+fn m00_normalises(m00: &Scalar, t: u32) -> bool {
+    reduced(m00, t).iter().any(|w| *w != 0)
+}
+
 // ---- bit strings -------------------------------------------------------------
 
 #[inline]
@@ -243,55 +265,63 @@ impl Bits<'_> {
 
 // ---- compression -----------------------------------------------------------
 
-/// Compress a signature: three entries modulo `2^(RESPONSE_BITS + 1)`.
-/// `None` if the matrix has an even determinant (not a signature).
+/// Compress a signature: three entries and the top bit of the fourth.
+/// `None` if the matrix has an even determinant or fails the verifier's
+/// normal-form check (not a signature).
 pub fn compress<L: FpBackend>(
     params: &VerifyParams,
     sig: &Signature<L>,
 ) -> Option<CompressedSignature<L>> {
-    let t = params.response_bits + 1;
+    let r = params.response_bits;
     let m = &sig.mat_bchall_can_to_bchall;
     let det_odd = (m[0][0][0] & m[1][1][0] ^ m[0][1][0] & m[1][0][0]) & 1 == 1;
-    if !det_odd {
+    if !det_odd || !check_canonical_basis_change_matrix(params, sig) {
         return None;
     }
-    let m_var = if m[0][0][0] & 1 == 1 {
-        &m[1][0]
+    let (m_var, dropped) = if m[0][0][0] & 1 == 1 {
+        (&m[1][0], &m[1][1])
     } else {
-        &m[1][1]
+        (&m[1][1], &m[1][0])
     };
     Some(CompressedSignature {
         e_aux_a: sig.e_aux_a.clone(),
-        m00: reduced(&m[0][0], t),
-        m01: reduced(&m[0][1], t),
-        m_var: reduced(m_var, t),
+        m00: m[0][0],
+        m01: m[0][1],
+        m_var: *m_var,
+        top: bit_at(dropped, r + 1),
         chall_coeff: sig.chall_coeff,
         hint_aux: sig.hint_aux,
         hint_chall: sig.hint_chall,
     })
 }
 
-/// The matrix from the three transmitted entries and the determinant
-/// modulo `2^(RESPONSE_BITS + 1)`. The dropped entry comes out to that
-/// modulus; bit `RESPONSE_BITS + 1` of every entry is zero. `None` if the
+/// The matrix from the three transmitted entries, the determinant modulo
+/// `2^(RESPONSE_BITS + 1)` and the dropped entry's top bit. `None` if the
 /// pivot is even.
 fn reconstruct(
     params: &VerifyParams,
     c: &CompressedSignature<impl Prime>,
     det: &Scalar,
 ) -> Option<[[Scalar; 2]; 2]> {
-    let t = params.response_bits + 1;
+    let r = params.response_bits;
+    let t = r + 1;
     let (m00, m01, m_var) = (c.m00, c.m01, c.m_var);
-    let (m10, m11) = if m00[0] & 1 == 1 {
+    let (l00, l01, l_var) = (reduced(&m00, t), reduced(&m01, t), reduced(&m_var, t));
+    let mut dropped = if l00[0] & 1 == 1 {
         // m11 = (det + m01 m10) / m00
-        let num = add_mod_2exp(det, &mul_mod_2exp(&m01, &m_var, t), t);
-        (m_var, mul_mod_2exp(&num, &inv_mod_2exp(&m00, t)?, t))
+        let num = add_mod_2exp(det, &mul_mod_2exp(&l01, &l_var, t), t);
+        mul_mod_2exp(&num, &inv_mod_2exp(&l00, t)?, t)
     } else {
         // m10 = (m00 m11 - det) / m01
-        let num = sub_mod_2exp(&mul_mod_2exp(&m00, &m_var, t), det, t);
-        (mul_mod_2exp(&num, &inv_mod_2exp(&m01, t)?, t), m_var)
+        let num = sub_mod_2exp(&mul_mod_2exp(&l00, &l_var, t), det, t);
+        mul_mod_2exp(&num, &inv_mod_2exp(&l01, t)?, t)
     };
-    Some([[m00, m01], [m10, m11]])
+    set_bit(&mut dropped, r + 1, c.top);
+    Some(if l00[0] & 1 == 1 {
+        [[m00, m01], [m_var, dropped]]
+    } else {
+        [[m00, m01], [dropped, m_var]]
+    })
 }
 
 // ---- encoding ------------------------------------------------------------
@@ -317,12 +347,23 @@ pub fn compressed_to_bytes<L: FpBackend>(
     put_bits(out, pos, &enc[fp..2 * fp], fb);
     pos += fb;
     let eb = entry_bits(params);
+    let t = params.response_bits + 1;
     let mut buf = [0u8; 8 * MAX_ORDER_WORDS];
     for x in [&c.m00, &c.m01, &c.m_var] {
-        digits_to_bytes(x, &mut buf[..eb.div_ceil(8)]);
+        digits_to_bytes(&reduced(x, t), &mut buf[..eb.div_ceil(8)]);
         put_bits(out, pos, &buf, eb);
         pos += eb;
     }
+    // the top bits: the dropped entry's, then those of the two transmitted
+    // entries other than the normalising one, in wire order
+    let (o1, o2) = if m00_normalises(&c.m00, t) {
+        (&c.m01, &c.m_var)
+    } else {
+        (&c.m00, &c.m_var)
+    };
+    let top = (c.top & 1) | bit_at(o1, t) << 1 | bit_at(o2, t) << 2;
+    put_bits(out, pos, &[top], 3);
+    pos += 3;
     let cb = params.challenge_bits as usize;
     digits_to_bytes(&c.chall_coeff, &mut buf[..params.challenge_bytes]);
     put_bits(out, pos, &buf, cb);
@@ -335,7 +376,9 @@ pub fn compressed_to_bytes<L: FpBackend>(
     Some(n)
 }
 
-/// Decode: the length, a canonical `A_aux`, zero padding, an odd pivot.
+/// Decode: the length, a canonical `A_aux`, zero padding, an odd pivot;
+/// the three top bits go to the dropped entry and to the two transmitted
+/// entries other than the normalising one.
 pub fn compressed_from_bytes<L: FpBackend>(
     params: &VerifyParams,
     bytes: &[u8],
@@ -354,9 +397,10 @@ pub fn compressed_from_bytes<L: FpBackend>(
     r.pos += fb;
     let e_aux_a = Fp2::<L>::decode(&enc[..2 * fp])?;
     let eb = entry_bits(params);
-    let m00 = r.scalar(eb);
-    let m01 = r.scalar(eb);
-    let m_var = r.scalar(eb);
+    let mut m00 = r.scalar(eb);
+    let mut m01 = r.scalar(eb);
+    let mut m_var = r.scalar(eb);
+    let top = r.scalar(3)[0] as u8;
     let chall_coeff = r.scalar(params.challenge_bits as usize);
     let hint_aux = r.byte();
     let hint_chall = r.byte();
@@ -368,11 +412,20 @@ pub fn compressed_from_bytes<L: FpBackend>(
     if m00[0] & 1 == 0 && m01[0] & 1 == 0 {
         return None;
     }
+    let t = params.response_bits + 1;
+    let (o1, o2) = if m00_normalises(&m00, t) {
+        (&mut m01, &mut m_var)
+    } else {
+        (&mut m00, &mut m_var)
+    };
+    set_bit(o1, t, top >> 1);
+    set_bit(o2, t, top >> 2);
     Some(CompressedSignature {
         e_aux_a,
         m00,
         m01,
         m_var,
+        top: top & 1,
         chall_coeff,
         hint_aux,
         hint_chall,
@@ -426,9 +479,8 @@ fn recover<L: FpBackend + PrimePrecomp>(
         &st.b_aux_can,
     )?;
     // det M = y + 2^RESPONSE_BITS u (mod 2^(RESPONSE_BITS + 2)) with u odd,
-    // so det M = y + 2^RESPONSE_BITS (mod 2^(RESPONSE_BITS + 1)): one bit
-    // more than the isogeny needs, enough to compute bit RESPONSE_BITS of
-    // the dropped entry instead of transmitting it.
+    // so det M = y + 2^RESPONSE_BITS (mod 2^(RESPONSE_BITS + 1)): the
+    // dropped entry modulo 2^(RESPONSE_BITS + 1), its top bit transmitted.
     let r = params.response_bits;
     let mut two_r = [0u64; MAX_ORDER_WORDS];
     set_bit(&mut two_r, r, 1);
@@ -482,9 +534,8 @@ pub fn verify_compressed<L: FpBackend + PrimePrecomp>(
 }
 
 /// The standard signature a compressed one stands for, recovered under
-/// `pk` (bit `RESPONSE_BITS + 1` of every entry zero, which the standard
-/// verifier accepts). `None` if the recovery fails, as the verification
-/// would.
+/// `pk`: the signer's signature. `None` if the recovery fails, as the
+/// verification would.
 pub fn decompress<L: FpBackend + PrimePrecomp>(
     params: &VerifyParams,
     pk: &PublicKey<L>,

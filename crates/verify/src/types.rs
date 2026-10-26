@@ -14,7 +14,7 @@ use crate::sqisign::{
     self, PreparedPublicKey, VerifyParams, MAX_PUBLICKEY_BYTES, MAX_SIGNATURE_BYTES,
 };
 use crate::Error;
-use hybrid_array::typenum::{Unsigned, U129, U169, U174, U200, U266, U306, U352, U406, U83};
+use hybrid_array::typenum::{Unsigned, U129, U169, U174, U200, U267, U306, U352, U406, U83};
 use hybrid_array::{Array, ArraySize};
 
 /// A NIST security level of SQIsign round 3: the prime with the level's
@@ -49,7 +49,7 @@ impl Level for P500_27 {
     type PkLen = U129;
     type SigLen = U306;
     const SK_BYTES: usize = 417;
-    type CompressedLen = U266;
+    type CompressedLen = U267;
 }
 
 impl Level for P664_17 {
@@ -63,7 +63,7 @@ impl Level for P664_17 {
 
 // The compressed lengths are the format's bit count rounded up to bytes.
 const _: () = assert!(U174::USIZE == compressed::compressed_bytes(&sqisign::level1()));
-const _: () = assert!(U266::USIZE == compressed::compressed_bytes(&sqisign::level3()));
+const _: () = assert!(U267::USIZE == compressed::compressed_bytes(&sqisign::level3()));
 const _: () = assert!(U352::USIZE == compressed::compressed_bytes(&sqisign::level5()));
 
 /// NIST level I: `p = 3 * 2^324 - 1`, 83-byte keys, 200-byte signatures.
@@ -239,9 +239,9 @@ pub fn verify_bytes_prepared<L: Level>(
     }
 }
 
-/// A compressed signature (three matrix entries, the fourth recovered from
-/// two pairings, every field at its bit width; [`crate::compressed`]),
-/// 174 / 266 / 352 bytes at levels I / III / V.
+/// A compressed signature (three matrix entries and the top bit of the
+/// fourth, which two pairings recover, every field at its bit width;
+/// [`crate::compressed`]), 174 / 267 / 352 bytes at levels I / III / V.
 pub struct CompressedSignature<L: Level> {
     inner: compressed::CompressedSignature<L>,
 }
@@ -288,8 +288,8 @@ impl<L: Level> CompressedSignature<L> {
         Array::try_from(&buf[..n]).expect("invariant: the level's encoded length")
     }
 
-    /// The standard signature this one stands for, recovered under `pk`
-    /// (equal to the signer's up to the free top bit of each entry).
+    /// The standard signature this one stands for, recovered under `pk`:
+    /// the signer's signature.
     pub fn decompress(&self, pk: &PublicKey<L>) -> Result<Signature<L>, Error> {
         compressed::decompress(&L::PARAMS, &pk.inner, &self.inner)
             .map(Signature::from_inner)
@@ -298,12 +298,14 @@ impl<L: Level> CompressedSignature<L> {
 }
 
 impl<L: Level> Signature<L> {
-    /// The compressed form: three matrix entries, the fields bit-packed.
-    pub fn compress(&self) -> CompressedSignature<L> {
-        CompressedSignature {
-            inner: compressed::compress(&L::PARAMS, &self.inner)
-                .expect("invariant: a signature's matrix has an odd determinant"),
-        }
+    /// The compressed form: three matrix entries and the top bit of the
+    /// fourth, the fields bit-packed. `Err(Error::InvalidSignature)` if the
+    /// matrix fails the verifier's checks (an even determinant or not in
+    /// normal form), which no signer's signature does.
+    pub fn compress(&self) -> Result<CompressedSignature<L>, Error> {
+        compressed::compress(&L::PARAMS, &self.inner)
+            .map(|inner| CompressedSignature { inner })
+            .ok_or(Error::InvalidSignature)
     }
 }
 
