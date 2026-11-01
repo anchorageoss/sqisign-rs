@@ -38,14 +38,9 @@ use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N};
 use crate::hd::profile::{NoProfiler, Profiler, SLOT_PLAIN_CODOMAIN, SLOT_PLAIN_PUSHES};
 use crate::hd::structure::ThetaStructureDim4;
 
-/// Doubling-to-image cost ratio fed to [`optimised_strategy`]. Measured
-/// post-Phase-7 at Level 1 (`tests/hd_primitive_bench.rs`): one dim-4 doubling
-/// ≈ 5.7 µs, one isogeny image ≈ 3.6 µs, so a doubling costs ≈ 1.6 image
-/// evaluations. (Phase 7's batch inversion made `from_kernel`/`image` cheaper
-/// relative to doubling; the previous `1.0` assumed they were equal and so
-/// over-spent on doublings.) `from_kernel` is a fixed per-step cost and does not
-/// enter the doubling/image trade-off.
-pub(crate) const STRATEGY_MUL_C: f64 = 1.6;
+/// Doubling-to-image cost ratio fed to [`optimised_strategy`]: in the push slot of the
+/// two-point verifier a doubling is about 1.39 images (15.7 against 11.3 kilocycles).
+pub(crate) const STRATEGY_MUL_C: f64 = 1.4;
 
 /// Optimal `(2,2)`-chain strategy of `n` leaves (Algorithm 60, SIKE spec;
 /// `utilities/strategy.py::optimised_strategy`). Returns the `n - 1` internal
