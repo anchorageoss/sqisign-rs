@@ -66,10 +66,8 @@ impl<L: FpBackend> IsogenyDim4<L> {
         let hsk: [[Fp2<L>; N]; 4] =
             core::array::from_fn(|k| hadamard(&pointwise_square(k8[k].coords())));
 
-        // Plain step: four single-bit kernel directions. The dual null `O`
-        // and the image weights `1/O` up to a common scalar, with no
-        // inversion, when `O` has no zero coordinate; the inversion path
-        // (with its zero handling) otherwise.
+        // Plain step: the dual null and the image weights as products, no inversion,
+        // when no coordinate is zero; the inversion path with its zero handling otherwise.
         let (dual_null, inv_dual_null, dual_null_zero, has_zero_dual) =
             match codomain_dual_null_projective(&hsk) {
                 Some((o, w)) => (o, w, [false; N], false),
@@ -150,13 +148,8 @@ pub fn apply_plain_image<L: FpBackend>(
     ThetaPointDim4::new(a)
 }
 
-/// The plain step's dual null point `O` and image weights with no inversion:
-/// with `O[j] = p_num[j] / p_den[j]` from the spanning tree of the 4-cube
-/// (directions `1, 2, 4, 8`), `O` is taken as `p_num[j] prod_{k != j}
-/// p_den[k]` and the weights as `p_den[j] prod_{k != j} p_num[k]`, that is
-/// `O` and `1/O` up to the common scalars `prod p_den` and `prod p_num`.
-/// `None` when no root spans the cube or some `p_num` is zero (a zero dual
-/// coordinate), where the caller takes the inversion path.
+/// The plain step's dual null `O` and weights `1/O` from the spanning tree of the 4-cube, up
+/// to common scalars (products, no inversion); `None` when no root spans it or a `p_num` is zero.
 #[allow(clippy::type_complexity)]
 fn codomain_dual_null_projective<L: FpBackend>(
     hsk: &[[Fp2<L>; N]; 4],
