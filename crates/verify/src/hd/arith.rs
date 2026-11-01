@@ -20,25 +20,60 @@ use crate::hd::point::THETA_DIM4_N as N;
 #[inline]
 pub fn hadamard<L: FpBackend>(p: &[Fp2<L>; N]) -> [Fp2<L>; N] {
     let mut a = p.clone();
+    hadamard_assign(&mut a);
+    a
+}
+
+/// [`hadamard`] in place: each butterfly `(x, y) <- (x + y, x - y)` with one
+/// temporary and the in-place field operations.
+#[inline]
+pub fn hadamard_assign<L: FpBackend>(a: &mut [Fp2<L>; N]) {
     for stride in [1usize, 2, 4, 8] {
         let mut block = 0;
         while block < N {
             for j in block..block + stride {
-                let u = a[j].clone();
-                let v = a[j + stride].clone();
-                a[j] = u.add(&v);
-                a[j + stride] = u.sub(&v);
+                let (lo, hi) = a.split_at_mut(j + stride);
+                let x = &mut lo[j];
+                let y = &mut hi[0];
+                let mut t = x.clone();
+                t.sub_assign(y);
+                x.add_assign(y);
+                *y = t;
             }
             block += 2 * stride;
         }
     }
-    a
 }
 
 /// Coordinate-wise squaring: `S[k] = P[k]²`.
 #[inline]
 pub fn pointwise_square<L: FpBackend>(p: &[Fp2<L>; N]) -> [Fp2<L>; N] {
-    core::array::from_fn(|k| p[k].sqr())
+    let mut a = p.clone();
+    pointwise_square_assign(&mut a);
+    a
+}
+
+/// [`pointwise_square`] in place.
+#[inline]
+pub fn pointwise_square_assign<L: FpBackend>(a: &mut [Fp2<L>; N]) {
+    for x in a.iter_mut() {
+        x.sqr_assign();
+    }
+}
+
+/// `a[k] <- a[k] * b[k]` for every coordinate.
+#[inline]
+pub fn pointwise_mul_assign<L: FpBackend>(a: &mut [Fp2<L>; N], b: &[Fp2<L>; N]) {
+    for (x, y) in a.iter_mut().zip(b.iter()) {
+        x.mul_assign(y);
+    }
+}
+
+/// `H(S(p))` in place: the squared coordinates, then the Hadamard transform.
+#[inline]
+pub fn to_squared_theta_assign<L: FpBackend>(a: &mut [Fp2<L>; N]) {
+    pointwise_square_assign(a);
+    hadamard_assign(a);
 }
 
 /// Square every coordinate, then apply the Hadamard transform:
@@ -46,7 +81,9 @@ pub fn pointwise_square<L: FpBackend>(p: &[Fp2<L>; N]) -> [Fp2<L>; N] {
 /// used by the doubling formula.
 #[inline]
 pub fn to_squared_theta<L: FpBackend>(p: &[Fp2<L>; N]) -> [Fp2<L>; N] {
-    hadamard(&pointwise_square(p))
+    let mut a = p.clone();
+    to_squared_theta_assign(&mut a);
+    a
 }
 
 /// The translation-by-2-torsion action `(I, χ_J)` on a theta point.

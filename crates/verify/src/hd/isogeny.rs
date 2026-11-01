@@ -32,7 +32,9 @@
 
 use crate::{Fp2, FpBackend};
 
-use crate::hd::arith::{hadamard, pointwise_square};
+use crate::hd::arith::{
+    hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square, to_squared_theta_assign,
+};
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 use crate::hd::structure::ThetaStructureDim4;
 
@@ -123,11 +125,7 @@ impl<L: FpBackend> IsogenyDim4<L> {
         if self.has_zero_dual {
             return None;
         }
-        let mut hs = hadamard(&pointwise_square(p.coords()));
-        for (h, inv) in hs.iter_mut().zip(self.inv_dual_null.iter()) {
-            *h = h.mul(inv);
-        }
-        Some(ThetaPointDim4::new(hadamard(&hs)))
+        Some(apply_plain_image(&self.inv_dual_null, p))
     }
 }
 
@@ -140,11 +138,11 @@ pub fn apply_plain_image<L: FpBackend>(
     inv_dual_null: &[Fp2<L>; N],
     p: &ThetaPointDim4<L>,
 ) -> ThetaPointDim4<L> {
-    let mut hs = hadamard(&pointwise_square(p.coords()));
-    for (h, inv) in hs.iter_mut().zip(inv_dual_null.iter()) {
-        *h = h.mul(inv);
-    }
-    ThetaPointDim4::new(hadamard(&hs))
+    let mut a = p.coords().clone();
+    to_squared_theta_assign(&mut a);
+    pointwise_mul_assign(&mut a, inv_dual_null);
+    hadamard_assign(&mut a);
+    ThetaPointDim4::new(a)
 }
 
 /// Reconstruct a codomain dual theta null point `O` from kernel points'

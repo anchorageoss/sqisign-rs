@@ -71,7 +71,10 @@ pub mod two_point;
 pub mod uint;
 pub mod wire;
 
-pub use arith::{act_point, hadamard, pointwise_square, to_squared_theta};
+pub use arith::{
+    act_point, hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square,
+    pointwise_square_assign, to_squared_theta, to_squared_theta_assign,
+};
 pub use basis::{canonical_hints, hd_torsion_basis, jac_to_affine, torsion_basis_2f_from_hint};
 pub use canonical::make_canonical;
 pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};

@@ -4,7 +4,10 @@
 
 use crate::{Fp2, FpBackend};
 
-use crate::hd::arith::{hadamard, pointwise_square};
+use crate::hd::arith::{
+    hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square, pointwise_square_assign,
+    to_squared_theta_assign,
+};
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 
 /// A dimension-4 theta structure: its theta null point (the theta point at the
@@ -124,21 +127,14 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
             self.precomputed,
             "ThetaStructureDim4::double called before precompute()"
         );
-        // U_χ(P) = S(H(S(P)))
-        let s1 = pointwise_square(p.coords());
-        let h1 = hadamard(&s1);
-        let mut u = pointwise_square(&h1);
-        // ⊙ 1/H(S(O))
-        for (uk, inv) in u.iter_mut().zip(self.inv_dual_sq.iter()) {
-            *uk = uk.mul(inv);
-        }
-        // H(...)
-        let mut out = hadamard(&u);
-        // ⊙ 1/O
-        for (ok, inv) in out.iter_mut().zip(self.inv_null.iter()) {
-            *ok = ok.mul(inv);
-        }
-        ThetaPointDim4::new(out)
+        // U_χ(P) = S(H(S(P))), then ⊙ 1/H(S(O)), H, ⊙ 1/O, all in place.
+        let mut a = p.coords().clone();
+        to_squared_theta_assign(&mut a);
+        pointwise_square_assign(&mut a);
+        pointwise_mul_assign(&mut a, &self.inv_dual_sq);
+        hadamard_assign(&mut a);
+        pointwise_mul_assign(&mut a, &self.inv_null);
+        ThetaPointDim4::new(a)
     }
 
     /// Iterated doubling: `P ↦ 2ⁿ·P`. Returns `P` unchanged for `n == 0`.
