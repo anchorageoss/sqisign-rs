@@ -29,6 +29,32 @@ pub const SLOT_NAMES: [&str; SLOTS] = [
     "image check: hd_image_check",
 ];
 
+/// The finer slots inside the two setup phases (SECENG-2427, SECENG-2428):
+/// the challenge recovery, the response recovery and the kernel setup,
+/// in the order of the computation. Working evidence; the record's slots
+/// above are unchanged by them.
+pub const SUB_SLOTS: usize = 16;
+
+/// The names of the sub-slots, in order: what each one encloses.
+pub const SUB_NAMES: [&str; SUB_SLOTS] = [
+    "chal: hd_torsion_basis on E_pk",
+    "chal: x-only doublings of the basis and ec_ladder3pt",
+    "chal: the challenge isogeny chain with its image points",
+    "chal: the lifts of the image points",
+    "chal: the Weil pairing(s), the lambda squarings and the sign of phi Q",
+    "chal: P_resc and Q_resc",
+    "resp: hd_torsion_basis on E_com",
+    "resp: the (f - r) doublings to R_com and S_com",
+    "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
+    "resp: recover_response_cd and the images phi R, phi S",
+    "setup: the second hd_torsion_basis on E_com (P_com)",
+    "setup: norm_equation_2f_minus_q (Cornacchia)",
+    "setup: the 4-torsion doublings, make_canonical x2, weil4, the nulls, points_m",
+    "matrices: starting_two_symplectic_matrices and the two gluing base changes",
+    "b_kpp, both halves: lambda, lambda phi S and point_matrix_product_k",
+    "ThetaStructureDim4::new of the start, both halves",
+];
+
 /// A sink for phase timings.
 pub trait Profiler {
     /// The current count of the caller's cycle counter; `0` when unused.
@@ -39,6 +65,9 @@ pub trait Profiler {
     /// Add `cycles` to `slot`.
     #[inline(always)]
     fn add(&mut self, _slot: usize, _cycles: u64) {}
+    /// Add `cycles` to the sub-slot `sub`.
+    #[inline(always)]
+    fn sub_add(&mut self, _sub: usize, _cycles: u64) {}
 }
 
 /// The profiler of the shipped entry points: does nothing.
@@ -52,6 +81,8 @@ pub struct CycleProfiler<'a> {
     clock: &'a dyn Fn() -> u64,
     /// Cycles per slot.
     pub slots: [u64; SLOTS],
+    /// Cycles per sub-slot.
+    pub subs: [u64; SUB_SLOTS],
 }
 
 impl<'a> CycleProfiler<'a> {
@@ -60,6 +91,7 @@ impl<'a> CycleProfiler<'a> {
         Self {
             clock,
             slots: [0; SLOTS],
+            subs: [0; SUB_SLOTS],
         }
     }
 }
@@ -72,5 +104,9 @@ impl Profiler for CycleProfiler<'_> {
     #[inline(always)]
     fn add(&mut self, slot: usize, cycles: u64) {
         self.slots[slot] += cycles;
+    }
+    #[inline(always)]
+    fn sub_add(&mut self, sub: usize, cycles: u64) {
+        self.subs[sub] += cycles;
     }
 }

@@ -20,6 +20,7 @@ use crate::fp::{Fp2, FpBackend};
 
 use super::basis::hd_torsion_basis;
 use super::params::HdLevel;
+use super::profile::{NoProfiler, Profiler};
 
 /// The challenge curve, its rescaled response basis and the pairing value
 /// the response recovery divides by.
@@ -124,6 +125,17 @@ pub fn recover_challenge<L: HdLevel>(
     hq: u32,
     chal: &[u64],
 ) -> Option<ChallengeRecovery<L>> {
+    recover_challenge_prof::<L, NoProfiler>(a_pk, hp, hq, chal, &mut NoProfiler)
+}
+
+/// [`recover_challenge`] with a [`Profiler`]: sub-slots 0 to 5.
+pub fn recover_challenge_prof<L: HdLevel, P: Profiler>(
+    a_pk: &Fp2<L>,
+    hp: u32,
+    hq: u32,
+    chal: &[u64],
+    prof: &mut P,
+) -> Option<ChallengeRecovery<L>> {
     let f = L::TWO_ADIC_EXPONENT;
     let rescale1 = (f - L::LAMBDA - L::R) as usize;
     let rescale2 = L::R as usize;
@@ -132,7 +144,10 @@ pub fn recover_challenge<L: HdLevel>(
     let mut e_pk = EcCurve::from_a(a_pk)?;
     e_pk.normalize_a24();
 
+    let t = prof.now();
     let (p_pk, q_pk) = hd_torsion_basis::<L>(a_pk, hp, hq)?;
+    prof.sub_add(0, prof.now() - t);
+    let t = prof.now();
     let pmq = jac_add(&p_pk, &q_pk.neg(), &e_pk);
     let base = EcBasis::new(p_pk.to_xz(), q_pk.to_xz(), pmq.to_xz());
 
@@ -148,10 +163,14 @@ pub fn recover_challenge<L: HdLevel>(
         &basis_lamb2.pmq,
         &e_pk,
     )?;
+    prof.sub_add(1, prof.now() - t);
+    let t = prof.now();
     let mut images = [basis_rplamb.p.clone(), basis_rplamb.q.clone()];
     let mut e_chal = iso_isogeny_2chain_eval(&e_pk, &kernel, L::LAMBDA + 2, &mut images)?;
     e_chal.normalize();
     e_chal.normalize_a24();
+    prof.sub_add(2, prof.now() - t);
+    let t = prof.now();
 
     let mut xp = images[0].clone();
     let mut xq = images[1].clone();
@@ -159,6 +178,8 @@ pub fn recover_challenge<L: HdLevel>(
     xq.normalize();
     let im_p = curve_point_lift(&xp.x, &e_chal.a);
     let mut im_q = curve_point_lift(&xq.x, &e_chal.a);
+    prof.sub_add(3, prof.now() - t);
+    let t = prof.now();
 
     let im_pmq = jac_add(&im_p, &im_q.neg(), &e_chal);
     let pair_e1 = weil(
@@ -183,8 +204,11 @@ pub fn recover_challenge<L: HdLevel>(
         im_q = im_q.neg();
     }
 
+    prof.sub_add(4, prof.now() - t);
+    let t = prof.now();
     let p_chal_resc = jac_add(&im_p, &jac_scalar_mul(&im_q, chal, &e_chal), &e_chal);
     let q_chal_resc = jac_dbl_iter(&im_q, L::LAMBDA as usize, &e_chal);
+    prof.sub_add(5, prof.now() - t);
 
     Some(ChallengeRecovery {
         e_chal,

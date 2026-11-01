@@ -75,7 +75,7 @@ pub use arith::{act_point, hadamard, pointwise_square, to_squared_theta};
 pub use basis::{canonical_hints, hd_torsion_basis, jac_to_affine, torsion_basis_2f_from_hint};
 pub use canonical::make_canonical;
 pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};
-pub use challenge::{recover_challenge, ChallengeRecovery};
+pub use challenge::{recover_challenge, recover_challenge_prof, ChallengeRecovery};
 pub use dim2::{
     apply_mat4, base_change_theta_dim2, hadamard2, squared_theta2, GluingThetaIsogenyDim2,
     IsogenyChainDim2, ThetaIsogenyDim2, ThetaStructureDim2, TuplePoint,
@@ -97,11 +97,11 @@ pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
-pub use profile::{CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_NAMES};
-pub use response::{recover_response, ResponseRecovery, ResponseScalars};
+pub use profile::{CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_NAMES, SUB_NAMES, SUB_SLOTS};
+pub use response::{recover_response, recover_response_prof, ResponseRecovery, ResponseScalars};
 pub use self_contained::{
-    hd_codomains, hd_image, hd_verify, hd_verify_bool, hd_verify_profiled, hd_verify_with,
-    HdCodomains, HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints,
+    hd_codomains, hd_image, hd_verify, hd_verify_bool, hd_verify_profiled, hd_verify_profiled_full,
+    hd_verify_with, HdCodomains, HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints,
 };
 pub use strategy::{
     optimised_strategy, run_strategy_chain, run_strategy_chain_prof, StrategyChain,

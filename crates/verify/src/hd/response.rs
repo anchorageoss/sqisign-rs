@@ -13,6 +13,7 @@ use super::basis::hd_torsion_basis;
 use super::challenge::{jac_dbl_iter, jac_scalar_mul, ChallengeRecovery};
 use super::hd_verify::recover_response_cd;
 use super::params::HdLevel;
+use super::profile::{NoProfiler, Profiler};
 
 /// The response scalars of a signature, `q` reduced modulo `2^128` (only
 /// `q mod 2^r` enters here).
@@ -52,6 +53,18 @@ pub fn recover_response<L: HdLevel>(
     hcq: u32,
     s: ResponseScalars,
 ) -> Option<ResponseRecovery<L>> {
+    recover_response_prof::<L, NoProfiler>(chal, a_com, hcp, hcq, s, &mut NoProfiler)
+}
+
+/// [`recover_response`] with a [`Profiler`]: sub-slots 6 to 9.
+pub fn recover_response_prof<L: HdLevel, P: Profiler>(
+    chal: &ChallengeRecovery<L>,
+    a_com: &Fp2<L>,
+    hcp: u32,
+    hcq: u32,
+    s: ResponseScalars,
+    prof: &mut P,
+) -> Option<ResponseRecovery<L>> {
     let ResponseScalars { a, b, c_or_d, q } = s;
     // The rule for the dropped scalar inverts a when a is odd and b
     // otherwise; with a and b both even it is not defined, and the
@@ -61,11 +74,16 @@ pub fn recover_response<L: HdLevel>(
     }
     let r = L::R;
     let rescale = (L::TWO_ADIC_EXPONENT - r) as usize;
+    let t = prof.now();
     let (p_com, q_com) = hd_torsion_basis::<L>(a_com, hcp, hcq)?;
+    prof.sub_add(6, prof.now() - t);
+    let t = prof.now();
     let mut e_com = EcCurve::from_a(a_com)?;
     e_com.normalize_a24();
     let r_com = jac_dbl_iter(&p_com, rescale, &e_com);
     let s_com = jac_dbl_iter(&q_com, rescale, &e_com);
+    prof.sub_add(7, prof.now() - t);
+    let t = prof.now();
 
     let r_xz = r_com.to_xz();
     let s_xz = s_com.to_xz();
@@ -77,6 +95,8 @@ pub fn recover_response<L: HdLevel>(
     let mut scal = [0u64; MAX_ORDER_WORDS];
     fp2_dlog_2e(&mut scal[..L::ORDER_WORDS], &w_com, &chal.w_chal.inv(), r)?;
     let k = (scal[0] as u128) | ((scal[1] as u128) << 64);
+    prof.sub_add(8, prof.now() - t);
+    let t = prof.now();
 
     let (c, d) = recover_response_cd(a, b, c_or_d, q, k, r);
 
@@ -98,6 +118,7 @@ pub fn recover_response<L: HdLevel>(
         e_chal,
     );
 
+    prof.sub_add(9, prof.now() - t);
     Some(ResponseRecovery {
         k,
         c,

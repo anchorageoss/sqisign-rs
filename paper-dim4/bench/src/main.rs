@@ -31,8 +31,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use sqisign_verify::hd::{
-    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled, parse_public_key,
-    parse_signature, HdSignature, HdVerifyOptions, KernelPoints, SLOTS, SLOT_NAMES,
+    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled_full, parse_public_key,
+    parse_signature, HdSignature, HdVerifyOptions, KernelPoints, SLOTS, SLOT_NAMES, SUB_NAMES,
+    SUB_SLOTS,
 };
 use sqisign_verify::P324_3;
 
@@ -343,6 +344,22 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
             writeln!(file, "# slot{k} = {n}").unwrap();
         }
     }
+    // The sub-slots (SECENG-2428), working evidence, in a second file.
+    let sub_path = raw_dir.join(format!("{name}-sub.csv"));
+    let sub_new = !sub_path.exists();
+    let mut subf = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&sub_path)
+        .unwrap();
+    if sub_new {
+        writeln!(subf, "# dimension 4 | I | the sub-slots of the setup phase of verify from bytes, {label}; cycles per sub-slot, both half-chains added where a sub-slot runs per half").unwrap();
+        let subs: Vec<String> = (0..SUB_SLOTS).map(|k| format!("sub{k}")).collect();
+        writeln!(subf, "round,iteration,signature,{}", subs.join(",")).unwrap();
+        for (k, n) in SUB_NAMES.iter().enumerate() {
+            writeln!(subf, "# sub{k} = {n}").unwrap();
+        }
+    }
     let clock: &dyn Fn() -> u64 = &cycles;
     for it in 0..a.runs {
         let j = it % set.sigs.len();
@@ -365,9 +382,11 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
             q: s.q,
         };
         let c1 = cycles();
-        let (verdict, _report, slots) = hd_verify_profiled::<P324_3>(&hdsig, &opts, clock);
+        let (verdict, _report, slots, subs) = hd_verify_profiled_full::<P324_3>(&hdsig, &opts, clock);
         let c2 = cycles();
         assert_eq!(verdict, Ok(()));
+        let subcols: Vec<String> = subs.iter().map(|v| v.to_string()).collect();
+        writeln!(subf, "{},{},{},{}", a.round, it, j, subcols.join(",")).unwrap();
         let cols: Vec<String> = slots.iter().map(|v| v.to_string()).collect();
         writeln!(
             file,

@@ -33,7 +33,7 @@ use crate::hd::arith::{hadamard, pointwise_square};
 use crate::hd::basis::hd_torsion_basis;
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
-use crate::hd::challenge::recover_challenge;
+use crate::hd::challenge::recover_challenge_prof;
 use crate::hd::gluing_chain::{
     jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4,
 };
@@ -47,9 +47,9 @@ use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::{product_theta_dim2, ThetaStructureDim1};
 use crate::hd::profile::{
     CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE, SLOT_GLUING, SLOT_IMAGE,
-    SLOT_SETUP,
+    SLOT_SETUP, SUB_SLOTS,
 };
-use crate::hd::response::{recover_response, ResponseScalars};
+use crate::hd::response::{recover_response_prof, ResponseScalars};
 use crate::hd::strategy::{run_strategy_chain_prof, StrategyChain};
 use crate::hd::structure::ThetaStructureDim4;
 use crate::hd::two_point::{
@@ -239,9 +239,12 @@ fn run_half<L: HdLevel, P: Profiler>(
     )?;
     let t0 = prof.now();
     let basis = b_kpp(s, m_full);
+    let tb = prof.now();
+    prof.sub_add(14, tb - t0);
     let start = ThetaStructureDim4::<L>::new(chain.codomain_null().clone());
     let n_plain = (L::E1 - s.m as u32 - 1) as usize;
     let t1 = prof.now();
+    prof.sub_add(15, t1 - tb);
     prof.add(SLOT_SETUP, t1 - t0);
     match kernel_points {
         KernelPoints::Four => {
@@ -353,10 +356,16 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     prof: &mut P,
 ) -> Result<Setup<L>, HdReject> {
     let t0 = prof.now();
-    let chal = recover_challenge::<L>(&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q, sig.chal_limbs)
-        .ok_or(HdReject::ChallengeRecovery)?;
+    let chal = recover_challenge_prof::<L, P>(
+        &sig.a_pk,
+        sig.hint_pk_p,
+        sig.hint_pk_q,
+        sig.chal_limbs,
+        prof,
+    )
+    .ok_or(HdReject::ChallengeRecovery)?;
     let q4 = sig.q.low_u128();
-    let rsp = recover_response::<L>(
+    let rsp = recover_response_prof::<L, P>(
         &chal,
         &sig.a_com,
         sig.hint_com_p,
@@ -367,13 +376,16 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
             c_or_d: sig.resp_c_or_d,
             q: q4,
         },
+        prof,
     )
     .ok_or(HdReject::ResponseRecovery)?;
     let t1 = prof.now();
     prof.add(SLOT_BASIS, t1 - t0);
 
     // 5b.4: norm equation 2^e - q = a1² + a2² (a1 odd, a2 even); m = v₂(a2).
+    let ts = prof.now();
     let (a1u, a2u) = norm_equation_2f_minus_q(L::E_EMBED, &sig.q).ok_or(HdReject::NormEquation)?;
+    prof.sub_add(11, prof.now() - ts);
     let a1 = a1u.low_u128();
     let a2 = a2u.low_u128();
     let m = a2.trailing_zeros() as usize;
@@ -399,6 +411,7 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         .ok_or(HdReject::BadCurve)?;
     let t3 = prof.now();
     prof.add(SLOT_BASIS, t3 - t2);
+    prof.sub_add(10, t3 - t2);
 
     let to4 = L::R - 2;
     let p1_4 = jac_dbl_n::<L>(&rsp.r_com, to4, &e_com);
@@ -423,7 +436,9 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         jac_dbl_n(&rsp.phi_rsp_s_com, k, &e_chal),
     ];
 
-    prof.add(SLOT_SETUP, prof.now() - t3);
+    let t4 = prof.now();
+    prof.add(SLOT_SETUP, t4 - t3);
+    prof.sub_add(12, t4 - t3);
     Ok(Setup {
         e_com,
         e_chal,
@@ -480,7 +495,9 @@ fn self_derived_check<L: HdLevel, P: Profiler>(
     };
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
-    prof.add(SLOT_SETUP, prof.now() - t0);
+    let t1 = prof.now();
+    prof.add(SLOT_SETUP, t1 - t0);
+    prof.sub_add(13, t1 - t0);
 
     let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
         match run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points, prof) {
@@ -561,9 +578,26 @@ pub fn hd_verify_profiled<L: HdLevel>(
     opts: &HdVerifyOptions,
     clock: &dyn Fn() -> u64,
 ) -> (Result<(), HdReject>, HdVerifyReport, [u64; SLOTS]) {
+    let (verdict, report, slots, _) = hd_verify_profiled_full::<L>(sig, opts, clock);
+    (verdict, report, slots)
+}
+
+/// [`hd_verify_profiled`] with the sub-slots of [`crate::hd::profile::SUB_NAMES`]
+/// as a fourth value (SECENG-2428); the slots are the same.
+#[allow(clippy::type_complexity)] // the verdict, the report, the slots and the sub-slots.
+pub fn hd_verify_profiled_full<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (
+    Result<(), HdReject>,
+    HdVerifyReport,
+    [u64; SLOTS],
+    [u64; SUB_SLOTS],
+) {
     let mut prof = CycleProfiler::new(clock);
     let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
-    (verdict, report, prof.slots)
+    (verdict, report, prof.slots, prof.subs)
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).
