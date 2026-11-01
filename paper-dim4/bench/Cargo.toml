@@ -20,6 +20,8 @@ rand = "0.8"
 [features]
 default = []
 round2 = ["dep:sqisign-rs-r2"]
+# The Fp2 operation counts per phase (SECENG-2434); never in a session build.
+op-counters = ["sqisign-verify/op-counters"]
 
 [profile.release]
 lto = "fat"

@@ -30,3 +30,6 @@ default = []
 std = ["sha3/std"]
 # The dimension-4 compact format (experimental, level I): allocates.
 compact = []
+# Counters of the Fp2 operations, read by the phase profiler (SECENG-2434);
+# measurement builds only: one atomic increment per field operation.
+op-counters = []

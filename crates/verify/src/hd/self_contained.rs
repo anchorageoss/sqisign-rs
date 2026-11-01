@@ -45,8 +45,8 @@ use crate::hd::kani::{
 use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::{product_theta_dim2, ThetaStructureDim1};
 use crate::hd::profile::{
-    CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE, SLOT_GLUING, SLOT_IMAGE,
-    SLOT_SETUP, SUB_SLOTS,
+    CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE,
+    SLOT_GLUING, SLOT_IMAGE, SLOT_SETUP, SUB_SLOTS,
 };
 use crate::hd::response::{recover_response_prof, ResponseScalars};
 use crate::hd::strategy::{run_strategy_chain_prof, StrategyChain};
@@ -584,6 +584,19 @@ pub fn hd_verify_profiled_full<L: HdLevel>(
     let mut prof = CycleProfiler::new(clock);
     let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
     (verdict, report, prof.slots, prof.subs)
+}
+
+/// [`hd_verify_profiled_full`] with the whole [`ProfileRecord`]: the slots,
+/// the sub-slots and, with the cargo feature `op-counters`, the `Fp2`
+/// operation counts of each (SECENG-2434).
+pub fn hd_verify_profiled_record<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (Result<(), HdReject>, HdVerifyReport, ProfileRecord) {
+    let mut prof = CycleProfiler::new(clock);
+    let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
+    (verdict, report, prof.record())
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).

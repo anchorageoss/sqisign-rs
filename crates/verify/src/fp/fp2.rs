@@ -5,6 +5,7 @@
 //! Karatsuba (three `Fp` multiplications). Square root follows the
 //! algorithm from ePrint 2024/1563.
 
+use super::opcount::{count, OP_ADD, OP_INV, OP_LEGENDRE, OP_MUL, OP_SMALL, OP_SQR, OP_SQRT};
 use super::{Fp, Fp2, FpBackend};
 use hybrid_array::Array;
 use subtle::{Choice, ConstantTimeEq, ConstantTimeLess};
@@ -82,6 +83,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `self + rhs`.
     #[inline]
     pub fn add(&self, rhs: &Self) -> Self {
+        count(OP_ADD);
         Self {
             re: self.re.add(&rhs.re),
             im: self.im.add(&rhs.im),
@@ -92,6 +94,7 @@ impl<L: FpBackend> Fp2<L> {
     /// for the right-hand side).
     #[inline]
     pub fn add_one(&self) -> Self {
+        count(OP_ADD);
         Self {
             re: self.re.add(&Fp::<L>::one()),
             im: self.im.clone(),
@@ -101,6 +104,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `self - rhs`.
     #[inline]
     pub fn sub(&self, rhs: &Self) -> Self {
+        count(OP_ADD);
         Self {
             re: self.re.sub(&rhs.re),
             im: self.im.sub(&rhs.im),
@@ -110,6 +114,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `-self`.
     #[inline]
     pub fn neg(&self) -> Self {
+        count(OP_ADD);
         Self {
             re: self.re.neg(),
             im: self.im.neg(),
@@ -121,6 +126,7 @@ impl<L: FpBackend> Fp2<L> {
     /// products in the assembly backend.
     #[inline]
     pub fn mul(&self, rhs: &Self) -> Self {
+        count(OP_MUL);
         let mut out = Self::zero();
         L::fp2_mul_pair(&mut out, self, rhs);
         out
@@ -131,6 +137,7 @@ impl<L: FpBackend> Fp2<L> {
     /// y.im`, two `Fp` multiplications instead of three.
     #[inline]
     pub fn sqr(&self) -> Self {
+        count(OP_SQR);
         let mut out = Self::zero();
         L::fp2_sqr(
             &mut out.re.limbs,
@@ -144,18 +151,21 @@ impl<L: FpBackend> Fp2<L> {
     /// `self <- self * rhs` in place (P28).
     #[inline]
     pub fn mul_assign(&mut self, rhs: &Self) {
+        count(OP_MUL);
         L::fp2_mul_assign(self, rhs);
     }
 
     /// `self <- self^2` in place (P28).
     #[inline]
     pub fn sqr_assign(&mut self) {
+        count(OP_SQR);
         L::fp2_sqr_assign(self);
     }
 
     /// `self <- self + rhs` in place (P28).
     #[inline]
     pub fn add_assign(&mut self, rhs: &Self) {
+        count(OP_ADD);
         self.re.add_assign(&rhs.re);
         self.im.add_assign(&rhs.im);
     }
@@ -163,6 +173,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `self <- self - rhs` in place (P28).
     #[inline]
     pub fn sub_assign(&mut self, rhs: &Self) {
+        count(OP_ADD);
         self.re.sub_assign(&rhs.re);
         self.im.sub_assign(&rhs.im);
     }
@@ -170,6 +181,7 @@ impl<L: FpBackend> Fp2<L> {
     /// Multiply by a small (32-bit) integer.
     #[inline]
     pub fn mul_small(&self, val: u32) -> Self {
+        count(OP_SMALL);
         Self {
             re: self.re.mul_small(val),
             im: self.im.mul_small(val),
@@ -179,6 +191,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `self / 2`.
     #[inline]
     pub fn half(&self) -> Self {
+        count(OP_SMALL);
         Self {
             re: self.re.half(),
             im: self.im.half(),
@@ -188,6 +201,7 @@ impl<L: FpBackend> Fp2<L> {
     /// Conjugate `a + bi -> a - bi`.
     #[inline]
     pub fn conjugate(&self) -> Self {
+        count(OP_ADD);
         Self {
             re: self.re.clone(),
             im: self.im.neg(),
@@ -197,6 +211,7 @@ impl<L: FpBackend> Fp2<L> {
     /// Multiplicative inverse: `(a + bi)^-1 = (a - bi) / (a^2 + b^2)`.
     #[inline]
     pub fn inv(&self) -> Self {
+        count(OP_INV);
         // t0 = re^2 + im^2
         let t_re2 = self.re.sqr();
         let t_im2 = self.im.sqr();
@@ -214,6 +229,7 @@ impl<L: FpBackend> Fp2<L> {
     /// checking whether `re^2 + im^2` is a square in Fp.
     #[inline]
     pub fn is_square(&self) -> Choice {
+        count(OP_LEGENDRE);
         let t_re2 = self.re.sqr();
         let t_im2 = self.im.sqr();
         let norm = t_re2.add(&t_im2);
@@ -227,6 +243,7 @@ impl<L: FpBackend> Fp2<L> {
     /// `self` is a square.
     #[inline]
     pub fn sqrt(&self) -> Self {
+        count(OP_SQRT);
         // x0 = delta = sqrt(a.re^2 + a.im^2)
         let re2 = self.re.sqr();
         let im2 = self.im.sqr();
@@ -286,6 +303,7 @@ impl<L: FpBackend> Fp2<L> {
     /// fourth root of unity and uses `ctl` only to pick its sign.
     #[inline]
     pub fn mul_by_i(&self, ctl: Choice) -> Self {
+        count(OP_ADD);
         Self {
             re: Fp::<L>::select(&self.im, &self.im.neg(), ctl),
             im: Fp::<L>::select(&self.re.neg(), &self.re, ctl),

@@ -12,7 +12,10 @@
 //! `dim4-verify-two-check`, `dim4-verify-two-nocheck` (the compact format,
 //! from bytes, at `KernelPoints::Four`, `TwoWithImageCheck`,
 //! `TwoWithoutImageCheck`), `profile-two-check` and `profile-four` (the
-//! verifier's phases through `hd_verify_profiled`, decoding timed here).
+//! verifier's phases through `hd_verify_profiled`, decoding timed here; with
+//! the cargo feature `op-counters` also the `Fp2` operation counts per
+//! phase, SECENG-2434), and `fp2-ops` (the cycles per `Fp2` operation in
+//! this binary, for the floor table of SECENG-2434).
 //! The three dimension-4 verify blocks and the two profile blocks of one
 //! round verify the same signatures: the signature set is seeded by the
 //! round number alone. Timing is `rdtsc` and the wall clock around each
@@ -30,8 +33,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use sqisign_verify::fp::opcount::{self, OPS, OP_NAMES};
+use sqisign_verify::fp::Fp2;
 use sqisign_verify::hd::{
-    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled_full, parse_public_key,
+    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled_record, parse_public_key,
     parse_signature, HdSignature, HdVerifyOptions, KernelPoints, SLOTS, SLOT_NAMES, SUB_NAMES,
     SUB_SLOTS,
 };
@@ -339,7 +344,12 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
     if new {
         writeln!(file, "# dimension 4 | I | phase profile of verify from bytes, {label}; cycles per phase, both half-chains added; total = rdtsc around decode and verify").unwrap();
         let slots: Vec<String> = (0..SLOTS).map(|k| format!("slot{k}")).collect();
-        writeln!(file, "round,iteration,signature,total,decode,{}", slots.join(",")).unwrap();
+        writeln!(
+            file,
+            "round,iteration,signature,total,decode,{}",
+            slots.join(",")
+        )
+        .unwrap();
         for (k, n) in SLOT_NAMES.iter().enumerate() {
             writeln!(file, "# slot{k} = {n}").unwrap();
         }
@@ -360,10 +370,53 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
             writeln!(subf, "# sub{k} = {n}").unwrap();
         }
     }
+    // The Fp2 operation counts per phase (SECENG-2434): all zero unless the
+    // binary has the cargo feature op-counters; the remainder is the whole
+    // call minus the decode and the eight slots.
+    let regions: Vec<String> = ["decode".to_string()]
+        .into_iter()
+        .chain((0..SLOTS).map(|k| format!("slot{k}")))
+        .chain(["total".to_string(), "remainder".to_string()])
+        .collect();
+    let ops_path = raw_dir.join(format!("{name}-ops.csv"));
+    let ops_new = !ops_path.exists();
+    let mut opsf = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&ops_path)
+        .unwrap();
+    if ops_new {
+        writeln!(opsf, "# dimension 4 | I | the Fp2 operation counts per phase of verify from bytes, {label}; counters {}; unmatched = the spans the profiler could not charge", if opcount::ENABLED { "compiled in" } else { "not compiled in, every count zero" }).unwrap();
+        let cols: Vec<String> = regions
+            .iter()
+            .flat_map(|r| OP_NAMES.iter().map(move |o| format!("{r}_{o}")))
+            .collect();
+        writeln!(
+            opsf,
+            "round,iteration,signature,unmatched,{}",
+            cols.join(",")
+        )
+        .unwrap();
+    }
+    let subops_path = raw_dir.join(format!("{name}-subops.csv"));
+    let subops_new = !subops_path.exists();
+    let mut subopsf = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&subops_path)
+        .unwrap();
+    if subops_new {
+        writeln!(subopsf, "# dimension 4 | I | the Fp2 operation counts per sub-slot of verify from bytes, {label}; counters {}", if opcount::ENABLED { "compiled in" } else { "not compiled in, every count zero" }).unwrap();
+        let cols: Vec<String> = (0..SUB_SLOTS)
+            .flat_map(|k| OP_NAMES.iter().map(move |o| format!("sub{k}_{o}")))
+            .collect();
+        writeln!(subopsf, "round,iteration,signature,{}", cols.join(",")).unwrap();
+    }
     let clock: &dyn Fn() -> u64 = &cycles;
     for it in 0..a.runs {
         let j = it % set.sigs.len();
         let (sig, msg) = &set.sigs[j];
+        let o0 = opcount::snapshot();
         let c0 = cycles();
         let s = parse_signature::<P324_3>(sig).unwrap();
         let p = parse_public_key::<P324_3>(&set.pk).unwrap();
@@ -382,11 +435,43 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
             q: s.q,
         };
         let c1 = cycles();
-        let (verdict, _report, slots, subs) = hd_verify_profiled_full::<P324_3>(&hdsig, &opts, clock);
+        let o1 = opcount::snapshot();
+        let (verdict, _report, rec) = hd_verify_profiled_record::<P324_3>(&hdsig, &opts, clock);
         let c2 = cycles();
+        let o2 = opcount::snapshot();
         assert_eq!(verdict, Ok(()));
+        let (slots, subs) = (rec.slots, rec.subs);
         let subcols: Vec<String> = subs.iter().map(|v| v.to_string()).collect();
         writeln!(subf, "{},{},{},{}", a.round, it, j, subcols.join(",")).unwrap();
+        let decode: [u64; OPS] = core::array::from_fn(|k| o1[k] - o0[k]);
+        let total: [u64; OPS] = core::array::from_fn(|k| o2[k] - o0[k]);
+        let remainder: [u64; OPS] = core::array::from_fn(|k| {
+            total[k] - decode[k] - rec.ops.iter().map(|s| s[k]).sum::<u64>()
+        });
+        let mut opcols: Vec<String> = Vec::new();
+        for region in [decode]
+            .iter()
+            .chain(rec.ops.iter())
+            .chain([total, remainder].iter())
+        {
+            opcols.extend(region.iter().map(|v| v.to_string()));
+        }
+        writeln!(
+            opsf,
+            "{},{},{},{},{}",
+            a.round,
+            it,
+            j,
+            rec.unmatched,
+            opcols.join(",")
+        )
+        .unwrap();
+        let subopcols: Vec<String> = rec
+            .sub_ops
+            .iter()
+            .flat_map(|s| s.iter().map(|v| v.to_string()))
+            .collect();
+        writeln!(subopsf, "{},{},{},{}", a.round, it, j, subopcols.join(",")).unwrap();
         let cols: Vec<String> = slots.iter().map(|v| v.to_string()).collect();
         writeln!(
             file,
@@ -400,6 +485,198 @@ fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str
         )
         .unwrap();
     }
+}
+
+// ---- the cost of the field operations in this binary (SECENG-2434) ---------
+
+type F = Fp2<P324_3>;
+
+/// A field element from a seed, by squarings and additions.
+fn elt(seed: u64) -> F {
+    let mut x = F::from_small(seed | 1);
+    let s = F::from_small(seed ^ 0x5555);
+    for _ in 0..40 {
+        x.sqr_assign();
+        x.add_assign(&s);
+    }
+    x
+}
+
+/// A timed loop repeated `reps` times: the median and the minimum of its cycles.
+fn med_min<G: FnMut() -> u64>(reps: usize, mut g: G) -> (u64, u64) {
+    let mut v: Vec<u64> = (0..reps).map(|_| g()).collect();
+    v.sort_unstable();
+    (v[reps / 2], v[0])
+}
+
+/// The cycles per `Fp2` operation in this binary, on the kernels in use: a
+/// loop of `n` operations, each on the previous result (`dep`), the median
+/// and the minimum over the repetitions; `lane16` runs sixteen independent
+/// elements per iteration (the access pattern of the theta coordinates) and
+/// reports cycles per element operation; the composites are the dimension-4
+/// kernels on one point, cycles per call.
+fn fp2_ops(a: &Args, raw_dir: &Path) {
+    use sqisign_verify::hd::arith::{
+        hadamard_assign, pointwise_mul_assign, pointwise_square_assign, to_squared_theta_assign,
+    };
+    use sqisign_verify::hd::field::products_of_others;
+    use sqisign_verify::hd::isogeny::apply_plain_image;
+    use sqisign_verify::hd::{IsogenyDim4, ThetaPointDim4, ThetaStructureDim4};
+    let path = raw_dir.join("fp2-ops.csv");
+    let new = !path.exists();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .unwrap();
+    if new {
+        writeln!(file, "# dimension 4 | I | cycles per Fp2 operation in this binary (fp2-ops): a loop of n operations, median and minimum over reps repetitions, rdtsc; dep = each operation on the previous result; lane16 = sixteen independent elements per iteration, cycles per element operation; composite = the dimension-4 kernels on one point, cycles per call").unwrap();
+        writeln!(
+            file,
+            "round,op,variant,n,reps,median_per_op,min_per_op,backend"
+        )
+        .unwrap();
+    }
+    let backend = sqisign_verify::fp::arithmetic_backend();
+    let reps = 11usize;
+    let mut row = |op: &str, variant: &str, n: u64, per: u64, (med, min): (u64, u64)| {
+        writeln!(
+            file,
+            "{},{},{},{},{},{:.2},{:.2},{}",
+            a.round,
+            op,
+            variant,
+            n,
+            reps,
+            med as f64 / per as f64,
+            min as f64 / per as f64,
+            backend
+        )
+        .unwrap();
+    };
+    let a0 = elt(3);
+    let b = elt(7);
+    macro_rules! dep {
+        ($op:expr, $n:expr, |$x:ident| $body:expr) => {{
+            let n: u64 = $n;
+            let r = med_min(reps, || {
+                let mut $x = a0.clone();
+                let t = cycles();
+                for _ in 0..n {
+                    $body;
+                }
+                black_box(&$x);
+                cycles() - t
+            });
+            row($op, "dep", n, n, r);
+        }};
+    }
+    dep!("add", 2_000_000, |x| x.add_assign(black_box(&b)));
+    dep!("add_out", 2_000_000, |x| x = x.add(black_box(&b)));
+    dep!("sub", 2_000_000, |x| x.sub_assign(black_box(&b)));
+    dep!("neg", 2_000_000, |x| x = x.neg());
+    dep!("mul", 1_000_000, |x| x.mul_assign(black_box(&b)));
+    dep!("mul_out", 1_000_000, |x| x = x.mul(black_box(&b)));
+    dep!("sqr", 1_000_000, |x| x.sqr_assign());
+    dep!("sqr_out", 1_000_000, |x| x = x.sqr());
+    dep!("mul_small", 1_000_000, |x| x = x.mul_small(3));
+    dep!("half", 1_000_000, |x| x = x.half());
+    dep!("inv", 20_000, |x| x = x.inv());
+    dep!("sqrt", 5_000, |x| x = x.sqrt());
+    // The Legendre symbol returns a bit; one addition keeps the chain dependent.
+    dep!("legendre_plus_add", 5_000, |x| {
+        black_box(x.is_square());
+        x.add_assign(black_box(&b))
+    });
+    let p0: [F; 16] = core::array::from_fn(|i| elt(11 + i as u64));
+    let w: [F; 16] = core::array::from_fn(|i| elt(101 + i as u64));
+    macro_rules! lanes {
+        ($op:expr, $variant:expr, $n:expr, $per:expr, |$p:ident| $body:expr) => {{
+            let n: u64 = $n;
+            let r = med_min(reps, || {
+                let mut $p = p0.clone();
+                let t = cycles();
+                for _ in 0..n {
+                    $body;
+                    black_box(&mut $p);
+                }
+                cycles() - t
+            });
+            row($op, $variant, n, n * $per, r);
+        }};
+    }
+    lanes!("add", "lane16", 100_000, 16, |p| for k in 0..16 {
+        p[k].add_assign(&w[k])
+    });
+    lanes!("sub", "lane16", 100_000, 16, |p| for k in 0..16 {
+        p[k].sub_assign(&w[k])
+    });
+    lanes!("mul", "lane16", 100_000, 16, |p| for k in 0..16 {
+        p[k].mul_assign(&w[k])
+    });
+    lanes!("sqr", "lane16", 100_000, 16, |p| for k in 0..16 {
+        p[k].sqr_assign()
+    });
+    lanes!("hadamard16", "composite", 200_000, 1, |p| hadamard_assign(
+        &mut p
+    ));
+    lanes!("pointwise_mul16", "composite", 200_000, 1, |p| {
+        pointwise_mul_assign(&mut p, &w)
+    });
+    lanes!("pointwise_sqr16", "composite", 200_000, 1, |p| {
+        pointwise_square_assign(&mut p)
+    });
+    lanes!("to_squared_theta16", "composite", 200_000, 1, |p| {
+        to_squared_theta_assign(&mut p)
+    });
+    lanes!("products_of_others16", "composite", 50_000, 1, |p| {
+        p = products_of_others(&p)
+    });
+    let mut st = ThetaStructureDim4::<P324_3>::new(ThetaPointDim4::new(w.clone()));
+    assert!(st.precompute());
+    {
+        let n = 50_000u64;
+        let r = med_min(reps, || {
+            let mut pt = ThetaPointDim4::new(p0.clone());
+            let t = cycles();
+            for _ in 0..n {
+                pt = st.double(black_box(&pt));
+            }
+            black_box(&pt);
+            cycles() - t
+        });
+        row("double", "composite", n, n, r);
+        let r = med_min(reps, || {
+            let mut pt = ThetaPointDim4::new(p0.clone());
+            let t = cycles();
+            for _ in 0..n {
+                pt = apply_plain_image(&w, black_box(&pt));
+            }
+            black_box(&pt);
+            cycles() - t
+        });
+        row("image", "composite", n, n, r);
+    }
+    {
+        let n = 5_000u64;
+        let k8: [ThetaPointDim4<P324_3>; 4] = core::array::from_fn(|i| {
+            ThetaPointDim4::new(core::array::from_fn(|j| {
+                elt(1000 + 16 * i as u64 + j as u64)
+            }))
+        });
+        let r = med_min(reps, || {
+            let t = cycles();
+            for _ in 0..n {
+                let iso = IsogenyDim4::from_kernel(black_box(&k8)).unwrap();
+                let mut c = iso.codomain().clone();
+                assert!(c.precompute());
+                black_box(&c);
+            }
+            cycles() - t
+        });
+        row("from_kernel_precompute", "composite", n, n, r);
+    }
+    eprintln!("fp2-ops done, backend {backend}");
 }
 
 // ---- the legacy all-in-one run (the 2026-09-26 format) ----------------------
@@ -420,7 +697,12 @@ fn main() {
     }
     let raw_dir = a.out.join("raw");
     fs::create_dir_all(&raw_dir).unwrap();
-    eprintln!("block {} round {} out {}", a.block, a.round, a.out.display());
+    eprintln!(
+        "block {} round {} out {}",
+        a.block,
+        a.round,
+        a.out.display()
+    );
     match a.block.as_str() {
         "dim2-I" => dim2_level::<sqisign_rs::Level1>("I", &a, &raw_dir),
         "dim2-III" => dim2_level::<sqisign_rs::Level3>("III", &a, &raw_dir),
@@ -462,6 +744,7 @@ fn main() {
             KernelPoints::Four,
             "four points",
         ),
+        "fp2-ops" => fp2_ops(&a, &raw_dir),
         other => panic!("unknown block {other}"),
     }
 }

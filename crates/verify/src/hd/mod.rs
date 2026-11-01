@@ -103,12 +103,14 @@ pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
-pub use profile::{CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_NAMES, SUB_NAMES, SUB_SLOTS};
+pub use profile::{
+    CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_NAMES, SUB_NAMES, SUB_SLOTS,
+};
 pub use response::{recover_response, recover_response_prof, ResponseRecovery, ResponseScalars};
 pub use self_contained::{
     hd_codomains, hd_image, hd_kernel_setup, hd_verify, hd_verify_bool, hd_verify_profiled,
-    hd_verify_profiled_full, hd_verify_with, HdCodomains, HdKernelSetup, HdSignature,
-    HdVerifyOptions, HdVerifyReport, KernelPoints,
+    hd_verify_profiled_full, hd_verify_profiled_record, hd_verify_with, HdCodomains, HdKernelSetup,
+    HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints,
 };
 pub use strategy::{
     optimised_strategy, run_strategy_chain, run_strategy_chain_prof, StrategyChain,

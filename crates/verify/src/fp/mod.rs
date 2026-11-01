@@ -20,6 +20,7 @@ use zeroize::Zeroize;
 #[allow(clippy::module_inception)]
 pub mod fp;
 pub mod fp2;
+pub mod opcount;
 
 /// Run-time choice between the assembly and the portable kernels of the
 /// x86-64 backends.
