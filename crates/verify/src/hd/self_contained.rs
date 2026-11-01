@@ -30,7 +30,6 @@ use super::params::HdLevel;
 use super::uint::U4;
 
 use crate::hd::arith::{hadamard, pointwise_square};
-use crate::hd::basis::hd_torsion_basis;
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
 use crate::hd::challenge::recover_challenge_prof;
@@ -403,15 +402,12 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     let mut e_chal = chal.e_chal.clone();
     e_chal.normalize_a24();
 
-    // The full 2^e-torsion commitment basis (same recovery as recover_response,
-    // before the 2^(e-r) rescaling to R_com); P_com is the stage-6 input.
-    let t2 = prof.now();
-    prof.add(SLOT_SETUP, t2 - t1);
-    let (p_com, _q_com) = hd_torsion_basis::<L>(&sig.a_com, sig.hint_com_p, sig.hint_com_q)
-        .ok_or(HdReject::BadCurve)?;
+    // P_com, the stage-6 input, is the first point of the basis recover_response
+    // derived (the same hinted basis was computed a second time here before
+    // SECENG-2428).
+    let p_com = rsp.p_com.clone();
     let t3 = prof.now();
-    prof.add(SLOT_BASIS, t3 - t2);
-    prof.sub_add(10, t3 - t2);
+    prof.add(SLOT_SETUP, t3 - t1);
 
     let to4 = L::R - 2;
     let p1_4 = jac_dbl_n::<L>(&rsp.r_com, to4, &e_com);

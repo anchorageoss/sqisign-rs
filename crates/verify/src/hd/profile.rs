@@ -47,7 +47,7 @@ pub const SUB_NAMES: [&str; SUB_SLOTS] = [
     "resp: the (f - r) doublings to R_com and S_com",
     "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
     "resp: recover_response_cd and the images phi R, phi S",
-    "setup: the second hd_torsion_basis on E_com (P_com)",
+    "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
     "setup: norm_equation_2f_minus_q (Cornacchia)",
     "setup: the 4-torsion doublings, make_canonical x2, weil4, the nulls, points_m",
     "matrices: starting_two_symplectic_matrices and the two gluing base changes",

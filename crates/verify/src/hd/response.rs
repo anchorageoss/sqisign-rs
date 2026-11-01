@@ -32,6 +32,9 @@ pub struct ResponseRecovery<L: FpBackend> {
     pub c: u128,
     pub d: u128,
     pub w_com: Fp2<L>,
+    /// `P_com`, the first point of the hinted basis of `E_com[2^f]` (the
+    /// stage-6 input).
+    pub p_com: JacPoint<L>,
     pub r_com: JacPoint<L>,
     pub s_com: JacPoint<L>,
     pub phi_rsp_r_com: JacPoint<L>,
@@ -124,6 +127,7 @@ pub fn recover_response_prof<L: HdLevel, P: Profiler>(
         c,
         d,
         w_com,
+        p_com,
         r_com,
         s_com,
         phi_rsp_r_com,
