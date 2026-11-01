@@ -40,7 +40,7 @@
 //! therefore validate the completion by the **symplectic property** (it is a
 //! valid completion of the real kernel blocks for all 5 vectors).
 
-use super::uint::U4;
+use super::uint::{jacobi_small, U4};
 
 // Sum of two squares (Cornacchia), N = 2^f - q = a₁² + a₂², N prime ≡ 1 (mod 4).
 
@@ -56,17 +56,17 @@ pub fn sum_of_two_squares(n: &U4) -> Option<(U4, U4)> {
     }
     let nm1 = n.wrapping_sub(&U4::ONE);
     let exp = nm1.shr(2); // (n - 1) / 4
-    let mut root: Option<U4> = None;
-    let mut b: u64 = 2;
-    while b < 1000 {
-        let t = U4::from_u64(b).pow_mod(&exp, n);
-        if t.mul_mod(&t, n) == nm1 {
-            root = Some(t);
-            break;
-        }
-        b += 1;
+                          // The base: the first b below 1000 with Jacobi symbol (b / n) = -1, so
+                          // that squares and residues cost no exponentiation; for a prime n this
+                          // is the first base whose fourth root of unity squares to -1, as the
+                          // exponentiation of every base in turn found it before. One
+                          // exponentiation; a t with t^2 != -1 (n not prime) is a rejection.
+    let b = (2..1000u64).find(|&b| jacobi_small(b, n) == -1)?;
+    let t = U4::from_u64(b).pow_mod(&exp, n);
+    if t.mul_mod(&t, n) != nm1 {
+        return None;
     }
-    let mut x0 = root?;
+    let mut x0 = t;
     let half = n.shr(1);
     if !half.lt(&x0) {
         x0 = n.wrapping_sub(&x0);
