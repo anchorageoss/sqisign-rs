@@ -24,7 +24,7 @@
 
 use alloc::vec::Vec;
 
-use crate::ec::jacobian::{jac_add, jac_dbl};
+use crate::ec::jacobian::{jac_add, jac_dbl, jac_dbl_ws};
 use crate::ec::{EcCurve, JacPoint};
 use crate::{Fp2, FpBackend};
 
@@ -54,6 +54,91 @@ pub fn jac_mul_u128<L: FpBackend>(p: &JacPoint<L>, k: u128, curve: &EcCurve<L>) 
         }
     }
     acc
+}
+
+/// The doubling chain of a base point `B`: `2^i B` for `i` below `bits`,
+/// computed once (the doublings on the short Weierstrass model, 3M + 5S),
+/// so that every multiple `[k] B` is a sum over the set bits of `k`.
+pub struct FixedBase<L: FpBackend> {
+    /// `pts[i] = 2^i B`.
+    pub pts: Vec<JacPoint<L>>,
+}
+
+impl<L: FpBackend> FixedBase<L> {
+    /// The chain of `b` on `curve`, `bits` entries.
+    pub fn new(b: &JacPoint<L>, bits: usize, curve: &EcCurve<L>) -> Self {
+        let mut pts = Vec::with_capacity(bits);
+        pts.push(b.clone());
+        let (mut acc, mut t, ao3) = b.to_ws(curve);
+        for _ in 1..bits {
+            let (next, u) = jac_dbl_ws(&acc, &t);
+            acc = next;
+            t = u;
+            pts.push(JacPoint::from_ws(&acc, &ao3, curve));
+        }
+        Self { pts }
+    }
+
+    /// `[k] B` by additions of the stored multiples over the set bits of
+    /// `k` (`k` below `2^bits`); the identity for `k = 0` and `B` itself for
+    /// `k = 1`, as `jac_mul_u128`.
+    pub fn mul(&self, k: u128, curve: &EcCurve<L>) -> JacPoint<L> {
+        if k == 0 {
+            return JacPoint::identity();
+        }
+        if k == 1 {
+            return self.pts[0].clone();
+        }
+        let top = 127 - k.leading_zeros() as usize;
+        debug_assert!(top < self.pts.len());
+        let mut acc = self.pts[top].clone();
+        for i in (0..top).rev() {
+            if (k >> i) & 1 == 1 {
+                acc = jac_add(&acc, &self.pts[i], curve);
+            }
+        }
+        acc
+    }
+}
+
+/// [`point_matrix_product_k`] from the fixed-base chains of the four base
+/// points `(P1, P2, R1, S)` with `R2 = [lambda] S`: an entry `w` on `R2`
+/// is the multiple `w lambda mod 2^r` of `S`, the same point since `S`
+/// has order dividing `2^r`.
+#[allow(clippy::too_many_arguments)]
+pub fn point_matrix_product_k_fixed<L: FpBackend>(
+    m: &[[u128; 8]; 8],
+    tables: &[FixedBase<L>; 4],
+    lambda: u128,
+    mask: u128,
+    e1: &EcCurve<L>,
+    e2: &EcCurve<L>,
+) -> [TuplePoint4<L>; 4] {
+    let on_s = |w: u128| w.wrapping_mul(lambda) & mask;
+    core::array::from_fn(|jj| {
+        let j = 4 + jj;
+        let comp0 = jac_add(
+            &tables[0].mul(m[0][j] & mask, e1),
+            &tables[1].mul(m[4][j] & mask, e1),
+            e1,
+        );
+        let comp1 = jac_add(
+            &tables[0].mul(m[1][j] & mask, e1),
+            &tables[1].mul(m[5][j] & mask, e1),
+            e1,
+        );
+        let comp2 = jac_add(
+            &tables[2].mul(m[2][j] & mask, e2),
+            &tables[3].mul(on_s(m[6][j] & mask), e2),
+            e2,
+        );
+        let comp3 = jac_add(
+            &tables[2].mul(m[3][j] & mask, e2),
+            &tables[3].mul(on_s(m[7][j] & mask), e2),
+            e2,
+        );
+        TuplePoint4::new(comp0, comp1, comp2, comp3)
+    })
 }
 
 /// A point on the product fourfold `E1² × E2²` (components `[E1, E1, E2, E2]`).

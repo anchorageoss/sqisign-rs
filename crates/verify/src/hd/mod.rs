@@ -82,7 +82,10 @@ pub use dim2::{
 };
 pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
-pub use gluing_chain::{jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4};
+pub use gluing_chain::{
+    jac_mul_u128, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,
+    KaniGluingChainHalf, TuplePoint4,
+};
 pub use hd_verify::{
     hd_challenge, hd_challenge_len, recover_response_cd, HdReject, MAX_CHAL_BYTES,
 };

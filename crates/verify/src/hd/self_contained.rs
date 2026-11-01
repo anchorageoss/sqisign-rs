@@ -34,7 +34,7 @@ use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
 use crate::hd::challenge::recover_challenge_prof;
 use crate::hd::gluing_chain::{
-    jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4,
+    jac_mul_u128, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
 };
 use crate::hd::hd_verify::HdReject;
 use crate::hd::isogeny::apply_plain_image;
@@ -185,12 +185,11 @@ struct Setup<L: FpBackend> {
     points_m: [JacPoint<L>; 4],
     /// The full `2^e`-torsion commitment basis point `P_com` (stage-6 input `T`).
     p_com: JacPoint<L>,
-    r_com: JacPoint<L>,
-    s_com: JacPoint<L>,
-    phi_r: JacPoint<L>,
-    /// `lambda phi S` with `lambda = q^-1 mod 2^r`, the fourth base point of
-    /// the kernel generators, shared by both half-chains.
-    lamb_s2: JacPoint<L>,
+    /// `lambda = q^-1 mod 2^r`.
+    lambda: u128,
+    /// The doubling chains of `R_com`, `S_com`, `phi R` and `phi S`, the
+    /// base points of the kernel generators, computed once.
+    tables: [FixedBase<L>; 4],
     zero12: [Fp2<L>; 4],
     m0: [[u8; 4]; 4],
     e4: Fp2<L>,
@@ -203,9 +202,7 @@ struct Setup<L: FpBackend> {
 /// `B_Kpp = kernel_basis(M, e1, R_com, S_com, φR, lamb·φS)` (modulus `2^(e1+2)=2^70`).
 fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 4] {
     let mask = (1u128 << L::R) - 1;
-    point_matrix_product_k(
-        m_full, &s.r_com, &s.s_com, &s.phi_r, &s.lamb_s2, mask, &s.e_com, &s.e_chal,
-    )
+    point_matrix_product_k_fixed(m_full, &s.tables, s.lambda, mask, &s.e_com, &s.e_chal)
 }
 
 /// One self-derived half-chain: the gluing chain plus the optimal-strategy plain
@@ -436,10 +433,17 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     prof.add(SLOT_SETUP, t4 - t3);
     prof.sub_add(12, t4 - t3);
 
-    // lambda phi S, once for both half-chains (SECENG-2429).
+    // The doubling chains of the four base points, once for both half-chains
+    // and every scalar (SECENG-2429).
     let mask_r = (1u128 << L::R) - 1;
-    let lamb = inverse_mod_pow2(q4, mask_r);
-    let lamb_s2 = jac_mul_u128(&rsp.phi_rsp_s_com, lamb, &e_chal);
+    let lambda = inverse_mod_pow2(q4, mask_r);
+    let bits = L::R as usize;
+    let tables = [
+        FixedBase::new(&rsp.r_com, bits, &e_com),
+        FixedBase::new(&rsp.s_com, bits, &e_com),
+        FixedBase::new(&rsp.phi_rsp_r_com, bits, &e_chal),
+        FixedBase::new(&rsp.phi_rsp_s_com, bits, &e_chal),
+    ];
     let t5 = prof.now();
     prof.add(SLOT_SETUP, t5 - t4);
     prof.sub_add(14, t5 - t4);
@@ -448,10 +452,8 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         e_chal,
         points_m,
         p_com,
-        r_com: rsp.r_com,
-        s_com: rsp.s_com,
-        phi_r: rsp.phi_rsp_r_com,
-        lamb_s2,
+        lambda,
+        tables,
         zero12,
         m0,
         e4,
@@ -709,7 +711,7 @@ pub fn hd_kernel_setup<L: HdLevel>(sig: &HdSignature<L>) -> Option<HdKernelSetup
         a1: s.a1,
         a2: s.a2,
         m: s.m,
-        lambda: inverse_mod_pow2(s.q4, mask),
+        lambda: s.lambda,
         points_m: s.points_m.clone(),
         zero12: s.zero12.clone(),
         m0: s.m0,
