@@ -213,15 +213,11 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         level.pop();
 
         // Push the remaining saved pairs through the isogeny.
-        let mut pushed: Vec<[ThetaPointDim4<L>; 2]> = Vec::with_capacity(kernel_elements.len());
-        for elt in &kernel_elements {
-            let mut img: [ThetaPointDim4<L>; 2] = core::array::from_fn(|_| elt[0].clone());
-            for (i, slot) in img.iter_mut().enumerate() {
-                *slot = iso.image(&elt[i])?;
+        for elt in kernel_elements.iter_mut() {
+            for slot in elt.iter_mut() {
+                *slot = iso.image(slot)?;
             }
-            pushed.push(img);
         }
-        kernel_elements = pushed;
         let t3 = prof.now();
         prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
         cur = iso.codomain().clone();
