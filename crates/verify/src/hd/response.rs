@@ -53,6 +53,12 @@ pub fn recover_response<L: HdLevel>(
     s: ResponseScalars,
 ) -> Option<ResponseRecovery<L>> {
     let ResponseScalars { a, b, c_or_d, q } = s;
+    // The rule for the dropped scalar inverts a when a is odd and b
+    // otherwise; with a and b both even it is not defined, and the
+    // signature is rejected here, before any inversion.
+    if a & 1 == 0 && b & 1 == 0 {
+        return None;
+    }
     let r = L::R;
     let rescale = (L::TWO_ADIC_EXPONENT - r) as usize;
     let (p_com, q_com) = hd_torsion_basis::<L>(a_com, hcp, hcq)?;
