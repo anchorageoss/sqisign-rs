@@ -19,9 +19,10 @@ use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 pub struct ThetaStructureDim4<L: FpBackend> {
     null_point: ThetaPointDim4<L>,
     precomputed: bool,
-    /// `1 / O[k]` (inverse of the null point coordinates).
+    /// `1 / O[k]` up to a common scalar (the products of the other
+    /// coordinates of the null point).
     inv_null: [Fp2<L>; N],
-    /// `1 / H(S(O))[k]` (inverse of the squared dual null point).
+    /// `1 / H(S(O))[k]` up to a common scalar, likewise.
     inv_dual_sq: [Fp2<L>; N],
 }
 
@@ -93,21 +94,10 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
             return false;
         }
 
-        // Invert O (16) and H(S(O)) (16) together with a *single* field
-        // inversion: concatenate into one 32-element batch (Montgomery's trick).
-        let mut combined: [Fp2<L>; 2 * N] = core::array::from_fn(|i| {
-            if i < N {
-                o[i].clone()
-            } else {
-                hso[i - N].clone()
-            }
-        });
-        let mut scratch1: [Fp2<L>; 2 * N] = core::array::from_fn(|_| Fp2::zero());
-        let mut scratch2: [Fp2<L>; 2 * N] = core::array::from_fn(|_| Fp2::zero());
-        crate::hd::field::batched_inv(&mut combined, &mut scratch1, &mut scratch2);
-
-        self.inv_null = core::array::from_fn(|i| combined[i].clone());
-        self.inv_dual_sq = core::array::from_fn(|i| combined[N + i].clone());
+        // The doubling weights as products of the other coordinates, no
+        // inversion: the doubled point is the same up to a common scalar.
+        self.inv_null = crate::hd::field::products_of_others(o);
+        self.inv_dual_sq = crate::hd::field::products_of_others(&hso);
         self.precomputed = true;
         true
     }

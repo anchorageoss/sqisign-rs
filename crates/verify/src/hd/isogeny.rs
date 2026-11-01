@@ -66,10 +66,15 @@ impl<L: FpBackend> IsogenyDim4<L> {
         let hsk: [[Fp2<L>; N]; 4] =
             core::array::from_fn(|k| hadamard(&pointwise_square(k8[k].coords())));
 
-        // Plain step: four single-bit kernel directions. One batched inversion
-        // yields both the dual null `O` and its inverse `1/O` (image precomp).
+        // Plain step: four single-bit kernel directions. The dual null `O`
+        // and the image weights `1/O` up to a common scalar, with no
+        // inversion, when `O` has no zero coordinate; the inversion path
+        // (with its zero handling) otherwise.
         let (dual_null, inv_dual_null, dual_null_zero, has_zero_dual) =
-            codomain_dual_null_and_inverse(&hsk, &[1, 2, 4, 8])?;
+            match codomain_dual_null_projective(&hsk) {
+                Some((o, w)) => (o, w, [false; N], false),
+                None => codomain_dual_null_and_inverse(&hsk, &[1, 2, 4, 8])?,
+            };
 
         // Codomain (standard) theta null point is the Hadamard of the dual.
         let codomain_null = ThetaPointDim4::new(hadamard(&dual_null));
@@ -143,6 +148,72 @@ pub fn apply_plain_image<L: FpBackend>(
     pointwise_mul_assign(&mut a, inv_dual_null);
     hadamard_assign(&mut a);
     ThetaPointDim4::new(a)
+}
+
+/// The plain step's dual null point `O` and image weights with no inversion:
+/// with `O[j] = p_num[j] / p_den[j]` from the spanning tree of the 4-cube
+/// (directions `1, 2, 4, 8`), `O` is taken as `p_num[j] prod_{k != j}
+/// p_den[k]` and the weights as `p_den[j] prod_{k != j} p_num[k]`, that is
+/// `O` and `1/O` up to the common scalars `prod p_den` and `prod p_num`.
+/// `None` when no root spans the cube or some `p_num` is zero (a zero dual
+/// coordinate), where the caller takes the inversion path.
+#[allow(clippy::type_complexity)]
+fn codomain_dual_null_projective<L: FpBackend>(
+    hsk: &[[Fp2<L>; N]; 4],
+) -> Option<([Fp2<L>; N], [Fp2<L>; N])> {
+    let dirs = [1usize, 2, 4, 8];
+    for j0 in 0..N {
+        if (0..4).all(|k| bool::from(hsk[k][j0].ct_is_zero())) {
+            continue;
+        }
+        let mut covered = [false; N];
+        let mut queue = [0usize; N];
+        let (mut head, mut tail) = (0usize, 0usize);
+        let mut edge_j = [0usize; N];
+        let mut edge_jpk = [0usize; N];
+        let mut edge_k = [0usize; N];
+        let mut ne = 0usize;
+        covered[j0] = true;
+        queue[tail] = j0;
+        tail += 1;
+        while head < tail {
+            let j = queue[head];
+            head += 1;
+            for (k, hsk_k) in hsk.iter().enumerate() {
+                let jpk = j ^ dirs[k];
+                if !covered[jpk] && !bool::from(hsk_k[j].ct_is_zero()) {
+                    edge_j[ne] = j;
+                    edge_jpk[ne] = jpk;
+                    edge_k[ne] = k;
+                    ne += 1;
+                    covered[jpk] = true;
+                    queue[tail] = jpk;
+                    tail += 1;
+                }
+            }
+        }
+        if !covered.iter().all(|&c| c) {
+            continue;
+        }
+        let mut p_num: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
+        let mut p_den: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
+        p_num[j0] = Fp2::one();
+        p_den[j0] = Fp2::one();
+        for e in 0..ne {
+            let (j, jpk, k) = (edge_j[e], edge_jpk[e], edge_k[e]);
+            p_num[jpk] = p_num[j].mul(&hsk[k][jpk]);
+            p_den[jpk] = p_den[j].mul(&hsk[k][j]);
+        }
+        if p_num.iter().any(|x| bool::from(x.ct_is_zero())) {
+            return None;
+        }
+        let others_den = crate::hd::field::products_of_others(&p_den);
+        let others_num = crate::hd::field::products_of_others(&p_num);
+        let o: [Fp2<L>; N] = core::array::from_fn(|j| p_num[j].mul(&others_den[j]));
+        let w: [Fp2<L>; N] = core::array::from_fn(|j| p_den[j].mul(&others_num[j]));
+        return Some((o, w));
+    }
+    None
 }
 
 /// Reconstruct a codomain dual theta null point `O` from kernel points'

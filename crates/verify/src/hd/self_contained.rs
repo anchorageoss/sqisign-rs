@@ -285,12 +285,9 @@ fn eval_f2_dual<L: HdLevel>(
         if cprev.iter().any(|x| bool::from(x.ct_is_zero())) {
             return None;
         }
-        // One batched inversion of the codomain null (Montgomery's trick),
-        // rather than 16 individual inversions per dual step.
-        let mut inv: [Fp2<L>; 16] = cprev.clone();
-        let mut t1: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::<L>::zero());
-        let mut t2: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::<L>::zero());
-        crate::hd::field::batched_inv(&mut inv, &mut t1, &mut t2);
+        // The dual-step weights as products of the other coordinates of the
+        // codomain null (1/C up to a common scalar), no inversion.
+        let inv: [Fp2<L>; 16] = crate::hd::field::products_of_others(cprev);
         let hs = hadamard(&pointwise_square(&coords));
         let prod: [Fp2<L>; 16] = core::array::from_fn(|t| hs[t].mul(&inv[t]));
         coords = hadamard(&prod); // hadamard = true
