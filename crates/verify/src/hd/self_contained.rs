@@ -188,7 +188,9 @@ struct Setup<L: FpBackend> {
     r_com: JacPoint<L>,
     s_com: JacPoint<L>,
     phi_r: JacPoint<L>,
-    phi_s: JacPoint<L>,
+    /// `lambda phi S` with `lambda = q^-1 mod 2^r`, the fourth base point of
+    /// the kernel generators, shared by both half-chains.
+    lamb_s2: JacPoint<L>,
     zero12: [Fp2<L>; 4],
     m0: [[u8; 4]; 4],
     e4: Fp2<L>,
@@ -201,10 +203,8 @@ struct Setup<L: FpBackend> {
 /// `B_Kpp = kernel_basis(M, e1, R_com, S_com, φR, lamb·φS)` (modulus `2^(e1+2)=2^70`).
 fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 4] {
     let mask = (1u128 << L::R) - 1;
-    let lamb = inverse_mod_pow2(s.q4, mask);
-    let lamb_s2 = jac_mul_u128(&s.phi_s, lamb, &s.e_chal);
     point_matrix_product_k(
-        m_full, &s.r_com, &s.s_com, &s.phi_r, &lamb_s2, mask, &s.e_com, &s.e_chal,
+        m_full, &s.r_com, &s.s_com, &s.phi_r, &s.lamb_s2, mask, &s.e_com, &s.e_chal,
     )
 }
 
@@ -435,6 +435,14 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     let t4 = prof.now();
     prof.add(SLOT_SETUP, t4 - t3);
     prof.sub_add(12, t4 - t3);
+
+    // lambda phi S, once for both half-chains (SECENG-2429).
+    let mask_r = (1u128 << L::R) - 1;
+    let lamb = inverse_mod_pow2(q4, mask_r);
+    let lamb_s2 = jac_mul_u128(&rsp.phi_rsp_s_com, lamb, &e_chal);
+    let t5 = prof.now();
+    prof.add(SLOT_SETUP, t5 - t4);
+    prof.sub_add(14, t5 - t4);
     Ok(Setup {
         e_com,
         e_chal,
@@ -443,7 +451,7 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         r_com: rsp.r_com,
         s_com: rsp.s_com,
         phi_r: rsp.phi_rsp_r_com,
-        phi_s: rsp.phi_rsp_s_com,
+        lamb_s2,
         zero12,
         m0,
         e4,
