@@ -62,6 +62,7 @@ mod nqr_tables_p324_3;
 pub mod params;
 pub mod point;
 pub mod product_theta;
+pub mod profile;
 pub mod response;
 pub mod self_contained;
 pub mod strategy;
@@ -96,12 +97,15 @@ pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
+pub use profile::{CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_NAMES};
 pub use response::{recover_response, ResponseRecovery, ResponseScalars};
 pub use self_contained::{
-    hd_codomains, hd_image, hd_verify, hd_verify_bool, hd_verify_with, HdCodomains, HdSignature,
-    HdVerifyOptions, HdVerifyReport, KernelPoints,
+    hd_codomains, hd_image, hd_verify, hd_verify_bool, hd_verify_profiled, hd_verify_with,
+    HdCodomains, HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints,
 };
-pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
+pub use strategy::{
+    optimised_strategy, run_strategy_chain, run_strategy_chain_prof, StrategyChain,
+};
 pub use structure::ThetaStructureDim4;
 pub use two_point::{
     gluing_images_paired, null_fixed_by_pi, permute_pi, run_strategy_chain_two_point,

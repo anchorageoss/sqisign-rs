@@ -45,10 +45,16 @@ use crate::hd::kani::{
 };
 use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::{product_theta_dim2, ThetaStructureDim1};
+use crate::hd::profile::{
+    CycleProfiler, NoProfiler, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE, SLOT_GLUING, SLOT_IMAGE,
+    SLOT_SETUP,
+};
 use crate::hd::response::{recover_response, ResponseScalars};
-use crate::hd::strategy::{run_strategy_chain, StrategyChain};
+use crate::hd::strategy::{run_strategy_chain_prof, StrategyChain};
 use crate::hd::structure::ThetaStructureDim4;
-use crate::hd::two_point::{run_strategy_chain_two_point, run_strategy_chain_two_point_checked};
+use crate::hd::two_point::{
+    run_strategy_chain_two_point_checked_prof, run_strategy_chain_two_point_prof,
+};
 
 /// Upper bound on `m = v_2(a_2)` accepted by [`build_setup`]: the gluing base
 /// change reduces values mod `2^(m+2)` and multiplies them as `i128`, with
@@ -207,14 +213,15 @@ fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 
 /// chain (kernels + codomains). Returns `None` if any step is uncomputable.
 /// The third value is `true` when `kernel_points` was
 /// [`KernelPoints::TwoWithImageCheck`] and the half ran with four points.
-fn run_half<L: HdLevel>(
+fn run_half<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
     m_full: &[[u128; 8]; 8],
     m_glue: &[[i64; 8]; 8],
     dual: bool,
     kernel_points: KernelPoints,
+    prof: &mut P,
 ) -> Option<(KaniGluingChainHalf<L>, StrategyChain<L>, bool)> {
-    let chain = KaniGluingChainHalf::new(
+    let chain = KaniGluingChainHalf::new_prof(
         &s.points_m,
         &s.zero12,
         &s.m0,
@@ -228,24 +235,32 @@ fn run_half<L: HdLevel>(
         dual,
         &s.e_com,
         &s.e_chal,
+        prof,
     )?;
+    let t0 = prof.now();
     let basis = b_kpp(s, m_full);
     let start = ThetaStructureDim4::<L>::new(chain.codomain_null().clone());
     let n_plain = (L::E1 - s.m as u32 - 1) as usize;
+    let t1 = prof.now();
+    prof.add(SLOT_SETUP, t1 - t0);
     match kernel_points {
         KernelPoints::Four => {
             let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
-            let sc = run_strategy_chain(&start, &post, n_plain)?;
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let sc = run_strategy_chain_prof(&start, &post, n_plain, prof)?;
             Some((chain, sc, false))
         }
         KernelPoints::TwoWithImageCheck => {
             let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
-            let (sc, fell_back) = run_strategy_chain_two_point_checked(&start, &post, n_plain)?;
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let (sc, fell_back) =
+                run_strategy_chain_two_point_checked_prof(&start, &post, n_plain, prof)?;
             Some((chain, sc, fell_back))
         }
         KernelPoints::TwoWithoutImageCheck => {
             let pair = [chain.evaluate(&basis[0]), chain.evaluate(&basis[1])];
-            let sc = run_strategy_chain_two_point(&start, &pair, n_plain)?;
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let sc = run_strategy_chain_two_point_prof(&start, &pair, n_plain, prof)?;
             Some((chain, sc, false))
         }
     }
@@ -326,6 +341,18 @@ fn hd_image_check<L: HdLevel>(
 /// Returns `None` if challenge/response recovery fails or the norm equation has
 /// no solution (a malformed/forged `q`).
 fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
+    build_setup_prof(sig, &mut NoProfiler)
+}
+
+/// [`build_setup`] with a [`Profiler`]: the challenge and response recovery
+/// and the commitment basis to `SLOT_BASIS`, the norm equation, the
+/// canonical torsion, the product null point and the chain points to
+/// `SLOT_SETUP`.
+fn build_setup_prof<L: HdLevel, P: Profiler>(
+    sig: &HdSignature<L>,
+    prof: &mut P,
+) -> Result<Setup<L>, HdReject> {
+    let t0 = prof.now();
     let chal = recover_challenge::<L>(&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q, sig.chal_limbs)
         .ok_or(HdReject::ChallengeRecovery)?;
     let q4 = sig.q.low_u128();
@@ -342,6 +369,8 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
         },
     )
     .ok_or(HdReject::ResponseRecovery)?;
+    let t1 = prof.now();
+    prof.add(SLOT_BASIS, t1 - t0);
 
     // 5b.4: norm equation 2^e - q = a1² + a2² (a1 odd, a2 even); m = v₂(a2).
     let (a1u, a2u) = norm_equation_2f_minus_q(L::E_EMBED, &sig.q).ok_or(HdReject::NormEquation)?;
@@ -364,8 +393,12 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
 
     // The full 2^e-torsion commitment basis (same recovery as recover_response,
     // before the 2^(e-r) rescaling to R_com); P_com is the stage-6 input.
+    let t2 = prof.now();
+    prof.add(SLOT_SETUP, t2 - t1);
     let (p_com, _q_com) = hd_torsion_basis::<L>(&sig.a_com, sig.hint_com_p, sig.hint_com_q)
         .ok_or(HdReject::BadCurve)?;
+    let t3 = prof.now();
+    prof.add(SLOT_BASIS, t3 - t2);
 
     let to4 = L::R - 2;
     let p1_4 = jac_dbl_n::<L>(&rsp.r_com, to4, &e_com);
@@ -390,6 +423,7 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
         jac_dbl_n(&rsp.phi_rsp_s_com, k, &e_chal),
     ];
 
+    prof.add(SLOT_SETUP, prof.now() - t3);
     Ok(Setup {
         e_com,
         e_chal,
@@ -416,26 +450,29 @@ type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>, bool);
 /// Run both independent half-chains (F1, F2_dual). Serial by default; with the
 /// `parallel` feature, on two threads (see below). Either way the results are
 /// bit-identical - the halves do not interact until the middle-codomain match.
-fn run_both_halves<L: HdLevel>(
+fn run_both_halves<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
     m1: &[[u128; 8]; 8],
     mg1: &[[i64; 8]; 8],
     m2: &[[u128; 8]; 8],
     mg2: &[[i64; 8]; 8],
     kernel_points: KernelPoints,
+    prof: &mut P,
 ) -> Option<(HalfResult<L>, HalfResult<L>)> {
-    let r1 = run_half(s, m1, mg1, false, kernel_points)?;
-    let r2 = run_half(s, m2, mg2, true, kernel_points)?;
+    let r1 = run_half(s, m1, mg1, false, kernel_points, prof)?;
+    let r2 = run_half(s, m2, mg2, true, kernel_points, prof)?;
     Some((r1, r2))
 }
 
 /// Self-derive both half-chains, then run stages 5 (middle-codomain match) and
 /// 6 (HD-image). Accept only if BOTH pass.
-fn self_derived_check<L: HdLevel>(
+fn self_derived_check<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
     opts: &HdVerifyOptions,
+    prof: &mut P,
 ) -> (Result<(), HdReject>, HdVerifyReport) {
     let none = HdVerifyReport::default();
+    let t0 = prof.now();
     let mask = (1u128 << L::R) - 1;
     let (m1, m2) = match starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask) {
         Some(m) => m,
@@ -443,9 +480,10 @@ fn self_derived_check<L: HdLevel>(
     };
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
+    prof.add(SLOT_SETUP, prof.now() - t0);
 
     let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
-        match run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points) {
+        match run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points, prof) {
             Some(r) => r,
             None => return (Err(HdReject::ChainFailed), none),
         };
@@ -456,16 +494,22 @@ fn self_derived_check<L: HdLevel>(
     };
 
     // Stage 5: the projective middle-codomain match.
+    let t1 = prof.now();
     let (c1, c2) = match (sc1.last_codomain(), sc2.last_codomain()) {
         (Some(c1), Some(c2)) => (c1, c2),
         _ => return (Err(HdReject::ChainFailed), report),
     };
-    if !middle_codomain_matches(c1, c2) {
+    let matches = middle_codomain_matches(c1, c2);
+    let t2 = prof.now();
+    prof.add(SLOT_COMPARE, t2 - t1);
+    if !matches {
         return (Err(HdReject::MiddleCodomainMismatch), report);
     }
 
     // Stage 6: the HD-image condition F(T) = (±a₁P, ±a₂P, *, 0).
-    if !hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false) {
+    let image_ok = hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false);
+    prof.add(SLOT_IMAGE, prof.now() - t2);
+    if !image_ok {
         return (Err(HdReject::HdImageMismatch), report);
     }
     (Ok(()), report)
@@ -491,11 +535,35 @@ pub fn hd_verify_with<L: HdLevel>(
     sig: &HdSignature<L>,
     opts: &HdVerifyOptions,
 ) -> (Result<(), HdReject>, HdVerifyReport) {
-    let setup = match build_setup(sig) {
+    hd_verify_prof(sig, opts, &mut NoProfiler)
+}
+
+fn hd_verify_prof<L: HdLevel, P: Profiler>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    prof: &mut P,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let setup = match build_setup_prof(sig, prof) {
         Ok(s) => s,
         Err(e) => return (Err(e), HdVerifyReport::default()),
     };
-    self_derived_check(&setup, opts)
+    self_derived_check(&setup, opts, prof)
+}
+
+/// [`hd_verify_with`] timed per phase with the caller's cycle counter
+/// `clock` (SECENG-2424): the verdict, the report, and the cycles of each
+/// slot of [`crate::hd::profile`] (both half-chains added), in the order of
+/// `SLOT_NAMES`. The timing calls sit on the phase boundaries of the
+/// shipped code; the computation is the same. Decoding the wire format is
+/// the caller's and is not in the slots.
+pub fn hd_verify_profiled<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (Result<(), HdReject>, HdVerifyReport, [u64; SLOTS]) {
+    let mut prof = CycleProfiler::new(clock);
+    let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
+    (verdict, report, prof.slots)
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).
@@ -517,8 +585,8 @@ pub fn hd_image<L: HdLevel>(
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
-    let (chain1, sc1, _) = run_half(&s, &m1, &mg1, false, KernelPoints::Four)?;
-    let (chain2, sc2, _) = run_half(&s, &m2, &mg2, true, KernelPoints::Four)?;
+    let (chain1, sc1, _) = run_half(&s, &m1, &mg1, false, KernelPoints::Four, &mut NoProfiler)?;
+    let (chain2, sc2, _) = run_half(&s, &m2, &mg2, true, KernelPoints::Four, &mut NoProfiler)?;
 
     let id = JacPoint::<L>::identity();
     let t4 = TuplePoint4::new(s.p_com.clone(), id.clone(), id.clone(), id);
@@ -545,8 +613,15 @@ pub fn hd_codomains<L: HdLevel>(
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
-    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
-        run_both_halves(&s, &m1, &mg1, &m2, &mg2, opts.kernel_points)?;
+    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) = run_both_halves(
+        &s,
+        &m1,
+        &mg1,
+        &m2,
+        &mg2,
+        opts.kernel_points,
+        &mut NoProfiler,
+    )?;
     let basis1 = b_kpp(&s, &m1);
     let basis2 = b_kpp(&s, &m2);
     Some(HdCodomains {

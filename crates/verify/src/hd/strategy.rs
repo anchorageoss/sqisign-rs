@@ -35,6 +35,7 @@ use crate::{Fp2, FpBackend};
 
 use crate::hd::isogeny::IsogenyDim4;
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N};
+use crate::hd::profile::{NoProfiler, Profiler, SLOT_PLAIN_CODOMAIN, SLOT_PLAIN_PUSHES};
 use crate::hd::structure::ThetaStructureDim4;
 
 /// Doubling-to-image cost ratio fed to [`optimised_strategy`]. Measured
@@ -125,6 +126,19 @@ pub fn run_strategy_chain<L: FpBackend>(
     basis: &[ThetaPointDim4<L>; 4],
     l: usize,
 ) -> Option<StrategyChain<L>> {
+    run_strategy_chain_prof(start, basis, l, &mut NoProfiler)
+}
+
+/// [`run_strategy_chain`] with a [`Profiler`]: the doublings and the images
+/// of the saved bases go to `SLOT_PLAIN_PUSHES`, `IsogenyDim4::from_kernel`
+/// and the next structure's `precompute` to `SLOT_PLAIN_CODOMAIN`. With
+/// [`NoProfiler`] the timing calls are empty.
+pub fn run_strategy_chain_prof<L: FpBackend, P: Profiler>(
+    start: &ThetaStructureDim4<L>,
+    basis: &[ThetaPointDim4<L>; 4],
+    l: usize,
+    prof: &mut P,
+) -> Option<StrategyChain<L>> {
     if l == 0 {
         return Some(StrategyChain {
             kernels: Vec::new(),
@@ -150,6 +164,7 @@ pub fn run_strategy_chain<L: FpBackend>(
     for k in 0..l {
         let mut prev: u32 = level.iter().sum();
         let target = (l - 1 - k) as u32;
+        let t0 = prof.now();
         while prev != target {
             if !cur_ready {
                 return None; // non-suitable null met a required doubling
@@ -163,6 +178,8 @@ pub fn run_strategy_chain<L: FpBackend>(
             kernel_elements.push(next);
             strat_idx += 1;
         }
+        let t1 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t1 - t0);
 
         // The descended top-of-stack is the order-8 kernel of this step.
         let ker = kernel_elements
@@ -170,6 +187,8 @@ pub fn run_strategy_chain<L: FpBackend>(
             .expect("non-empty kernel stack")
             .clone();
         let iso = IsogenyDim4::from_kernel(&ker)?;
+        let t2 = prof.now();
+        prof.add(SLOT_PLAIN_CODOMAIN, t2 - t1);
         kernels.push(ker);
         codomains.push(iso.codomain_null().clone());
         image_precomp.push(iso.inv_dual_null().clone());
@@ -187,8 +206,11 @@ pub fn run_strategy_chain<L: FpBackend>(
             pushed.push(img);
         }
         kernel_elements = pushed;
+        let t3 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
         cur = iso.codomain().clone();
         cur_ready = cur.precompute();
+        prof.add(SLOT_PLAIN_CODOMAIN, prof.now() - t3);
     }
 
     Some(StrategyChain {

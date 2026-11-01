@@ -23,7 +23,10 @@ use crate::{Fp2, FpBackend};
 
 use crate::hd::isogeny::IsogenyDim4;
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N};
-use crate::hd::strategy::{optimised_strategy, run_strategy_chain, StrategyChain, STRATEGY_MUL_C};
+use crate::hd::profile::{NoProfiler, Profiler, SLOT_PLAIN_CODOMAIN, SLOT_PLAIN_PUSHES};
+use crate::hd::strategy::{
+    optimised_strategy, run_strategy_chain_prof, StrategyChain, STRATEGY_MUL_C,
+};
 use crate::hd::structure::ThetaStructureDim4;
 
 /// `PI[a]`: the index `a` with bits 0 and 2 exchanged and bits 1 and 3
@@ -86,11 +89,24 @@ pub fn run_strategy_chain_two_point_checked<L: FpBackend>(
     post: &[ThetaPointDim4<L>; 4],
     l: usize,
 ) -> Option<(StrategyChain<L>, bool)> {
+    run_strategy_chain_two_point_checked_prof(start, post, l, &mut NoProfiler)
+}
+
+/// [`run_strategy_chain_two_point_checked`] with a [`Profiler`].
+pub fn run_strategy_chain_two_point_checked_prof<L: FpBackend, P: Profiler>(
+    start: &ThetaStructureDim4<L>,
+    post: &[ThetaPointDim4<L>; 4],
+    l: usize,
+    prof: &mut P,
+) -> Option<(StrategyChain<L>, bool)> {
     if gluing_images_paired(post) {
         let pair = [post[0].clone(), post[1].clone()];
-        Some((run_strategy_chain_two_point(start, &pair, l)?, false))
+        Some((
+            run_strategy_chain_two_point_prof(start, &pair, l, prof)?,
+            false,
+        ))
     } else {
-        Some((run_strategy_chain(start, post, l)?, true))
+        Some((run_strategy_chain_prof(start, post, l, prof)?, true))
     }
 }
 
@@ -123,6 +139,20 @@ pub fn run_strategy_chain_two_point<L: FpBackend>(
     basis: &[ThetaPointDim4<L>; 2],
     l: usize,
 ) -> Option<StrategyChain<L>> {
+    run_strategy_chain_two_point_prof(start, basis, l, &mut NoProfiler)
+}
+
+/// [`run_strategy_chain_two_point`] with a [`Profiler`], the slots as in
+/// [`run_strategy_chain_prof`](crate::hd::strategy::run_strategy_chain_prof):
+/// the doublings and the images of the saved pairs to `SLOT_PLAIN_PUSHES`,
+/// `IsogenyDim4::from_kernel` and the next structure's `precompute` to
+/// `SLOT_PLAIN_CODOMAIN`.
+pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
+    start: &ThetaStructureDim4<L>,
+    basis: &[ThetaPointDim4<L>; 2],
+    l: usize,
+    prof: &mut P,
+) -> Option<StrategyChain<L>> {
     debug_assert!(
         null_fixed_by_pi(start.null_point()),
         "the gluing codomain null point is not fixed by PI"
@@ -149,6 +179,7 @@ pub fn run_strategy_chain_two_point<L: FpBackend>(
     for k in 0..l {
         let mut prev: u32 = level.iter().sum();
         let target = (l - 1 - k) as u32;
+        let t0 = prof.now();
         while prev != target {
             if !cur_ready {
                 return None;
@@ -162,10 +193,14 @@ pub fn run_strategy_chain_two_point<L: FpBackend>(
             kernel_elements.push(next);
             strat_idx += 1;
         }
+        let t1 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t1 - t0);
 
         // The descended top-of-stack pair gives the order-8 kernel of this step.
         let ker = kernel_from_pair(kernel_elements.last().expect("non-empty kernel stack"));
         let iso = IsogenyDim4::from_kernel(&ker)?;
+        let t2 = prof.now();
+        prof.add(SLOT_PLAIN_CODOMAIN, t2 - t1);
         debug_assert!(
             null_fixed_by_pi(iso.codomain_null()),
             "a codomain null point of the two-point chain is not fixed by PI"
@@ -187,8 +222,11 @@ pub fn run_strategy_chain_two_point<L: FpBackend>(
             pushed.push(img);
         }
         kernel_elements = pushed;
+        let t3 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
         cur = iso.codomain().clone();
         cur_ready = cur.precompute();
+        prof.add(SLOT_PLAIN_CODOMAIN, prof.now() - t3);
     }
 
     Some(StrategyChain {

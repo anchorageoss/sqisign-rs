@@ -1,74 +1,40 @@
-//! One session for the dimension-4 paper: key generation, signing and
-//! verification of SQIsign round 2 and round 3, dimension 2 and dimension 4,
-//! measured by one binary with one method (`rdtsc` cycles and wall time
-//! around each call, medians over a fixed number of runs, seeded
-//! randomness). The round-3 code is the crate in this repository; the
-//! round-2 code is the last round-2 release, `v0.4.31`, pulled from GitHub
-//! as a dependency. The output is Markdown in the format paper-dim4/BENCH.md's session
-//! section uses; the paper's figure scripts read that section.
+//! The dimension-4 paper's session binary (SECENG-2423, SECENG-2424): one
+//! block per invocation, every iteration written as one CSV line, so that a
+//! session script can run the blocks round-robin on one pinned core and a
+//! report script can recompute every statistic from the raw files.
 //!
-//! Also reported: the compact signer's rejection loop (samples and primality
-//! tests per signature, from `compact_sign_stats`) and the peak heap of one
-//! compact verification (a counting allocator around the call).
+//!     dim4-session <block> --out <dir> --round <k> [--runs <n>] [--runs-keygen <n>]
+//!                  [--runs-sign <n>] [--runs-verify <n>] [--sigs <n>] [--seed <s>]
+//!
+//! Blocks: `dim2-I`, `dim2-III`, `dim2-V` (round-3 standard format: keygen,
+//! sign, verify from bytes, verify compressed from bytes), `dim4-keygen`,
+//! `dim4-sign` (with the signer's rejection-loop counts), `dim4-verify-four`,
+//! `dim4-verify-two-check`, `dim4-verify-two-nocheck` (the compact format,
+//! from bytes, at `KernelPoints::Four`, `TwoWithImageCheck`,
+//! `TwoWithoutImageCheck`), `profile-two-check` and `profile-four` (the
+//! verifier's phases through `hd_verify_profiled`, decoding timed here).
+//! The three dimension-4 verify blocks and the two profile blocks of one
+//! round verify the same signatures: the signature set is seeded by the
+//! round number alone. Timing is `rdtsc` and the wall clock around each
+//! call, as in the 2026-09-26 session; the old all-in-one Markdown run is
+//! `legacy`.
+//!
+//! Round-2 rows (the `v0.4.31` crate) are behind the cargo feature `round2`
+//! and are not part of the session.
 
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use std::alloc::{GlobalAlloc, Layout, System};
+use std::fs::{self, File, OpenOptions};
 use std::hint::black_box;
-use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-// ---- a counting allocator, for the peak heap of one verification ---------
-
-struct Counting;
-static CUR: AtomicUsize = AtomicUsize::new(0);
-static PEAK: AtomicUsize = AtomicUsize::new(0);
-
-unsafe impl GlobalAlloc for Counting {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let p = System.alloc(layout);
-        if !p.is_null() {
-            let c = CUR.fetch_add(layout.size(), Relaxed) + layout.size();
-            PEAK.fetch_max(c, Relaxed);
-        }
-        p
-    }
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        CUR.fetch_sub(layout.size(), Relaxed);
-        System.dealloc(ptr, layout)
-    }
-    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        let p = System.realloc(ptr, layout, new_size);
-        if !p.is_null() {
-            if new_size >= layout.size() {
-                let c = CUR.fetch_add(new_size - layout.size(), Relaxed) + new_size - layout.size();
-                PEAK.fetch_max(c, Relaxed);
-            } else {
-                CUR.fetch_sub(layout.size() - new_size, Relaxed);
-            }
-        }
-        p
-    }
-}
-
-#[global_allocator]
-static ALLOC: Counting = Counting;
-
-fn heap_mark() {
-    PEAK.store(CUR.load(Relaxed), Relaxed);
-}
-fn heap_peak_since_mark() -> usize {
-    PEAK.load(Relaxed)
-}
-fn heap_now() -> usize {
-    CUR.load(Relaxed)
-}
-
-fn vm_hwm_kib() -> Option<u64> {
-    let s = std::fs::read_to_string("/proc/self/status").ok()?;
-    let line = s.lines().find(|l| l.starts_with("VmHWM:"))?;
-    line.split_whitespace().nth(1)?.parse().ok()
-}
+use sqisign_verify::hd::{
+    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled, parse_public_key,
+    parse_signature, HdSignature, HdVerifyOptions, KernelPoints, SLOTS, SLOT_NAMES,
+};
+use sqisign_verify::P324_3;
 
 // ---- timing ---------------------------------------------------------------
 
@@ -82,311 +48,401 @@ fn cycles() -> u64 {
     0
 }
 
-struct Stats {
-    runs: usize,
-    median_mcyc: f64,
-    mean_mcyc: f64,
-    min_mcyc: f64,
-    max_mcyc: f64,
-    median_ms: f64,
+/// One raw file: `round,iteration,cycles,ns,extra` per line, appended.
+struct Raw {
+    file: File,
+    round: u32,
+    iteration: u64,
 }
 
-fn measure<F: FnMut()>(runs: usize, mut f: F) -> Stats {
-    let mut cyc = Vec::with_capacity(runs);
-    let mut ns = Vec::with_capacity(runs);
-    for _ in 0..runs {
-        let t0 = Instant::now();
-        let c0 = cycles();
-        f();
-        let c1 = cycles();
-        let t1 = t0.elapsed();
-        cyc.push((c1 - c0) as f64 / 1e6);
-        ns.push(t1.as_secs_f64() * 1e3);
-    }
-    let mut sc = cyc.clone();
-    sc.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let mut sn = ns.clone();
-    sn.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let med = |v: &Vec<f64>| {
-        let n = v.len();
-        if n % 2 == 1 {
-            v[n / 2]
-        } else {
-            (v[n / 2 - 1] + v[n / 2]) / 2.0
+impl Raw {
+    fn open(dir: &Path, name: &str, header: &str, round: u32) -> Raw {
+        let path = dir.join(format!("{name}.csv"));
+        let new = !path.exists();
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .expect("raw file");
+        if new {
+            writeln!(file, "# {header}").unwrap();
+            writeln!(file, "round,iteration,cycles,ns,extra").unwrap();
         }
-    };
-    Stats {
-        runs,
-        median_mcyc: med(&sc),
-        mean_mcyc: cyc.iter().sum::<f64>() / runs as f64,
-        min_mcyc: sc[0],
-        max_mcyc: sc[runs - 1],
-        median_ms: med(&sn),
+        Raw {
+            file,
+            round,
+            iteration: 0,
+        }
+    }
+    fn line(&mut self, cyc: u64, ns: u128, extra: &str) {
+        writeln!(
+            self.file,
+            "{},{},{},{},{}",
+            self.round, self.iteration, cyc, ns, extra
+        )
+        .unwrap();
+        self.iteration += 1;
     }
 }
 
-struct Row {
-    impl_: &'static str,
-    round: u8,
-    dim: u8,
-    level: &'static str,
-    op: &'static str,
-    st: Stats,
+/// Time `f` once: cycles and nanoseconds.
+fn timed<T, F: FnOnce() -> T>(f: F) -> (T, u64, u128) {
+    let t0 = Instant::now();
+    let c0 = cycles();
+    let r = f();
+    let c1 = cycles();
+    let ns = t0.elapsed().as_nanos();
+    (r, c1 - c0, ns)
 }
 
-struct Size {
-    impl_: &'static str,
-    round: u8,
-    dim: u8,
-    level: &'static str,
-    pk: usize,
-    sig: usize,
+/// Repeat `f` `runs` times, one raw line each; `f` returns the extra column.
+fn repeat<F: FnMut() -> String>(raw: &mut Raw, runs: usize, mut f: F) {
+    for _ in 0..runs {
+        let (extra, cyc, ns) = timed(&mut f);
+        raw.line(cyc, ns, &extra);
+    }
 }
 
-const RUNS_KEYGEN: usize = 50;
-const RUNS_SIGN: usize = 50;
-const RUNS_VERIFY: usize = 200;
-const RUNS_COMPACT_SIGN: usize = 100;
-const RUNS_COMPACT_VERIFY: usize = 100;
+// ---- arguments ------------------------------------------------------------
+
+struct Args {
+    block: String,
+    out: PathBuf,
+    round: u32,
+    runs: usize,
+    runs_keygen: usize,
+    runs_sign: usize,
+    runs_verify: usize,
+    sigs: usize,
+    seed: u64,
+}
+
+fn parse_args() -> Args {
+    let mut a = Args {
+        block: String::new(),
+        out: PathBuf::from("session-out"),
+        round: 1,
+        runs: 50,
+        runs_keygen: 13,
+        runs_sign: 13,
+        runs_verify: 50,
+        sigs: 5,
+        seed: 20261101,
+    };
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    let mut i = 0;
+    while i < argv.len() {
+        let v = |i: &mut usize| -> String {
+            *i += 1;
+            argv.get(*i).cloned().expect("value")
+        };
+        match argv[i].as_str() {
+            "--out" => a.out = PathBuf::from(v(&mut i)),
+            "--round" => a.round = v(&mut i).parse().unwrap(),
+            "--runs" => a.runs = v(&mut i).parse().unwrap(),
+            "--runs-keygen" => a.runs_keygen = v(&mut i).parse().unwrap(),
+            "--runs-sign" => a.runs_sign = v(&mut i).parse().unwrap(),
+            "--runs-verify" => a.runs_verify = v(&mut i).parse().unwrap(),
+            "--sigs" => a.sigs = v(&mut i).parse().unwrap(),
+            "--seed" => a.seed = v(&mut i).parse().unwrap(),
+            s if !s.starts_with("--") && a.block.is_empty() => a.block = s.to_string(),
+            s => panic!("unknown argument {s}"),
+        }
+        i += 1;
+    }
+    a
+}
+
+// ---- dimension 2 (the round-3 standard format, this crate) ------------------
+
 const MSG: &[u8] = b"dimension-4 paper session";
 
-const R3: &str = "SQIsign (Rust, this crate)";
-const R2: &str = "SQIsign (Rust, v0.4.31)";
-
-// ---- round 3, dimension 2 (the current crate) -------------------------------
-
-fn r3_level<L: sqisign_rs::SigningLevel>(
-    level: &'static str,
-    rng: &mut StdRng,
-    rows: &mut Vec<Row>,
-    sizes: &mut Vec<Size>,
-) {
+fn dim2_level<L: sqisign_rs::SigningLevel>(level: &str, a: &Args, raw_dir: &Path) {
     use sqisign_rs::{generate, CompressedSignature, PublicKey, Signature};
-    let st = measure(RUNS_KEYGEN, || {
-        let (pk, sk) = generate::<L>(rng);
-        black_box((pk, sk));
+    let mut rng = StdRng::seed_from_u64(a.seed ^ (a.round as u64) ^ (level.len() as u64) << 32);
+    let tag = format!("dim2-{level}");
+    let mut raw = Raw::open(
+        raw_dir,
+        &format!("{tag}-keygen"),
+        &format!("dimension 2 | {level} | keygen (generate)"),
+        a.round,
+    );
+    repeat(&mut raw, a.runs_keygen, || {
+        let kp = generate::<L>(&mut rng);
+        black_box(kp);
+        String::new()
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 2, level, op: "keygen", st });
-    let (pk, sk) = generate::<L>(rng);
+    let (pk, sk) = generate::<L>(&mut rng);
+    let mut raw = Raw::open(
+        raw_dir,
+        &format!("{tag}-sign"),
+        &format!("dimension 2 | {level} | sign (a fresh message each iteration)"),
+        a.round,
+    );
     let mut i = 0u64;
-    let st = measure(RUNS_SIGN, || {
+    repeat(&mut raw, a.runs_sign, || {
         i += 1;
-        let sig = sk.sign(&i.to_le_bytes(), rng).unwrap();
+        let sig = sk.sign(&i.to_le_bytes(), &mut rng).unwrap();
         black_box(sig);
+        String::new()
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 2, level, op: "sign", st });
-    let sig = sk.sign(MSG, rng).unwrap();
+    let sig = sk.sign(MSG, &mut rng).unwrap();
     let pkb = pk.to_bytes();
     let sigb = sig.to_bytes();
-    sizes.push(Size { impl_: R3, round: 3, dim: 2, level, pk: pkb.len(), sig: sigb.len() });
-    let st = measure(RUNS_VERIFY, || {
+    let mut raw = Raw::open(
+        raw_dir,
+        &format!("{tag}-verify"),
+        &format!("dimension 2 | {level} | verify from bytes (standard format)"),
+        a.round,
+    );
+    repeat(&mut raw, a.runs_verify, || {
         let pk = PublicKey::<L>::from_bytes(&pkb).unwrap();
         let sig = Signature::<L>::from_bytes(&sigb).unwrap();
         assert!(pk.verify(MSG, &sig).is_ok());
+        String::new()
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 2, level, op: "verify from bytes", st });
     let cb = sig.compress().to_bytes();
-    let st = measure(RUNS_VERIFY, || {
+    let mut raw = Raw::open(
+        raw_dir,
+        &format!("{tag}-verify-compressed"),
+        &format!("dimension 2 | {level} | verify compressed from bytes"),
+        a.round,
+    );
+    repeat(&mut raw, a.runs_verify, || {
         let pk = PublicKey::<L>::from_bytes(&pkb).unwrap();
         let c = CompressedSignature::<L>::from_bytes(&cb).unwrap();
         assert!(pk.verify_compressed(MSG, &c).is_ok());
+        String::new()
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 2, level, op: "verify compressed from bytes", st });
-    sizes.push(Size { impl_: "SQIsign compressed (Rust, this crate)", round: 3, dim: 2, level, pk: pkb.len(), sig: cb.len() });
 }
 
-// ---- round 3, dimension 4 (the compact format, level I) ---------------------
+// ---- dimension 4 (the compact format, level I) ------------------------------
 
-struct Loop {
-    signatures: usize,
-    samples_mean: f64,
-    samples_median: f64,
-    samples_min: u32,
-    samples_max: u32,
-    tests_mean: f64,
+const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
+const PK_BYTES: usize = 84;
+const SIG_BYTES: usize = 142;
+
+/// A key and `n` signatures of this round, the same in every block of the
+/// round that asks for them.
+struct Set {
+    pk: [u8; PK_BYTES],
+    sigs: Vec<([u8; SIG_BYTES], Vec<u8>)>,
 }
 
-struct Mem {
-    peak_heap_bytes: usize,
-    heap_before: usize,
-    vm_hwm_kib: Option<u64>,
-}
-
-fn r3_compact(rows: &mut Vec<Row>, sizes: &mut Vec<Size>) -> (Loop, Mem) {
-    use sqisign_rs::compact::{compact_keygen, compact_public_key_to_bytes, compact_sign_stats};
+fn signature_set(a: &Args) -> Set {
+    use sqisign_rs::compact::{compact_keygen, compact_public_key_to_bytes, compact_sign};
     use sqisign_rs::mp::ShakeRng;
     use sqisign_rs::sqisign::level1;
-    use sqisign_rs::{CompactPublicKey, CompactSignature, Level1 as P324_3};
-    const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
     let params = level1();
-    let mut r = ShakeRng::new(b"dimension-4 paper session", b"bnc");
-    let level = "I";
-    let st = measure(RUNS_KEYGEN, || {
+    let label = format!("dimension-4 session round {}", a.round);
+    let mut r = ShakeRng::new(label.as_bytes(), b"set");
+    let (pk, sk) = compact_keygen::<P324_3, N>(&params, &mut r).unwrap();
+    let mut pkb = [0u8; PK_BYTES];
+    compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
+    let mut sigs = Vec::with_capacity(a.sigs);
+    for j in 0..a.sigs {
+        let msg = format!("round {} signature {j}", a.round).into_bytes();
+        let mut sig = [0u8; SIG_BYTES];
+        compact_sign::<P324_3, N>(&params, &pk, &sk, &msg, &mut r, &mut sig).unwrap();
+        sigs.push((sig, msg));
+    }
+    Set { pk: pkb, sigs }
+}
+
+fn dim4_keygen(a: &Args, raw_dir: &Path) {
+    use sqisign_rs::compact::compact_keygen;
+    use sqisign_rs::mp::ShakeRng;
+    use sqisign_rs::sqisign::level1;
+    let params = level1();
+    let label = format!("dimension-4 session keygen round {}", a.round);
+    let mut r = ShakeRng::new(label.as_bytes(), b"kgn");
+    let mut raw = Raw::open(
+        raw_dir,
+        "dim4-keygen",
+        "dimension 4 | I | keygen (compact_keygen)",
+        a.round,
+    );
+    repeat(&mut raw, a.runs_keygen, || {
         let kp = compact_keygen::<P324_3, N>(&params, &mut r).unwrap();
         black_box(kp);
+        String::new()
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 4, level, op: "keygen", st });
+}
+
+fn dim4_sign(a: &Args, raw_dir: &Path) {
+    use sqisign_rs::compact::{compact_keygen, compact_sign_stats};
+    use sqisign_rs::mp::ShakeRng;
+    use sqisign_rs::sqisign::level1;
+    let params = level1();
+    let label = format!("dimension-4 session sign round {}", a.round);
+    let mut r = ShakeRng::new(label.as_bytes(), b"sgn");
     let (pk, sk) = compact_keygen::<P324_3, N>(&params, &mut r).unwrap();
-    let mut pkb = [0u8; 84];
-    let pklen = compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
-    let mut sig = [0u8; 142];
+    let mut sig = [0u8; SIG_BYTES];
+    let mut raw = Raw::open(
+        raw_dir,
+        "dim4-sign",
+        "dimension 4 | I | sign (compact_sign_stats, a fresh message each iteration); extra = response samples;primality tests",
+        a.round,
+    );
     let mut i = 0u64;
-    let mut samples: Vec<u32> = Vec::new();
-    let mut tests: Vec<u32> = Vec::new();
-    let st = measure(RUNS_COMPACT_SIGN, || {
+    repeat(&mut raw, a.runs_sign, || {
         i += 1;
         let (_, s) =
-            compact_sign_stats::<P324_3, N>(&params, &pk, &sk, &i.to_le_bytes(), &mut r, &mut sig).unwrap();
-        samples.push(s.response_samples);
-        tests.push(s.primality_tests);
+            compact_sign_stats::<P324_3, N>(&params, &pk, &sk, &i.to_le_bytes(), &mut r, &mut sig)
+                .unwrap();
+        format!("{};{}", s.response_samples, s.primality_tests)
     });
-    rows.push(Row { impl_: R3, round: 3, dim: 4, level, op: "sign", st });
-    let (siglen, _) = compact_sign_stats::<P324_3, N>(&params, &pk, &sk, MSG, &mut r, &mut sig).unwrap();
-    sizes.push(Size { impl_: R3, round: 3, dim: 4, level, pk: pklen, sig: siglen });
-    let pkb = &pkb[..pklen];
-    let sigb = &sig[..siglen];
-    let st = measure(RUNS_COMPACT_VERIFY, || {
-        let pk = CompactPublicKey::<P324_3>::from_bytes(pkb).unwrap();
-        let s = CompactSignature::<P324_3>::from_bytes(sigb).unwrap();
-        assert!(pk.verify_compact(MSG, &s).is_ok());
-    });
-    rows.push(Row { impl_: R3, round: 3, dim: 4, level, op: "verify from bytes", st });
-    // peak heap of one verification
-    let heap_before = heap_now();
-    heap_mark();
-    {
-        let pk = CompactPublicKey::<P324_3>::from_bytes(pkb).unwrap();
-        let s = CompactSignature::<P324_3>::from_bytes(sigb).unwrap();
-        assert!(pk.verify_compact(MSG, &s).is_ok());
-    }
-    let peak = heap_peak_since_mark() - heap_before;
-    let mem = Mem { peak_heap_bytes: peak, heap_before, vm_hwm_kib: vm_hwm_kib() };
-    let mut ss = samples.clone();
-    ss.sort();
-    let n = ss.len();
-    let lp = Loop {
-        signatures: n,
-        samples_mean: samples.iter().map(|&x| x as f64).sum::<f64>() / n as f64,
-        samples_median: if n % 2 == 1 { ss[n / 2] as f64 } else { (ss[n / 2 - 1] + ss[n / 2]) as f64 / 2.0 },
-        samples_min: ss[0],
-        samples_max: ss[n - 1],
-        tests_mean: tests.iter().map(|&x| x as f64).sum::<f64>() / n as f64,
+}
+
+fn dim4_verify(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str) {
+    let set = signature_set(a);
+    let opts = HdVerifyOptions {
+        kernel_points: mode,
     };
-    (lp, mem)
+    let mut raw = Raw::open(
+        raw_dir,
+        name,
+        &format!("dimension 4 | I | verify from bytes, {label} (hd_verify_bytes_with); extra = signature index;fell_back F1;fell_back F2"),
+        a.round,
+    );
+    let mut j = 0usize;
+    repeat(&mut raw, a.runs_verify, || {
+        let (sig, msg) = &set.sigs[j % set.sigs.len()];
+        let (verdict, report) = hd_verify_bytes_with::<P324_3>(sig, &set.pk, msg, &opts);
+        assert_eq!(verdict, Ok(()));
+        let extra = format!(
+            "{};{};{}",
+            j % set.sigs.len(),
+            report.fell_back[0] as u8,
+            report.fell_back[1] as u8
+        );
+        j += 1;
+        extra
+    });
 }
 
-// ---- round 2 (v0.4.31): dimension 2 at three levels, dimension 4 at level I --
-
-macro_rules! r2_level {
-    ($lvl:ty, $name:expr, $rng:expr, $rows:expr, $sizes:expr) => {{
-        use sqisign_rs_r2::{generate, PublicKey, Signature, Verifier};
-        let level: &'static str = $name;
-        let rng: &mut StdRng = $rng;
-        let st = measure(RUNS_KEYGEN, || {
-            let (pk, sk) = generate::<$lvl>(rng);
-            black_box((pk, sk));
-        });
-        $rows.push(Row { impl_: R2, round: 2, dim: 2, level, op: "keygen", st });
-        let (pk, sk) = generate::<$lvl>(rng);
-        let mut i = 0u64;
-        let st = measure(RUNS_SIGN, || {
-            i += 1;
-            let sig = sk.sign(&i.to_le_bytes(), rng).unwrap();
-            black_box(sig);
-        });
-        $rows.push(Row { impl_: R2, round: 2, dim: 2, level, op: "sign", st });
-        let sig = sk.sign(MSG, rng).unwrap();
-        let pkb = pk.to_bytes();
-        let sigb = sig.to_bytes();
-        $sizes.push(Size { impl_: R2, round: 2, dim: 2, level, pk: pkb.len(), sig: sigb.len() });
-        let st = measure(RUNS_VERIFY, || {
-            let pk = PublicKey::<$lvl>::from_bytes(&pkb).unwrap();
-            let sig = Signature::<$lvl>::from_bytes(&sigb).unwrap();
-            assert!(pk.verify(MSG, &sig).is_ok());
-        });
-        $rows.push(Row { impl_: R2, round: 2, dim: 2, level, op: "verify from bytes", st });
-    }};
+/// The phase profile: decoding timed here, the verifier's slots from
+/// `hd_verify_profiled`, the whole call timed around both.
+fn profile(a: &Args, raw_dir: &Path, name: &str, mode: KernelPoints, label: &str) {
+    let set = signature_set(a);
+    let opts = HdVerifyOptions {
+        kernel_points: mode,
+    };
+    let path = raw_dir.join(format!("{name}.csv"));
+    let new = !path.exists();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .unwrap();
+    if new {
+        writeln!(file, "# dimension 4 | I | phase profile of verify from bytes, {label}; cycles per phase, both half-chains added; total = rdtsc around decode and verify").unwrap();
+        let slots: Vec<String> = (0..SLOTS).map(|k| format!("slot{k}")).collect();
+        writeln!(file, "round,iteration,signature,total,decode,{}", slots.join(",")).unwrap();
+        for (k, n) in SLOT_NAMES.iter().enumerate() {
+            writeln!(file, "# slot{k} = {n}").unwrap();
+        }
+    }
+    let clock: &dyn Fn() -> u64 = &cycles;
+    for it in 0..a.runs {
+        let j = it % set.sigs.len();
+        let (sig, msg) = &set.sigs[j];
+        let c0 = cycles();
+        let s = parse_signature::<P324_3>(sig).unwrap();
+        let p = parse_public_key::<P324_3>(&set.pk).unwrap();
+        let chal = challenge_limbs::<P324_3>(&s, &p, msg).unwrap();
+        let hdsig = HdSignature {
+            a_pk: p.a_pk.clone(),
+            a_com: s.a_com.clone(),
+            hint_pk_p: p.hint_pk_p,
+            hint_pk_q: p.hint_pk_q,
+            hint_com_p: s.hint_com_p,
+            hint_com_q: s.hint_com_q,
+            chal_limbs: &chal,
+            resp_a: s.a,
+            resp_b: s.b,
+            resp_c_or_d: s.c_or_d,
+            q: s.q,
+        };
+        let c1 = cycles();
+        let (verdict, _report, slots) = hd_verify_profiled::<P324_3>(&hdsig, &opts, clock);
+        let c2 = cycles();
+        assert_eq!(verdict, Ok(()));
+        let cols: Vec<String> = slots.iter().map(|v| v.to_string()).collect();
+        writeln!(
+            file,
+            "{},{},{},{},{},{}",
+            a.round,
+            it,
+            j,
+            c2 - c0,
+            c1 - c0,
+            cols.join(",")
+        )
+        .unwrap();
+    }
 }
 
-fn r2_compact(rng: &mut StdRng, rows: &mut Vec<Row>, sizes: &mut Vec<Size>) {
-    use sqisign_rs_r2::{generate_compact, CompactPublicKey, CompactSignature, Level1, Verifier};
-    let level = "I";
-    let st = measure(RUNS_KEYGEN, || {
-        let kp = generate_compact(rng);
-        black_box(kp);
-    });
-    rows.push(Row { impl_: R2, round: 2, dim: 4, level, op: "keygen", st });
-    let (pk, sk) = generate_compact(rng);
-    let mut i = 0u64;
-    let st = measure(RUNS_COMPACT_SIGN, || {
-        i += 1;
-        let sig = sk.sign(&i.to_le_bytes(), rng).unwrap();
-        black_box(sig);
-    });
-    rows.push(Row { impl_: R2, round: 2, dim: 4, level, op: "sign", st });
-    let sig = sk.sign(MSG, rng).unwrap();
-    let pkb = pk.to_bytes();
-    let sigb = sig.to_bytes();
-    sizes.push(Size { impl_: R2, round: 2, dim: 4, level, pk: pkb.len(), sig: sigb.len() });
-    let st = measure(RUNS_COMPACT_VERIFY, || {
-        let pk = CompactPublicKey::<Level1>::from_bytes(&pkb).unwrap();
-        let s = CompactSignature::<Level1>::from_bytes(&sigb).unwrap();
-        assert!(pk.verify(MSG, &s).is_ok());
-    });
-    rows.push(Row { impl_: R2, round: 2, dim: 4, level, op: "verify from bytes", st });
-}
+// ---- the legacy all-in-one run (the 2026-09-26 format) ----------------------
+
+#[cfg(feature = "round2")]
+mod legacy;
 
 fn main() {
-    let only_r3 = std::env::args().any(|a| a == "--r3-only");
-    let mut rows = Vec::new();
-    let mut sizes = Vec::new();
-    let mut rng = StdRng::seed_from_u64(20260926);
-
-    eprintln!("round 3, dimension 2 ...");
-    r3_level::<sqisign_rs::Level1>("I", &mut rng, &mut rows, &mut sizes);
-    r3_level::<sqisign_rs::Level3>("III", &mut rng, &mut rows, &mut sizes);
-    r3_level::<sqisign_rs::Level5>("V", &mut rng, &mut rows, &mut sizes);
-    eprintln!("round 3, dimension 4 ...");
-    let (lp, mem) = r3_compact(&mut rows, &mut sizes);
-    if !only_r3 {
-        eprintln!("round 2, dimension 2 ...");
-        r2_level!(sqisign_rs_r2::Level1, "I", &mut rng, rows, sizes);
-        r2_level!(sqisign_rs_r2::Level3, "III", &mut rng, rows, sizes);
-        r2_level!(sqisign_rs_r2::Level5, "V", &mut rng, rows, sizes);
-        eprintln!("round 2, dimension 4 ...");
-        r2_compact(&mut rng, &mut rows, &mut sizes);
+    let a = parse_args();
+    if a.block == "legacy" {
+        #[cfg(feature = "round2")]
+        {
+            legacy::run();
+            return;
+        }
+        #[cfg(not(feature = "round2"))]
+        panic!("the legacy run needs the cargo feature round2");
     }
-
-    println!("#### Sizes observed (bytes)\n");
-    println!("| implementation | round | dimension | level | public key | signature |");
-    println!("|---|---|---|---|---|---|");
-    for s in &sizes {
-        println!("| {} | {} | {} | {} | {} | {} |", s.impl_, s.round, s.dim, s.level, s.pk, s.sig);
+    let raw_dir = a.out.join("raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    eprintln!("block {} round {} out {}", a.block, a.round, a.out.display());
+    match a.block.as_str() {
+        "dim2-I" => dim2_level::<sqisign_rs::Level1>("I", &a, &raw_dir),
+        "dim2-III" => dim2_level::<sqisign_rs::Level3>("III", &a, &raw_dir),
+        "dim2-V" => dim2_level::<sqisign_rs::Level5>("V", &a, &raw_dir),
+        "dim4-keygen" => dim4_keygen(&a, &raw_dir),
+        "dim4-sign" => dim4_sign(&a, &raw_dir),
+        "dim4-verify-four" => dim4_verify(
+            &a,
+            &raw_dir,
+            "dim4-verify-four",
+            KernelPoints::Four,
+            "four points (KernelPoints::Four)",
+        ),
+        "dim4-verify-two-check" => dim4_verify(
+            &a,
+            &raw_dir,
+            "dim4-verify-two-check",
+            KernelPoints::TwoWithImageCheck,
+            "two points with the image check (KernelPoints::TwoWithImageCheck)",
+        ),
+        "dim4-verify-two-nocheck" => dim4_verify(
+            &a,
+            &raw_dir,
+            "dim4-verify-two-nocheck",
+            KernelPoints::TwoWithoutImageCheck,
+            "two points without the image check (KernelPoints::TwoWithoutImageCheck)",
+        ),
+        "profile-two-check" => profile(
+            &a,
+            &raw_dir,
+            "profile-two-check",
+            KernelPoints::TwoWithImageCheck,
+            "two points with the image check",
+        ),
+        "profile-four" => profile(
+            &a,
+            &raw_dir,
+            "profile-four",
+            KernelPoints::Four,
+            "four points",
+        ),
+        other => panic!("unknown block {other}"),
     }
-    println!("\n#### Key generation, signing, verification (Rust; megacycles over `runs`, and wall-clock milliseconds)\n");
-    println!("| implementation | round | dimension | level | operation | runs | median (Mcycles) | mean | min | max | median (ms) |");
-    println!("|---|---|---|---|---|---|---|---|---|---|---|");
-    for r in &rows {
-        let s = &r.st;
-        println!(
-            "| {} | {} | {} | {} | {} | {} | {:.1} | {:.1} | {:.1} | {:.1} | {:.2} |",
-            r.impl_, r.round, r.dim, r.level, r.op, s.runs, s.median_mcyc, s.mean_mcyc, s.min_mcyc, s.max_mcyc, s.median_ms
-        );
-    }
-    println!("\n#### The compact signer's rejection loop (round 3, level I, the `sign` rows' signatures)\n");
-    println!("| signatures | response samples per signature (mean) | median | min | max | primality tests per signature (mean) |");
-    println!("|---|---|---|---|---|---|");
-    println!(
-        "| {} | {:.1} | {:.1} | {} | {} | {:.1} |",
-        lp.signatures, lp.samples_mean, lp.samples_median, lp.samples_min, lp.samples_max, lp.tests_mean
-    );
-    println!("\n#### Memory of one compact verification (round 3, level I)\n");
-    println!("| peak heap during the call (bytes) | heap live before the call (bytes) | process VmHWM after (KiB) |");
-    println!("|---|---|---|");
-    println!(
-        "| {} | {} | {} |",
-        mem.peak_heap_bytes,
-        mem.heap_before,
-        mem.vm_hwm_kib.map(|k| k.to_string()).unwrap_or_else(|| "n/a".into())
-    );
 }

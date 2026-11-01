@@ -1,31 +1,78 @@
 #!/usr/bin/env bash
-# The paper's one session: the Rust harness (both crate versions) and the C
-# reference's own benchmark apps, round 3 (`nist-v3`) and round 2
-# (`nist-v2`), both built `broadwell`, on this machine. Prints Markdown for
-# paper-dim4/BENCH.md's session section. Usage:
-#   SQISIGN_V3_BW=/path/the-sqisign-v3/build-bw SQISIGN_V2_BW=/path/the-sqisign-v2/build-bw ./session.sh
-set -euo pipefail
-cd "$(dirname "$0")"
-echo "Machine: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //'); $(rustc --version); $(uname -sr)"
-echo
-cargo build --release --quiet
-./target/release/dim4-session
-c_rows() { # $1 = label, $2 = round, $3 = build dir, $4... = "prime level app"
-  local label=$1 round=$2 dir=$3; shift 3
-  for spec in "$@"; do
-    set -- $spec; local level=$1 app=$2 iters=$3
-    "$dir/apps/$app" --iterations="$iters" 2>/dev/null | awk -v L="$label" -v R="$round" -v LV="$level" -v IT="$iters" '
-      /^ +(keypair|sign|verify) +\|/ {
-        op=$1; if (op=="keypair") op="keygen"; if (op=="verify") op="verify from bytes";
-        for (i=1;i<=NF;i++){ if($i=="average") mean=$(i+1); if($i=="median") med=$(i+1); if($i=="min") mn=$(i+1); if($i=="max") mx=$(i+1) }
-        printf "| %s | %s | 2 | %s | %s | %s | %s | %s | %s | %s | |\n", L, R, LV, op, IT, med, mean, mn, mx }'
-  done
+# The measurement session of the dimension-4 two-point work (SECENG-2423,
+# SECENG-2424), by the method of the ECLIPSE session of 2026-10-27
+# (SECENG-2322): one script, one pinned core, one build of one commit,
+# every binary built before the start and not rebuilt during the session,
+# raw per-iteration cycles on disk, timestamps around every block, the
+# package log and the process list checked before and after, the C
+# reference's own benchmark in the same session on the same core.
+#
+#   paper-dim4/bench/session.sh <out dir> [core] [rounds]
+#
+# Blocks run round-robin: in each round every Rust block once, then one C
+# reference level (I, III, V in turn, once each over the first three rounds).
+# Run after `cargo build --release` in paper-dim4/bench; the script refuses
+# to run if a cargo, LaTeX or Sage job is running. The legacy all-in-one
+# run of 2026-09-26 is `dim4-session legacy` (feature round2).
+set -u
+OUT="${1:?out dir}"; CORE="${2:-3}"; ROUNDS="${3:-4}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
+BIN="$HERE/target/release/dim4-session"
+SQ="${SQISIGN_V3_BW:-$HOME/the-sqisign/build/apps}"
+mkdir -p "$OUT/raw"
+LOG="$OUT/session.log"
+stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+log() { printf '%s %s\n' "$(stamp)" "$*" | tee -a "$LOG"; }
+pin() { taskset -c "$CORE" "$@"; }
+block() { # $1 name, $2... command
+  local name=$1; shift
+  log "block $name start"
+  pin "$@" >> "$OUT/blocks.stdout" 2>&1
+  log "block $name end rc=$?"
 }
-echo
-echo "#### The C reference (\`broadwell\` builds; its own benchmark, medians over iterations)"
-echo
-echo "| implementation | round | dimension | level | operation | runs | median (Mcycles) | mean | min | max | median (ms) |"
-echo "|---|---|---|---|---|---|---|---|---|---|---|"
-[ -n "${SQISIGN_V3_BW:-}" ] && c_rows "SQIsign (C reference, nist-v3, broadwell)" 3 "$SQISIGN_V3_BW" "I benchmark_p324_3 300" "III benchmark_p500_27 100" "V benchmark_p664_17 100"
-[ -n "${SQISIGN_V2_BW:-}" ] && c_rows "SQIsign (C reference, nist-v2, broadwell)" 2 "$SQISIGN_V2_BW" "I benchmark_lvl1 300" "III benchmark_lvl3 100" "V benchmark_lvl5 100"
-true
+
+# Per-round iteration counts: the session totals are ROUNDS times these.
+R2_KEYGEN=13; R2_SIGN=13; R2_VERIFY=50          # dimension 2, per level
+R4_KEYGEN=13; R4_SIGN=25; R4_VERIFY=50; R4_PROFILE=25; SIGS=5
+C_ITERS="p324_3:300 p500_27:100 p664_17:100"
+
+log "session start; out $OUT; core $CORE; rounds $ROUNDS; per round: dim2 keygen/sign/verify $R2_KEYGEN/$R2_SIGN/$R2_VERIFY, dim4 keygen/sign/verify/profile $R4_KEYGEN/$R4_SIGN/$R4_VERIFY/$R4_PROFILE over $SIGS signatures; C iterations $C_ITERS"
+log "commit $(git -C "$ROOT" rev-parse HEAD) ($(git -C "$ROOT" status --short | wc -l) uncommitted paths)"
+log "binaries: $(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$BIN" | awk '{print $6, $7}'); C reference: the-sqisign $(git -C "$HOME/the-sqisign" rev-parse --short HEAD) $SQ ($(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$SQ/benchmark_p324_3" | awk '{print $6}'))"
+OTHER="$(pgrep -af 'cargo|rustc|pdflatex|bibtex|sage-venv|/usr/bin/sage' | grep -v "$$" | grep -v pgrep || true)"
+if [ -n "$OTHER" ]; then log "REFUSED: other jobs running: $OTHER"; exit 2; fi
+log "process check before: clean"
+DPKG_START="$(stamp)"
+log "dpkg.log lines before the window: $(wc -l < /var/log/dpkg.log)"
+log "apt timers: $(systemctl is-active apt-daily.timer apt-daily-upgrade.timer | tr '\n' ' ')"
+log "cpu $(lscpu | awk -F: '/Model name/{print $2}' | xargs); tsc $(grep -o 'constant_tsc\|nonstop_tsc\|tsc_known_freq' /proc/cpuinfo | sort -u | tr '\n' ' '); kernel $(uname -r); tsc from dmesg: $(sudo -n dmesg 2>/dev/null | grep -o 'Detected [0-9.]* MHz processor' | head -1)"
+
+C_LEVELS=($C_ITERS)
+for ((r = 1; r <= ROUNDS; r++)); do
+  log "round $r start"
+  for lvl in I III V; do
+    block "dim2-$lvl r$r" "$BIN" "dim2-$lvl" --out "$OUT" --round "$r" --runs-keygen "$R2_KEYGEN" --runs-sign "$R2_SIGN" --runs-verify "$R2_VERIFY"
+  done
+  block "dim4-keygen r$r" "$BIN" dim4-keygen --out "$OUT" --round "$r" --runs-keygen "$R4_KEYGEN"
+  block "dim4-sign r$r" "$BIN" dim4-sign --out "$OUT" --round "$r" --runs-sign "$R4_SIGN"
+  for mode in four two-check two-nocheck; do
+    block "dim4-verify-$mode r$r" "$BIN" "dim4-verify-$mode" --out "$OUT" --round "$r" --runs-verify "$R4_VERIFY" --sigs "$SIGS"
+  done
+  for mode in two-check four; do
+    block "profile-$mode r$r" "$BIN" "profile-$mode" --out "$OUT" --round "$r" --runs "$R4_PROFILE" --sigs "$SIGS"
+  done
+  idx=$((r - 1))
+  if [ "$idx" -lt "${#C_LEVELS[@]}" ]; then
+    spec="${C_LEVELS[$idx]}"; prime="${spec%%:*}"; it="${spec##*:}"
+    log "block sqisign-c $prime start ($it iterations)"
+    pin "$SQ/benchmark_$prime" --iterations="$it" --seed=1 > "$OUT/sqisign-c-$prime.txt" 2>&1
+    log "block sqisign-c $prime end rc=$?"
+  fi
+  log "round $r end"
+done
+
+log "process check after: $(pgrep -af 'cargo|rustc|pdflatex|bibtex|sage' | grep -v pgrep | grep -v "$$" || echo clean)"
+log "dpkg.log lines after the window: $(wc -l < /var/log/dpkg.log); entries in the window:"
+awk -v s="${DPKG_START:0:10} ${DPKG_START:11:8}" '$1" "$2 >= s' /var/log/dpkg.log | tee -a "$LOG" | head -5
+log "session end"

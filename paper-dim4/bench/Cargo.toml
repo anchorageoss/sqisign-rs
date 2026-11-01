@@ -12,8 +12,14 @@ publish = false
 
 [dependencies]
 sqisign-rs = { path = "../../crates/sqisign-rs", features = ["compact"] }
-sqisign-rs-r2 = { package = "sqisign-rs", git = "https://github.com/anchorageoss/sqisign-rs", tag = "v0.4.31" }
+sqisign-verify = { path = "../../crates/verify", features = ["compact"] }
+# The round-2 crate of the 2026-09-26 session's legacy run; needs the network to fetch.
+sqisign-rs-r2 = { package = "sqisign-rs", git = "https://github.com/anchorageoss/sqisign-rs", tag = "v0.4.31", optional = true }
 rand = "0.8"
+
+[features]
+default = []
+round2 = ["dep:sqisign-rs-r2"]
 
 [profile.release]
 lto = "fat"

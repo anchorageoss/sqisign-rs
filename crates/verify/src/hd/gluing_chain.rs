@@ -37,6 +37,7 @@ use crate::hd::gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
 use crate::hd::kani::{gluing_dim2_f1, gluing_dim2_f2};
 use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::product_theta_dim2to4;
+use crate::hd::profile::{NoProfiler, Profiler, SLOT_DIM2, SLOT_GLUING};
 
 /// `[k]·P` on a Montgomery/Weierstrass curve for an arbitrary `u128` scalar,
 /// MSB-first double-and-add. `jac_add`/`jac_dbl` handle identity / `P=±Q`.
@@ -185,6 +186,46 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         e1: &EcCurve<L>,
         e2: &EcCurve<L>,
     ) -> Option<Self> {
+        Self::new_prof(
+            points_m,
+            zero12,
+            m0,
+            e4,
+            a1,
+            a2,
+            q,
+            m,
+            m1_full,
+            m_gluing_dim4,
+            dual,
+            e1,
+            e2,
+            &mut NoProfiler,
+        )
+    }
+
+    /// [`Self::new`] with a [`Profiler`]: the dimension-2 chain
+    /// (`IsogenyChainDim2::new`) goes to `SLOT_DIM2`, everything else of the
+    /// construction (the base changes, the kernel points, the gluing step)
+    /// to `SLOT_GLUING`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_prof<P: Profiler>(
+        points_m: &[JacPoint<L>; 4],
+        zero12: &[Fp2<L>; 4],
+        m0: &[[u8; 4]; 4],
+        e4: &Fp2<L>,
+        a1: u128,
+        a2: u128,
+        q: u128,
+        m: usize,
+        m1_full: &[[u128; 8]; 8],
+        m_gluing_dim4: &[[i64; 8]; 8],
+        dual: bool,
+        e1: &EcCurve<L>,
+        e2: &EcCurve<L>,
+        prof: &mut P,
+    ) -> Option<Self> {
+        let t0 = prof.now();
         let [p1_m, q1_m, r2_m, s2_m] = points_m;
 
         // dim-2 gluing base change: N_dim2 = base_change(M0·M1_glue, e4)
@@ -221,7 +262,11 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
                 TuplePoint::new(jac_add(&s1q, &s2p.neg(), e1), two_s2.neg()),
             )
         };
+        let t1 = prof.now();
+        prof.add(SLOT_GLUING, t1 - t0);
         let isogenies_dim2 = IsogenyChainDim2::new(&tp0, &tp1, zero12, &n_dim2, m, e1, e2)?;
+        let t2 = prof.now();
+        prof.add(SLOT_DIM2, t2 - t1);
 
         // the dim-4 gluing kernel B_K_dim4 = kernel_basis(M1, m+1, …)
         let two_mp3 = 1u128 << (m + 3);
@@ -245,6 +290,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
 
         // Translates for special_image: 2·B_K_dim4[0], 2·B_K_dim4[1], indices 1,2.
         let l_trans = [b_k_dim4[0].double(e1, e2), b_k_dim4[1].double(e1, e2)];
+        prof.add(SLOT_GLUING, prof.now() - t2);
 
         Some(Self {
             isogenies_dim2,
