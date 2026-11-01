@@ -49,9 +49,9 @@ pub const SUB_NAMES: [&str; SUB_SLOTS] = [
     "resp: recover_response_cd and the images phi R, phi S",
     "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
     "setup: norm_equation_2f_minus_q (Cornacchia)",
-    "setup: the 4-torsion doublings, make_canonical x2, weil4, the nulls, points_m",
+    "setup: the four fixed-base doubling chains, the 4-torsion points, make_canonical x2, weil4, the nulls, points_m",
     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
-    "b_kpp, both halves: lambda, lambda phi S and point_matrix_product_k",
+    "b_kpp, both halves: the kernel generators from the fixed-base chains",
     "ThetaStructureDim4::new of the start, both halves",
 ];
 

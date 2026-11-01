@@ -145,14 +145,6 @@ pub struct HdSignature<'a, L: FpBackend> {
 
 // small helpers (mirroring the validated tests)
 
-fn jac_dbl_n<L: HdLevel>(p: &JacPoint<L>, n: u32, c: &EcCurve<L>) -> JacPoint<L> {
-    let mut acc = p.clone();
-    for _ in 0..n {
-        acc = jac_dbl(&acc, c);
-    }
-    acc
-}
-
 /// `e_4(U,V)` (biextension `weil`, PARI's inverse).
 fn weil4<L: HdLevel>(u: &JacPoint<L>, v: &JacPoint<L>, c: &mut EcCurve<L>) -> Fp2<L> {
     let uv = jac_add(u, &v.neg(), c);
@@ -406,35 +398,8 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     let t3 = prof.now();
     prof.add(SLOT_SETUP, t3 - t1);
 
-    let to4 = L::R - 2;
-    let p1_4 = jac_dbl_n::<L>(&rsp.r_com, to4, &e_com);
-    let q1_4 = jac_dbl_n(&rsp.s_com, to4, &e_com);
-    let (t1, t2, mt) = make_canonical(&p1_4, &q1_4, &mut e_com).ok_or(HdReject::CanonicalCom)?;
-    let r2_4 = jac_dbl_n(&rsp.phi_rsp_r_com, to4, &e_chal);
-    let mut s2_4 = jac_dbl_n(&rsp.phi_rsp_s_com, to4, &e_chal);
-    if lamb4 == 3 {
-        s2_4 = jac_add(&jac_dbl(&s2_4, &e_chal), &s2_4, &e_chal); // 3·S2_4
-    }
-    let (u1, _u2, mu) = make_canonical(&r2_4, &s2_4, &mut e_chal).ok_or(HdReject::CanonicalChal)?;
-
-    let e4 = weil4(&t1, &t2, &mut e_com).inv();
-    let zero12 = product_theta_dim2(&dim1_null(&t1), &dim1_null(&u1));
-    let m0 = m0_from_canon(&mt, &mu);
-
-    let k = L::R - 3 - m as u32;
-    let points_m = [
-        jac_dbl_n(&rsp.r_com, k, &e_com),
-        jac_dbl_n(&rsp.s_com, k, &e_com),
-        jac_dbl_n(&rsp.phi_rsp_r_com, k, &e_chal),
-        jac_dbl_n(&rsp.phi_rsp_s_com, k, &e_chal),
-    ];
-
-    let t4 = prof.now();
-    prof.add(SLOT_SETUP, t4 - t3);
-    prof.sub_add(12, t4 - t3);
-
-    // The doubling chains of the four base points, once for both half-chains
-    // and every scalar (SECENG-2429).
+    // The doubling chains of the four base points, once (SECENG-2429): the
+    // 4-torsion points, points_m and every kernel generator read them.
     let mask_r = (1u128 << L::R) - 1;
     let lambda = inverse_mod_pow2(q4, mask_r);
     let bits = L::R as usize;
@@ -444,9 +409,27 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         FixedBase::new(&rsp.phi_rsp_r_com, bits, &e_chal),
         FixedBase::new(&rsp.phi_rsp_s_com, bits, &e_chal),
     ];
-    let t5 = prof.now();
-    prof.add(SLOT_SETUP, t5 - t4);
-    prof.sub_add(14, t5 - t4);
+    let to4 = (L::R - 2) as usize;
+    let p1_4 = tables[0].pts[to4].clone();
+    let q1_4 = tables[1].pts[to4].clone();
+    let (t1, t2, mt) = make_canonical(&p1_4, &q1_4, &mut e_com).ok_or(HdReject::CanonicalCom)?;
+    let r2_4 = tables[2].pts[to4].clone();
+    let mut s2_4 = tables[3].pts[to4].clone();
+    if lamb4 == 3 {
+        s2_4 = jac_add(&jac_dbl(&s2_4, &e_chal), &s2_4, &e_chal); // 3·S2_4
+    }
+    let (u1, _u2, mu) = make_canonical(&r2_4, &s2_4, &mut e_chal).ok_or(HdReject::CanonicalChal)?;
+
+    let e4 = weil4(&t1, &t2, &mut e_com).inv();
+    let zero12 = product_theta_dim2(&dim1_null(&t1), &dim1_null(&u1));
+    let m0 = m0_from_canon(&mt, &mu);
+
+    let k = (L::R - 3 - m as u32) as usize;
+    let points_m: [JacPoint<L>; 4] = core::array::from_fn(|i| tables[i].pts[k].clone());
+
+    let t4 = prof.now();
+    prof.add(SLOT_SETUP, t4 - t3);
+    prof.sub_add(12, t4 - t3);
     Ok(Setup {
         e_com,
         e_chal,
