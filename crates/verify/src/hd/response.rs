@@ -4,13 +4,13 @@
 //! w_com`, the dropped scalar from `a d − b c ≡ k q (mod 2^r)`, and the
 //! images `σ(R_com) = a P_resc + b Q_resc`, `σ(S_com) = c P_resc + d Q_resc`.
 
-use crate::ec::jacobian::jac_add;
+use crate::ec::jacobian::{jac_add, jac_dbl};
 use crate::ec::pairing::{fp2_dlog_2e, weil};
 use crate::ec::{EcCurve, JacPoint, MAX_ORDER_WORDS};
 use crate::fp::{Fp2, FpBackend};
 
 use super::basis::hd_torsion_basis;
-use super::challenge::{jac_dbl_iter, jac_scalar_mul, ChallengeRecovery};
+use super::challenge::{jac_dbl_iter, ChallengeRecovery};
 use super::hd_verify::recover_response_cd;
 use super::params::HdLevel;
 use super::profile::{NoProfiler, Profiler};
@@ -41,11 +41,41 @@ pub struct ResponseRecovery<L: FpBackend> {
     pub phi_rsp_s_com: JacPoint<L>,
 }
 
-fn jac_signed_mul<L: FpBackend>(p: &JacPoint<L>, s: i128, curve: &EcCurve<L>) -> JacPoint<L> {
-    let mag = s.unsigned_abs();
-    let limbs = [mag as u64, (mag >> 64) as u64];
-    let base = if s < 0 { p.neg() } else { p.clone() };
-    jac_scalar_mul(&base, &limbs, curve)
+/// `[a] P + [b] Q` for signed scalars by one joint double-and-add over the
+/// bits of `|a|` and `|b|` with `P + Q` precomputed (Straus), variable time
+/// (public data).
+fn jac_double_mul<L: FpBackend>(
+    p: &JacPoint<L>,
+    a: i128,
+    q: &JacPoint<L>,
+    b: i128,
+    curve: &EcCurve<L>,
+) -> JacPoint<L> {
+    let (ma, mb) = (a.unsigned_abs(), b.unsigned_abs());
+    let pa = if a < 0 { p.neg() } else { p.clone() };
+    let qb = if b < 0 { q.neg() } else { q.clone() };
+    let both = ma | mb;
+    if both == 0 {
+        return JacPoint::identity();
+    }
+    let pq = jac_add(&pa, &qb, curve);
+    let pick = |i: u32| -> Option<&JacPoint<L>> {
+        match ((ma >> i) & 1, (mb >> i) & 1) {
+            (1, 0) => Some(&pa),
+            (0, 1) => Some(&qb),
+            (1, 1) => Some(&pq),
+            _ => None,
+        }
+    };
+    let top = 127 - both.leading_zeros();
+    let mut acc = pick(top).expect("the top bit is set").clone();
+    for i in (0..top).rev() {
+        acc = jac_dbl(&acc, curve);
+        if let Some(t) = pick(i) {
+            acc = jac_add(&acc, t, curve);
+        }
+    }
+    acc
 }
 
 /// Recover the response images from the challenge state and the signature.
@@ -110,16 +140,8 @@ pub fn recover_response_prof<L: HdLevel, P: Profiler>(
     };
 
     let e_chal = &chal.e_chal;
-    let phi_rsp_r_com = jac_add(
-        &jac_signed_mul(&chal.p_chal_resc, a, e_chal),
-        &jac_signed_mul(&chal.q_chal_resc, b, e_chal),
-        e_chal,
-    );
-    let phi_rsp_s_com = jac_add(
-        &jac_signed_mul(&chal.p_chal_resc, c_img, e_chal),
-        &jac_signed_mul(&chal.q_chal_resc, d_img, e_chal),
-        e_chal,
-    );
+    let phi_rsp_r_com = jac_double_mul(&chal.p_chal_resc, a, &chal.q_chal_resc, b, e_chal);
+    let phi_rsp_s_com = jac_double_mul(&chal.p_chal_resc, c_img, &chal.q_chal_resc, d_img, e_chal);
 
     prof.sub_add(9, prof.now() - t);
     Some(ResponseRecovery {
