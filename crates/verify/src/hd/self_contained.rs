@@ -667,3 +667,45 @@ pub fn hd_codomains<L: HdLevel>(
         fell_back: [fb1, fb2],
     })
 }
+
+/// The setup's derived integers and points (SECENG-2429): what the kernel
+/// generators are built from, and the generators themselves. For the record
+/// and the tests; not on the verification path.
+pub struct HdKernelSetup<L: FpBackend> {
+    /// The norm equation's `a1` (odd) and `a2`, and `m = v2(a2)`.
+    pub a1: u128,
+    pub a2: u128,
+    pub m: usize,
+    /// `lambda = q^-1 mod 2^r`.
+    pub lambda: u128,
+    /// `[P1_m, Q1_m, R2_m, S2_m]` of order `2^(m+3)`.
+    pub points_m: [JacPoint<L>; 4],
+    /// The product null point, the dimension-2 base-change matrix over
+    /// `Z/4` and `e_4(T1, T2)^-1`.
+    pub zero12: [Fp2<L>; 4],
+    pub m0: [[u8; 4]; 4],
+    pub e4: Fp2<L>,
+    /// The four full-order generators of `F1` and of `F2_dual` (`b_kpp` of
+    /// `M1` and of `M2`).
+    pub generators: [[TuplePoint4<L>; 4]; 2],
+}
+
+/// [`HdKernelSetup`] of a signature; `None` where the verifier rejects
+/// before the kernel points.
+pub fn hd_kernel_setup<L: HdLevel>(sig: &HdSignature<L>) -> Option<HdKernelSetup<L>> {
+    let s = build_setup(sig).ok()?;
+    let mask = (1u128 << L::R) - 1;
+    let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
+    let generators = [b_kpp(&s, &m1), b_kpp(&s, &m2)];
+    Some(HdKernelSetup {
+        a1: s.a1,
+        a2: s.a2,
+        m: s.m,
+        lambda: inverse_mod_pow2(s.q4, mask),
+        points_m: s.points_m.clone(),
+        zero12: s.zero12.clone(),
+        m0: s.m0,
+        e4: s.e4.clone(),
+        generators,
+    })
+}
