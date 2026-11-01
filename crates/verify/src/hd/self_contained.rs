@@ -19,6 +19,8 @@
 //! Level I parameters come from [`HdLevel`]; the layer is the round-2
 //! compact verifier made generic over the prime.
 
+use alloc::vec::Vec;
+
 use crate::ec::jacobian::{jac_add, jac_dbl};
 use crate::ec::pairing::weil;
 use crate::ec::{EcCurve, JacPoint};
@@ -46,6 +48,7 @@ use crate::hd::product_theta::{product_theta_dim2, ThetaStructureDim1};
 use crate::hd::response::{recover_response, ResponseScalars};
 use crate::hd::strategy::{run_strategy_chain, StrategyChain};
 use crate::hd::structure::ThetaStructureDim4;
+use crate::hd::two_point::{run_strategy_chain_two_point, run_strategy_chain_two_point_checked};
 
 /// Upper bound on `m = v_2(a_2)` accepted by [`build_setup`]: the gluing base
 /// change reduces values mod `2^(m+2)` and multiplies them as `i128`, with
@@ -54,6 +57,58 @@ use crate::hd::structure::ThetaStructureDim4;
 /// legitimate response has a tiny `m` (`v_2` of a random even number), so
 /// this rejects only a crafted `q`.
 const MAX_GLUING_M: usize = 40;
+
+/// How many kernel points the plain chain of each half-chain carries from
+/// the gluing codomain on (SECENG-2421).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum KernelPoints {
+    /// The four generators `g0` to `g3`, as before the two-point variant
+    /// existed: the default, and the path [`hd_verify`] runs.
+    #[default]
+    Four,
+    /// `g0` and `g1` only, with `g2` and `g3` formed by the permutation
+    /// [`PI`](crate::hd::two_point::PI) at every step, after a check at the
+    /// gluing: the gluing images of `g2` and `g3` are compared projectively
+    /// with `PI` of those of `g0` and `g1`, and a half-chain whose images do
+    /// not match runs with four points (reported by
+    /// [`HdVerifyReport::fell_back`]).
+    TwoWithImageCheck,
+    /// `g0` and `g1` only, with `g2` and `g3` formed by `PI` at every step,
+    /// without the check at the gluing.
+    TwoWithoutImageCheck,
+}
+
+/// The options of [`hd_verify_with`]. The default is the four-point
+/// verifier.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HdVerifyOptions {
+    /// The kernel points carried after the gluing.
+    pub kernel_points: KernelPoints,
+}
+
+/// What [`hd_verify_with`] reports beside the verdict.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HdVerifyReport {
+    /// Per half-chain (`F1`, then `F2_dual`): `true` when the half ran with
+    /// four points because the check of [`KernelPoints::TwoWithImageCheck`]
+    /// failed. Both `false` in the other modes, and for a signature rejected
+    /// before its half-chains.
+    pub fell_back: [bool; 2],
+}
+
+/// The codomain null points of both half-chains, from [`hd_codomains`].
+#[derive(Clone, Debug)]
+pub struct HdCodomains<L: FpBackend> {
+    /// The gluing codomain of `F1` and of `F2_dual`.
+    pub gluing: [ThetaPointDim4<L>; 2],
+    /// The plain steps' codomains of `F1` and of `F2_dual`, in chain order.
+    pub plain: [Vec<ThetaPointDim4<L>>; 2],
+    /// The gluing images of the four full-order generators `g0` to `g3` of
+    /// `F1` and of `F2_dual`: the points the plain chains start from.
+    pub gluing_images: [[ThetaPointDim4<L>; 4]; 2],
+    /// As in [`HdVerifyReport`].
+    pub fell_back: [bool; 2],
+}
 
 /// Signature-derived inputs to [`hd_verify`] (everything comes from the wire
 /// signature + recovered public-key/commitment curves; no oracle data).
@@ -150,12 +205,15 @@ fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 
 
 /// One self-derived half-chain: the gluing chain plus the optimal-strategy plain
 /// chain (kernels + codomains). Returns `None` if any step is uncomputable.
+/// The third value is `true` when `kernel_points` was
+/// [`KernelPoints::TwoWithImageCheck`] and the half ran with four points.
 fn run_half<L: HdLevel>(
     s: &Setup<L>,
     m_full: &[[u128; 8]; 8],
     m_glue: &[[i64; 8]; 8],
     dual: bool,
-) -> Option<(KaniGluingChainHalf<L>, StrategyChain<L>)> {
+    kernel_points: KernelPoints,
+) -> Option<(KaniGluingChainHalf<L>, StrategyChain<L>, bool)> {
     let chain = KaniGluingChainHalf::new(
         &s.points_m,
         &s.zero12,
@@ -172,11 +230,25 @@ fn run_half<L: HdLevel>(
         &s.e_chal,
     )?;
     let basis = b_kpp(s, m_full);
-    let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
     let start = ThetaStructureDim4::<L>::new(chain.codomain_null().clone());
     let n_plain = (L::E1 - s.m as u32 - 1) as usize;
-    let sc = run_strategy_chain(&start, &post, n_plain)?;
-    Some((chain, sc))
+    match kernel_points {
+        KernelPoints::Four => {
+            let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
+            let sc = run_strategy_chain(&start, &post, n_plain)?;
+            Some((chain, sc, false))
+        }
+        KernelPoints::TwoWithImageCheck => {
+            let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
+            let (sc, fell_back) = run_strategy_chain_two_point_checked(&start, &post, n_plain)?;
+            Some((chain, sc, fell_back))
+        }
+        KernelPoints::TwoWithoutImageCheck => {
+            let pair = [chain.evaluate(&basis[0]), chain.evaluate(&basis[1])];
+            let sc = run_strategy_chain_two_point(&start, &pair, n_plain)?;
+            Some((chain, sc, false))
+        }
+    }
 }
 
 /// Projective equality of the affine `x`-coordinates of two Jacobian points
@@ -338,8 +410,8 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
 }
 
 /// The output of one half-chain: its gluing chain plus the strategy-derived
-/// plain chain.
-type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>);
+/// plain chain, and whether it fell back to four points.
+type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>, bool);
 
 /// Run both independent half-chains (F1, F2_dual). Serial by default; with the
 /// `parallel` feature, on two threads (see below). Either way the results are
@@ -350,23 +422,31 @@ fn run_both_halves<L: HdLevel>(
     mg1: &[[i64; 8]; 8],
     m2: &[[u128; 8]; 8],
     mg2: &[[i64; 8]; 8],
+    kernel_points: KernelPoints,
 ) -> Option<(HalfResult<L>, HalfResult<L>)> {
-    let r1 = run_half(s, m1, mg1, false)?;
-    let r2 = run_half(s, m2, mg2, true)?;
+    let r1 = run_half(s, m1, mg1, false, kernel_points)?;
+    let r2 = run_half(s, m2, mg2, true, kernel_points)?;
     Some((r1, r2))
 }
 
 /// Self-derive both half-chains, then run stages 5 (middle-codomain match) and
 /// 6 (HD-image). Accept only if BOTH pass.
-fn self_derived_check<L: HdLevel>(s: &Setup<L>) -> Result<(), HdReject> {
+fn self_derived_check<L: HdLevel>(
+    s: &Setup<L>,
+    opts: &HdVerifyOptions,
+) -> Result<HdVerifyReport, HdReject> {
     let mask = (1u128 << L::R) - 1;
     let (m1, m2) =
         starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask).ok_or(HdReject::ChainFailed)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
 
-    let ((chain1, sc1), (chain2, sc2)) =
-        run_both_halves(s, &m1, &mg1, &m2, &mg2).ok_or(HdReject::ChainFailed)?;
+    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
+        run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points)
+            .ok_or(HdReject::ChainFailed)?;
+    let report = HdVerifyReport {
+        fell_back: [fb1, fb2],
+    };
 
     // Stage 5: the projective middle-codomain match.
     let c1 = sc1.last_codomain().ok_or(HdReject::ChainFailed)?;
@@ -379,7 +459,7 @@ fn self_derived_check<L: HdLevel>(s: &Setup<L>) -> Result<(), HdReject> {
     if !hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false) {
         return Err(HdReject::HdImageMismatch);
     }
-    Ok(())
+    Ok(report)
 }
 
 /// Run the end-to-end self-contained Level-1 verification (all 6 FastVerify
@@ -388,10 +468,27 @@ fn self_derived_check<L: HdLevel>(s: &Setup<L>) -> Result<(), HdReject> {
 /// Performs (0/1) the challenge binding, then self-derives stages 2-4 from the
 /// signature, and checks (5) the dim-4 middle-codomain match and (6) the
 /// HD-image condition. Returns `Ok(())` on accept or the rejection reason. No
-/// oracle data is consulted.
+/// oracle data is consulted. This is [`hd_verify_with`] at the default
+/// options, the four-point verifier.
 pub fn hd_verify<L: HdLevel>(sig: &HdSignature<L>) -> Result<(), HdReject> {
-    let setup = build_setup(sig)?;
-    self_derived_check(&setup)
+    hd_verify_with::<L>(sig, &HdVerifyOptions::default()).0
+}
+
+/// [`hd_verify`] with options: the verdict, and the report of the run. The
+/// report's fall-back flags are meaningful whatever the verdict; a signature
+/// rejected before its half-chains reports no fall-back.
+pub fn hd_verify_with<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let setup = match build_setup(sig) {
+        Ok(s) => s,
+        Err(e) => return (Err(e), HdVerifyReport::default()),
+    };
+    match self_derived_check(&setup, opts) {
+        Ok(report) => (Ok(()), report),
+        Err(e) => (Err(e), HdVerifyReport::default()),
+    }
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).
@@ -413,8 +510,8 @@ pub fn hd_image<L: HdLevel>(
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
-    let (chain1, sc1) = run_half(&s, &m1, &mg1, false)?;
-    let (chain2, sc2) = run_half(&s, &m2, &mg2, true)?;
+    let (chain1, sc1, _) = run_half(&s, &m1, &mg1, false, KernelPoints::Four)?;
+    let (chain2, sc2, _) = run_half(&s, &m2, &mg2, true, KernelPoints::Four)?;
 
     let id = JacPoint::<L>::identity();
     let t4 = TuplePoint4::new(s.p_com.clone(), id.clone(), id.clone(), id);
@@ -426,4 +523,35 @@ pub fn hd_image<L: HdLevel>(
     let a1p = jac_mul_u128(&s.p_com, s.a1, &s.e_com);
     let a2p = jac_mul_u128(&s.p_com, s.a2, &s.e_com);
     Some((ft, a1p, a2p))
+}
+
+/// Diagnostic: the codomain null points of both half-chains under `opts`,
+/// for comparing the two-point and four-point chains step by step. Returns
+/// `None` if the setup or a half-chain is not computable. The verdict is not
+/// evaluated here; [`hd_verify_with`] does that.
+pub fn hd_codomains<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> Option<HdCodomains<L>> {
+    let s = build_setup(sig).ok()?;
+    let mask = (1u128 << L::R) - 1;
+    let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
+    let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
+    let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
+    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
+        run_both_halves(&s, &m1, &mg1, &m2, &mg2, opts.kernel_points)?;
+    let basis1 = b_kpp(&s, &m1);
+    let basis2 = b_kpp(&s, &m2);
+    Some(HdCodomains {
+        gluing: [
+            chain1.codomain_null().clone(),
+            chain2.codomain_null().clone(),
+        ],
+        plain: [sc1.codomains, sc2.codomains],
+        gluing_images: [
+            core::array::from_fn(|i| chain1.evaluate(&basis1[i])),
+            core::array::from_fn(|i| chain2.evaluate(&basis2[i])),
+        ],
+        fell_back: [fb1, fb2],
+    })
 }

@@ -66,6 +66,7 @@ pub mod response;
 pub mod self_contained;
 pub mod strategy;
 pub mod structure;
+pub mod two_point;
 pub mod uint;
 pub mod wire;
 
@@ -96,12 +97,19 @@ pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
 pub use response::{recover_response, ResponseRecovery, ResponseScalars};
-pub use self_contained::{hd_image, hd_verify, hd_verify_bool, HdSignature};
+pub use self_contained::{
+    hd_codomains, hd_image, hd_verify, hd_verify_bool, hd_verify_with, HdCodomains, HdSignature,
+    HdVerifyOptions, HdVerifyReport, KernelPoints,
+};
 pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
 pub use structure::ThetaStructureDim4;
+pub use two_point::{
+    gluing_images_paired, null_fixed_by_pi, permute_pi, run_strategy_chain_two_point,
+    run_strategy_chain_two_point_checked, PI, PI_PAIRS,
+};
 pub use uint::U4;
 pub use wire::{
-    challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_parsed,
-    parse_public_key, parse_signature, public_key_bytes, signature_bytes, ParsedPublicKey,
-    ParsedSignature,
+    challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_bytes_with,
+    hd_verify_parsed, hd_verify_parsed_with, parse_public_key, parse_signature, public_key_bytes,
+    signature_bytes, ParsedPublicKey, ParsedSignature,
 };

@@ -22,7 +22,7 @@ use super::hd_verify::{hd_challenge, hd_challenge_len, HdReject, MAX_CHAL_BYTES}
 use super::params::{
     pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_PK_WIRE_BYTES, MAX_SIG_WIRE_BYTES,
 };
-use super::self_contained::{hd_verify, HdSignature};
+use super::self_contained::{hd_verify_with, HdSignature, HdVerifyOptions, HdVerifyReport};
 use super::uint::U4;
 
 /// A decoded compact signature.
@@ -188,13 +188,28 @@ pub fn challenge_limbs<L: HdLevel>(
     Some(limbs)
 }
 
-/// Verify a parsed signature.
+/// Verify a parsed signature with the default options (the four-point
+/// verifier).
 pub fn hd_verify_parsed<L: HdLevel>(
     sig: &ParsedSignature<L>,
     pk: &ParsedPublicKey<L>,
     message: &[u8],
 ) -> Result<(), HdReject> {
-    let chal = challenge_limbs::<L>(sig, pk, message).ok_or(HdReject::BadCurve)?;
+    hd_verify_parsed_with::<L>(sig, pk, message, &HdVerifyOptions::default()).0
+}
+
+/// Verify a parsed signature with options: the verdict and the run's report
+/// (see [`hd_verify_with`]).
+pub fn hd_verify_parsed_with<L: HdLevel>(
+    sig: &ParsedSignature<L>,
+    pk: &ParsedPublicKey<L>,
+    message: &[u8],
+    opts: &HdVerifyOptions,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let chal = match challenge_limbs::<L>(sig, pk, message) {
+        Some(c) => c,
+        None => return (Err(HdReject::BadCurve), HdVerifyReport::default()),
+    };
     let hdsig = HdSignature {
         a_pk: pk.a_pk.clone(),
         a_com: sig.a_com.clone(),
@@ -208,18 +223,36 @@ pub fn hd_verify_parsed<L: HdLevel>(
         resp_c_or_d: sig.c_or_d,
         q: sig.q,
     };
-    hd_verify::<L>(&hdsig)
+    hd_verify_with::<L>(&hdsig, opts)
 }
 
-/// Verify from bytes.
+/// Verify from bytes with the default options (the four-point verifier).
 pub fn hd_verify_bytes<L: HdLevel>(
     signature: &[u8],
     public_key: &[u8],
     message: &[u8],
 ) -> Result<(), HdReject> {
-    let sig = parse_signature::<L>(signature)?;
-    let pk = parse_public_key::<L>(public_key)?;
-    hd_verify_parsed(&sig, &pk, message)
+    hd_verify_bytes_with::<L>(signature, public_key, message, &HdVerifyOptions::default()).0
+}
+
+/// Verify from bytes with options: the verdict and the run's report (see
+/// [`hd_verify_with`]). A malformed input is rejected before any half-chain,
+/// with an empty report.
+pub fn hd_verify_bytes_with<L: HdLevel>(
+    signature: &[u8],
+    public_key: &[u8],
+    message: &[u8],
+    opts: &HdVerifyOptions,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let sig = match parse_signature::<L>(signature) {
+        Ok(s) => s,
+        Err(e) => return (Err(e), HdVerifyReport::default()),
+    };
+    let pk = match parse_public_key::<L>(public_key) {
+        Ok(p) => p,
+        Err(e) => return (Err(e), HdVerifyReport::default()),
+    };
+    hd_verify_parsed_with(&sig, &pk, message, opts)
 }
 
 /// The wire size of a signature at this level.

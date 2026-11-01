@@ -44,7 +44,7 @@ use crate::hd::structure::ThetaStructureDim4;
 /// relative to doubling; the previous `1.0` assumed they were equal and so
 /// over-spent on doublings.) `from_kernel` is a fixed per-step cost and does not
 /// enter the doubling/image trade-off.
-const STRATEGY_MUL_C: f64 = 1.6;
+pub(crate) const STRATEGY_MUL_C: f64 = 1.6;
 
 /// Optimal `(2,2)`-chain strategy of `n` leaves (Algorithm 60, SIKE spec;
 /// `utilities/strategy.py::optimised_strategy`). Returns the `n - 1` internal
