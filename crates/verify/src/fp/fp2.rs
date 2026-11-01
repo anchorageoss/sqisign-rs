@@ -368,14 +368,19 @@ impl<L: FpBackend> Fp2<L> {
     /// `exp`; use only with non-secret exponents.
     #[inline]
     pub fn pow_vartime(&self, exp: &[u64]) -> Self {
+        // Up to the top set bit of `exp`: the squarings above it would only
+        // feed bits that are zero.
+        let bits = match exp.iter().rposition(|w| *w != 0) {
+            Some(i) => i * 64 + 64 - exp[i].leading_zeros() as usize,
+            None => return Self::one(),
+        };
         let mut acc = self.clone();
         let mut out = Self::one();
-        for &word in exp {
-            for i in 0..64 {
-                let bit = (word >> i) & 1;
-                if bit == 1 {
-                    out = out.mul(&acc);
-                }
+        for i in 0..bits {
+            if (exp[i >> 6] >> (i & 63)) & 1 == 1 {
+                out = out.mul(&acc);
+            }
+            if i + 1 < bits {
                 acc = acc.sqr();
             }
         }

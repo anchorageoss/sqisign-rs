@@ -88,14 +88,19 @@ fn curve_point_lift<L: FpBackend>(x: &Fp2<L>, a: &Fp2<L>) -> JacPoint<L> {
     JacPoint::new(x.clone(), festa_sqrt(&y2), Fp2::one())
 }
 
-/// `[k] P` on Jacobian points, double-and-add, variable time (public data).
+/// `[k] P` on Jacobian points, double-and-add from the top set bit of `k`,
+/// variable time (public data). The identity for `k = 0`.
 pub(crate) fn jac_scalar_mul<L: FpBackend>(
     p: &JacPoint<L>,
     k: &[u64],
     curve: &EcCurve<L>,
 ) -> JacPoint<L> {
-    let mut acc = JacPoint::identity();
-    for i in (0..k.len() * 64).rev() {
+    let top = match k.iter().rposition(|w| *w != 0) {
+        Some(i) => i * 64 + 63 - k[i].leading_zeros() as usize,
+        None => return JacPoint::identity(),
+    };
+    let mut acc = p.clone();
+    for i in (0..top).rev() {
         acc = jac_dbl(&acc, curve);
         if (k[i >> 6] >> (i & 63)) & 1 == 1 {
             acc = jac_add(&acc, p, curve);
@@ -156,6 +161,10 @@ pub fn recover_challenge_prof<L: HdLevel, P: Profiler>(
     // to fix the codomain's model: order 2^(λ + 2), [4] of it is P_λ + [c] Q_λ
     let basis_lamb2 = ec_dbl_iter_basis(&basis_rplamb, rescale2 - 2, &mut e_pk);
 
+    // The challenge has lambda bits; the ladder walks every bit of the limbs
+    // it is given, so only the limbs that hold the challenge are passed.
+    let chal_limbs = (L::LAMBDA as usize).div_ceil(64);
+    let chal = &chal[..chal_limbs.min(chal.len())];
     let kernel = ec_ladder3pt(
         chal,
         &basis_lamb2.p,
