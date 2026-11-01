@@ -14,7 +14,7 @@
 //! `2^(λ + r)`.
 
 use crate::ec::isogeny::iso_isogeny_2chain_eval;
-use crate::ec::jacobian::{jac_add, jac_dbl};
+use crate::ec::jacobian::{jac_add, jac_dbl, jac_dbl_ws};
 use crate::ec::pairing::weil;
 use crate::ec::point::{ec_dbl_iter_basis, ec_ladder3pt};
 use crate::ec::{EcBasis, EcCurve, JacPoint};
@@ -111,17 +111,25 @@ pub(crate) fn jac_scalar_mul<L: FpBackend>(
     acc
 }
 
-/// `[2^n] P` on Jacobian points.
+/// `[2^n] P` on Jacobian points: the chain runs in modified Jacobian
+/// coordinates on the short Weierstrass model of the curve (`to_ws`,
+/// `jac_dbl_ws`, `from_ws`: 3M + 5S per doubling), the same point as `n`
+/// Montgomery-form doublings.
 pub(crate) fn jac_dbl_iter<L: FpBackend>(
     p: &JacPoint<L>,
     n: usize,
     curve: &EcCurve<L>,
 ) -> JacPoint<L> {
-    let mut acc = p.clone();
-    for _ in 0..n {
-        acc = jac_dbl(&acc, curve);
+    if n == 0 {
+        return p.clone();
     }
-    acc
+    let (mut acc, mut t, ao3) = p.to_ws(curve);
+    for _ in 0..n {
+        let (next, u) = jac_dbl_ws(&acc, &t);
+        acc = next;
+        t = u;
+    }
+    JacPoint::from_ws(&acc, &ao3, curve)
 }
 
 /// Recover the challenge from the public key and the challenge scalar
