@@ -76,7 +76,7 @@
    "n": 100,
    "phases": {
     "decode": {
-     "description": "decode (parse_signature, parse_public_key, challenge_limbs)",
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
      "median_mcycles": 0.005856,
      "share": 4.429214598786619e-05
     },
@@ -86,27 +86,27 @@
      "share": 0.08896100212311482
     },
     "slot1": {
-     "description": "Cornacchia and kernel setup",
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
      "median_mcycles": 16.3919955,
      "share": 0.12398166969235751
     },
     "slot2": {
-     "description": "dimension-2 steps",
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
      "median_mcycles": 0.7253205,
      "share": 0.005485997519465864
     },
     "slot3": {
-     "description": "gluing (and the gluing images of the generators)",
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
      "median_mcycles": 8.1594365,
      "share": 0.06171430202129848
     },
     "slot4": {
-     "description": "plain dimension-4 steps: point pushes",
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
      "median_mcycles": 60.8133175,
      "share": 0.459964538373712
     },
     "slot5": {
-     "description": "plain dimension-4 steps: codomain computation",
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
      "median_mcycles": 25.1546175,
      "share": 0.19025819511252282
     },
@@ -116,7 +116,7 @@
      "share": 8.881876201084573e-05
     },
     "slot7": {
-     "description": "image check (hd_image_check)",
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
      "median_mcycles": 9.188964,
      "share": 0.06950118424952985
     }
@@ -134,7 +134,7 @@
    "n": 100,
    "phases": {
     "decode": {
-     "description": "decode (parse_signature, parse_public_key, challenge_limbs)",
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
      "median_mcycles": 0.005734,
      "share": 5.5689260066882676e-05
     },
@@ -144,27 +144,27 @@
      "share": 0.11416728074743031
     },
     "slot1": {
-     "description": "Cornacchia and kernel setup",
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
      "median_mcycles": 16.403280000000002,
      "share": 0.15931052073071073
     },
     "slot2": {
-     "description": "dimension-2 steps",
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
      "median_mcycles": 0.723567,
      "share": 0.007027364987585297
     },
     "slot3": {
-     "description": "gluing (and the gluing images of the generators)",
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
      "median_mcycles": 8.1291505,
      "share": 0.0789512340978949
     },
     "slot4": {
-     "description": "plain dimension-4 steps: point pushes",
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
      "median_mcycles": 31.710040499999998,
      "share": 0.3079715193819118
     },
     "slot5": {
-     "description": "plain dimension-4 steps: codomain computation",
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
      "median_mcycles": 25.0366385,
      "share": 0.24315868026282303
     },
@@ -174,7 +174,7 @@
      "share": 0.00011048500567158307
     },
     "slot7": {
-     "description": "image check (hd_image_check)",
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
      "median_mcycles": 9.189269,
      "share": 0.08924722552590562
     }
@@ -191,7 +191,6 @@
  "ratios_from_cells": {
   "four_point_over_c_reference_verify_I": 10.5,
   "four_point_over_dim2_standard_verify_I": 9.3,
-  "record_2026_09_26_four_point_verify_I": 120.3,
   "two_point_with_check_over_c_reference_verify_I": 8.2,
   "two_point_with_check_over_dim2_standard_verify_I": 7.3,
   "two_point_with_check_over_four_point": 0.78,

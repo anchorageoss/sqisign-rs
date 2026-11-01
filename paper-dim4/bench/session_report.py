@@ -27,16 +27,21 @@ import re
 import statistics
 import sys
 
+# The phases, by the functions the timers enclose (both half-chains added).
+# The timers sit on the shipped code's phase boundaries; what no slot
+# encloses (optimised_strategy, the first precompute of the gluing codomain,
+# gluing_images_paired in the checked two-point mode, the timing calls) is
+# the remainder, the whole call's median minus the sum of the phase medians.
 PROFILE_PHASES = [
-    ("decode", "decode (parse_signature, parse_public_key, challenge_limbs)"),
+    ("decode", "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)"),
     ("slot0", "basis generation (recover_challenge, recover_response, hd_torsion_basis)"),
-    ("slot1", "Cornacchia and kernel setup"),
-    ("slot2", "dimension-2 steps"),
-    ("slot3", "gluing (and the gluing images of the generators)"),
-    ("slot4", "plain dimension-4 steps: point pushes"),
-    ("slot5", "plain dimension-4 steps: codomain computation"),
+    ("slot1", "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)"),
+    ("slot2", "dimension-2 steps (IsogenyChainDim2::new)"),
+    ("slot3", "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)"),
+    ("slot4", "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)"),
+    ("slot5", "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)"),
     ("slot6", "final comparisons (middle_codomain_matches)"),
-    ("slot7", "image check (hd_image_check)"),
+    ("slot7", "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder"),
 ]
 
 ROWS = [
@@ -210,7 +215,6 @@ def main():
         ratios["four_point_over_dim2_standard_verify_I"] = round(four / d2v, 1)
     if two_c and d2v:
         ratios["two_point_with_check_over_dim2_standard_verify_I"] = round(two_c / d2v, 1)
-    ratios["record_2026_09_26_four_point_verify_I"] = 120.3
     numbers["ratios_from_cells"] = ratios
     lines.append("\n#### Ratios from the printed cells\n")
     for k, v in ratios.items():
@@ -260,7 +264,7 @@ def main():
         }
         plines.append(f"| sum of the phase medians | {phase_sum:.2f} | 100% |")
         plines.append(f"| median of the whole call (decode and verify) | {med['total']:.2f} | |")
-        plines.append(f"| the whole minus the sum (timing calls and glue) | {unslotted:.2f} | |")
+        plines.append(f"| the remainder (the whole minus the sum: optimised_strategy, the first precompute, gluing_images_paired in the checked mode, the timing calls) | {unslotted:.2f} | |")
         plines.append(f"\nInside the plain dimension-4 steps ({plain:.2f} Mcycles): point pushes {100 * pushes_frac:.1f}%, codomain computation {100 * (1 - pushes_frac):.1f}%.\n")
         numbers["profile"][mode] = prof
     with open(os.path.join(sdir, "profile.md"), "w") as f:

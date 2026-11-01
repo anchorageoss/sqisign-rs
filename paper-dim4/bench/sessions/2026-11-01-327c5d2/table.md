@@ -42,4 +42,3 @@
 - two_point_with_check_over_c_reference_verify_I: 8.2
 - four_point_over_dim2_standard_verify_I: 9.3
 - two_point_with_check_over_dim2_standard_verify_I: 7.3
-- record_2026_09_26_four_point_verify_I: 120.3
