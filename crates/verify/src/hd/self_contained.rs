@@ -434,32 +434,41 @@ fn run_both_halves<L: HdLevel>(
 fn self_derived_check<L: HdLevel>(
     s: &Setup<L>,
     opts: &HdVerifyOptions,
-) -> Result<HdVerifyReport, HdReject> {
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let none = HdVerifyReport::default();
     let mask = (1u128 << L::R) - 1;
-    let (m1, m2) =
-        starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask).ok_or(HdReject::ChainFailed)?;
+    let (m1, m2) = match starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask) {
+        Some(m) => m,
+        None => return (Err(HdReject::ChainFailed), none),
+    };
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
 
     let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
-        run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points)
-            .ok_or(HdReject::ChainFailed)?;
+        match run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points) {
+            Some(r) => r,
+            None => return (Err(HdReject::ChainFailed), none),
+        };
+    // From here on the report carries the halves' fall-back flags, whatever
+    // the verdict.
     let report = HdVerifyReport {
         fell_back: [fb1, fb2],
     };
 
     // Stage 5: the projective middle-codomain match.
-    let c1 = sc1.last_codomain().ok_or(HdReject::ChainFailed)?;
-    let c2 = sc2.last_codomain().ok_or(HdReject::ChainFailed)?;
+    let (c1, c2) = match (sc1.last_codomain(), sc2.last_codomain()) {
+        (Some(c1), Some(c2)) => (c1, c2),
+        _ => return (Err(HdReject::ChainFailed), report),
+    };
     if !middle_codomain_matches(c1, c2) {
-        return Err(HdReject::MiddleCodomainMismatch);
+        return (Err(HdReject::MiddleCodomainMismatch), report);
     }
 
     // Stage 6: the HD-image condition F(T) = (±a₁P, ±a₂P, *, 0).
     if !hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false) {
-        return Err(HdReject::HdImageMismatch);
+        return (Err(HdReject::HdImageMismatch), report);
     }
-    Ok(report)
+    (Ok(()), report)
 }
 
 /// Run the end-to-end self-contained Level-1 verification (all 6 FastVerify
@@ -475,8 +484,9 @@ pub fn hd_verify<L: HdLevel>(sig: &HdSignature<L>) -> Result<(), HdReject> {
 }
 
 /// [`hd_verify`] with options: the verdict, and the report of the run. The
-/// report's fall-back flags are meaningful whatever the verdict; a signature
-/// rejected before its half-chains reports no fall-back.
+/// report's fall-back flags are those of the half-chains whatever the
+/// verdict once both half-chains have run; a signature rejected before or
+/// while they run reports no fall-back.
 pub fn hd_verify_with<L: HdLevel>(
     sig: &HdSignature<L>,
     opts: &HdVerifyOptions,
@@ -485,10 +495,7 @@ pub fn hd_verify_with<L: HdLevel>(
         Ok(s) => s,
         Err(e) => return (Err(e), HdVerifyReport::default()),
     };
-    match self_derived_check(&setup, opts) {
-        Ok(report) => (Ok(()), report),
-        Err(e) => (Err(e), HdVerifyReport::default()),
-    }
+    self_derived_check(&setup, opts)
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).

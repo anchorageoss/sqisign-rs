@@ -105,7 +105,7 @@ pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
 pub use structure::ThetaStructureDim4;
 pub use two_point::{
     gluing_images_paired, null_fixed_by_pi, permute_pi, run_strategy_chain_two_point,
-    run_strategy_chain_two_point_checked, PI, PI_PAIRS,
+    run_strategy_chain_two_point_checked, PI, PI_FIXED, PI_PAIRS,
 };
 pub use uint::U4;
 pub use wire::{

@@ -42,20 +42,32 @@ pub fn permute_pi<L: FpBackend>(p: &ThetaPointDim4<L>) -> ThetaPointDim4<L> {
     ThetaPointDim4::new(core::array::from_fn(|a| c[PI[a]].clone()))
 }
 
-/// Whether `o` is fixed by [`PI`] projectively, in six comparisons: with
-/// `k0` the pivot of `o` (its lowest non-zero coordinate) as the reference
-/// pair `(k0, PI[k0])`, `o[a] * o[PI[k0]] == o[PI[a]] * o[k0]` for each of
-/// the six pairs `(a, PI[a])` of [`PI_PAIRS`]. When `k0` is a fixed point of
-/// `PI`, which holds whenever `o[0]` is non-zero, this is `o[a] == o[PI[a]]`
-/// for the six pairs.
+/// The fixed points of [`PI`].
+pub const PI_FIXED: [usize; 4] = [0, 5, 10, 15];
+
+/// Whether `o` is fixed by [`PI`] projectively, that is `o[PI[a]] = t o[a]`
+/// for all `a` and one `t`, in six comparisons: with a reference pair
+/// `(k0, PI[k0])`, `o[a] * o[PI[k0]] == o[PI[a]] * o[k0]` for each of the
+/// six pairs `(a, PI[a])` of [`PI_PAIRS`]. The reference `k0` is the lowest
+/// fixed point of `PI` with a non-zero coordinate, so that `t = 1` and the
+/// six comparisons read `o[a] == o[PI[a]]`, which is the whole condition.
+/// When the four fixed coordinates are all zero, `k0` is the pivot of `o`
+/// and one more comparison, `o[k0]^2 == o[PI[k0]]^2`, pins `t^2 = 1`, which
+/// with the six makes the condition complete in that case too.
 pub fn null_fixed_by_pi<L: FpBackend>(o: &ThetaPointDim4<L>) -> bool {
     let c = o.coords();
-    let k0 = o.pivot();
+    let fixed = PI_FIXED
+        .iter()
+        .copied()
+        .find(|&f| !bool::from(c[f].ct_is_zero()));
+    let k0 = fixed.unwrap_or_else(|| o.pivot());
     let r = &c[k0];
     let rp = &c[PI[k0]];
-    PI_PAIRS
+    let pairs = PI_PAIRS
         .iter()
-        .all(|&(a, b)| bool::from(c[a].mul(rp).ct_equal(&c[b].mul(r))))
+        .all(|&(a, b)| bool::from(c[a].mul(rp).ct_equal(&c[b].mul(r))));
+    let unit = fixed.is_some() || bool::from(r.sqr().ct_equal(&rp.sqr()));
+    pairs && unit
 }
 
 /// Whether the gluing images `post` of `g0` to `g3` are paired by [`PI`]:
