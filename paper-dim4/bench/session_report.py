@@ -115,6 +115,32 @@ def fmt1(x):
     return f"{x:.1f}"
 
 
+def sub_profile(sdir, mode):
+    """The sub-slot medians of raw/profile-<mode>-sub.csv (one line per
+    iteration, sub0..subN in cycles; the names in its comment lines), or
+    None when the session has no sub-slot file."""
+    path = os.path.join(sdir, "raw", f"profile-{mode}-sub.csv")
+    if not os.path.exists(path):
+        return None
+    names = {}
+    rows = []
+    with open(path) as f:
+        for line in f:
+            m = re.match(r"# sub(\d+) = (.*)", line.rstrip("\n"))
+            if m:
+                names[int(m.group(1))] = m.group(2)
+                continue
+            if line.startswith("#") or line.startswith("round,"):
+                continue
+            rows.append([int(x) for x in line.rstrip("\n").split(",")])
+    count = len(rows[0]) - 3 if rows else 0
+    slots = []
+    for k in range(count):
+        med = statistics.median([r[3 + k] / 1e6 for r in rows])
+        slots.append((names.get(k, f"sub{k}"), med))
+    return {"n": len(rows), "slots": slots}
+
+
 def main():
     sdir = sys.argv[1]
     numbers = {"rows": {}, "c_reference": {}, "profile": {}, "session": {}}
@@ -266,6 +292,15 @@ def main():
         plines.append(f"| median of the whole call (decode and verify) | {med['total']:.2f} | |")
         plines.append(f"| the remainder (the whole minus the sum: optimised_strategy, the first precompute, gluing_images_paired in the checked mode, the timing calls) | {unslotted:.2f} | |")
         plines.append(f"\nInside the plain dimension-4 steps ({plain:.2f} Mcycles): point pushes {100 * pushes_frac:.1f}%, codomain computation {100 * (1 - pushes_frac):.1f}%.\n")
+        sub = sub_profile(sdir, mode)
+        if sub is not None:
+            prof["sub_slots"] = sub["slots"]
+            plines.append(f"##### Sub-slots of the setup phases, {label} (n = {sub['n']}; medians in megacycles; the basis slot is sub-slots 0 to 9, the Cornacchia and kernel setup slot 10 to 15)\n")
+            plines.append("| sub-slot | median (Mcycles) |")
+            plines.append("|---|---|")
+            for k, (name, med_k) in enumerate(sub["slots"]):
+                plines.append(f"| {k}: {name} | {med_k:.2f} |")
+            plines.append("")
         numbers["profile"][mode] = prof
     with open(os.path.join(sdir, "profile.md"), "w") as f:
         f.write("\n".join(plines) + "\n")
