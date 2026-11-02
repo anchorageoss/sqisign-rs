@@ -45,7 +45,7 @@
         {\SQIsign} has the smallest combined public key and signature of any known post-quantum signature. Its dimension-2 signature carries an auxiliary curve whose only purpose is to make the response computable in dimension 2; {\SQIsign HD}'s dimension-4 response needs no such curve.
         We take {\SQIsign HD}'s construction to the round-3 {\SQIsign} primes, adopted in September 2026 after Wesolowski's attack, derive its parameters for them, and implement it in our Rust port of the {\SQIsign} reference code.
         At NIST level I the dimension-4 signature takes 142 bytes, or 139 with the bit-packed layout we give, against 200 for the specification's format; with the 84-byte public key, key and signature together take 226 bytes, or 223, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack.
-        The price is verification: measured in one session next to the reference's assembly build, the dimension-4 verifier costs 9.9 times the dimension-2 verifier of the same code (120.3 against 12.2 megacycles).
+        The price is verification: measured in one session, the dimension-4 verifier costs 6.4 times the dimension-2 verifier of the same code (85.4 against 13.3 megacycles), or 4.6 times with two kernel points pushed instead of four (60.6 megacycles).
         We also give a verifier that pushes two kernel points instead of four along the chain, and prove that the algorithm it implements computes the same isogenies as the four-point one.
     \end{abstract}
 
@@ -97,8 +97,7 @@
         \item make explicit which matrix entry is dropped and how it is
         recovered, and give a bit-packed encoding that saves three more bytes
         (Section~\ref{sec:dim4});
-        \item measure everything in one session against the reference's
-        assembly build, and compare our verifier's cost with MIKE's
+        \item measure everything in one session, and compare our verifier's cost with MIKE's
         dimension-4 chains (Sections~\ref{sec:bench} and~\ref{sec:conc});
         \item implement a verifier that uses an automorphism of order 4 to push
         two kernel points instead of four. It agrees with the four-point
@@ -263,10 +262,10 @@
     \paragraph{The cost}
     The compact format's verifier runs a chain of dimension-4 isogeny steps,
     each on sixteen theta coordinates instead of the four of a dimension-2
-    step, 87 steps from each end at level I. It costs 9.9 times the
-    dimension-2 verifier of the same crate at the same prime (120.3 against
-    12.2 megacycles), and 10.6 times the reference's assembly build
-    (Section~\ref{sec:bench}).
+    step, 87 steps from each end at level I. It costs 6.4 times the
+    dimension-2 verifier of the same crate at the same prime (85.4 against
+    13.3 megacycles), or 4.6 times with the two-point verifier of
+    Section~\ref{sec:conc} (60.6 megacycles; Section~\ref{sec:bench}).
 
     \paragraph{What it buys}
     In dimension 2 the verifier cannot run the response $\sigma$ of degree $q$
@@ -484,24 +483,21 @@
     %% ============================================================
 
     \paragraph{Method}
-    All measurements come from one session on one machine, an Intel Xeon at
-    2.80~GHz (8 vCPUs, 31~GiB), on 2026-09-26. One binary measures the Rust
-    code, compiled by \texttt{rustc} in release mode with fat link-time
-    optimization and no target-CPU flag; the code chooses its assembly field
-    kernels at run time from CPUID. Each operation is timed with
-    \texttt{rdtsc} and the wall clock around the call, and the tables report
-    medians over 50 runs for key generation and signing, 200 for
-    verification, and 100 for the compact signer and verifier. The C reference
-    is the-sqisign at tag \texttt{nist-v3}, built with CMake in
-    \texttt{Release} mode and \texttt{-DSQISIGN\_BUILD\_TYPE=broadwell}, the
-    assembly-backed field arithmetic, and measured by its own benchmark
-    (\texttt{-{}-iterations=300} at level I, 100 at III and V), medians.
-    Verification is measured from bytes: decode the key, decode the signature,
-    verify.
+    All measurements come from one session on one machine, an AMD EPYC 7B13
+    guest (16 vCPUs, 63~GiB; the cycle counter at 3049.994~MHz), on
+    2026-11-02. One binary measures the Rust code, compiled by \texttt{rustc}
+    1.99.1 in release mode with fat link-time optimization and no target-CPU
+    flag; the code chooses its assembly field kernels at run time from CPUID.
+    Each operation is timed with \texttt{rdtsc} and the wall clock around the
+    call, on one pinned core, in four rounds that visit every block in turn;
+    the tables report medians over 52 runs for key generation and signing in
+    dimension 2, 200 for verification, and, for the compact format, 52 for key
+    generation, 100 for signing and 200 for each verifier. Verification is
+    measured from bytes: decode the key, decode the signature, verify.
 
     \paragraph{Sizes}
     Table~\ref{tab:sizes} lists the sizes on the wire. At level I the compact
-    key and signature take 226 bytes as measured and 223 bit-packed, against
+    key and signature take 226 bytes and 223 bit-packed, against
     283 for the specification's format: a saving of 29\,\% on the signature,
     or 30.5\,\% bit-packed. The compressed dimension-2 format, with a 174-byte
     signature, sits between them.
@@ -525,7 +521,7 @@
                 \bottomrule
             \end{tabular}
             \begin{tablenotes}\footnotesize
-                \item[a] The compressed format's current layout. The session of 2026-09-26 observed an earlier layout of 176 / 269 / 353 bytes.
+                \item[a] The compressed format's current layout. The session of Section~\ref{sec:bench} measured the earlier layout of 176 / 269 / 353 bytes.
                 \item[b] Predicted from the layout of Section~\ref{sec:dim4}, not observed in the session; levels III and V use the predicted public keys of Table~\ref{tab:params}.
             \end{tablenotes}
         \end{threeparttable}
@@ -533,33 +529,30 @@
 
     \paragraph{Cycles}
     Table~\ref{tab:cycles} gives the session in megacycles. At level I the
-    dimension-4 verifier costs 9.9 times the dimension-2 verifier of the same
-    crate, and dimension-4 signing costs 3.0 times dimension-2 signing, because
-    the good degree is found by rejection (Table~\ref{tab:loop}). Key
-    generation is the same in both formats up to the basis convention (41.7
-    against 39.0 megacycles). The crate's dimension-2 code runs at 1.08 times
-    the reference's assembly build for verification, 1.10 times for key
-    generation and 1.12 times for signing; the compressed format's recovery
-    adds 18\,\% to a verification.
+    dimension-4 verifier costs 6.4 times the dimension-2 verifier of the same
+    crate with four kernel points and 4.6 times with two, and dimension-4
+    signing costs 2.9 times dimension-2 signing, because the good degree is
+    found by rejection (Table~\ref{tab:loop}). Key generation is the same in
+    both formats up to the basis convention (40.8 against 38.5 megacycles);
+    the compressed format's recovery adds 16\,\% to a verification.
 
     \begin{table}[t]
         \centering
         \caption{Megacycles at the round-3 primes, medians of the session. The
             last column is the dimension-4 verifier over the dimension-2 verifier of
-            the same code. The C reference is the \texttt{broadwell} build.}
+            the same code.}
         \label{tab:cycles}
         \begin{tabular}{l c r r r r}
             \toprule
             implementation & level & keygen & sign & verify & $\times$ dim.\ 2 \\
             \midrule
-            C reference, dimension 2 & I   & 35.5  & 101.4 & 11.3 & \\
-            C reference, dimension 2 & III & 111.4 & 371.0 & 28.7 & \\
-            C reference, dimension 2 & V   & 241.5 & 780.6 & 79.8 & \\
-            Rust, dimension 2 & I   & 39.0  & 113.5 & 12.2 & \\
-            Rust, dimension 2 & III & 137.8 & 448.1 & 32.7 & \\
-            Rust, dimension 2 & V   & 280.1 & 922.6 & 83.0 & \\
-            Rust, dimension 2, compressed verify & I & & & 14.4 & \\
-            Rust, dimension 4 (compact) & I & 41.7 & 336.6 & 120.3 & 9.9 \\
+            Rust, dimension 2 & I   & 38.5  & 112.5 & 13.3 & \\
+            Rust, dimension 2 & III & 142.2 & 392.9 & 33.7 & \\
+            Rust, dimension 2 & V   & 257.0 & 787.5 & 80.7 & \\
+            Rust, dimension 2, compressed verify & I & & & 15.4 & \\
+            Rust, dimension 4 (compact) & I & 40.8 & 329.0 & 85.4 & 6.4 \\
+            Rust, dim.\ 4, two points, checked & I & & & 60.6 & 4.6 \\
+            Rust, dim.\ 4, two points, unchecked & I & & & 59.6 & 4.5 \\
             \bottomrule
         \end{tabular}
     \end{table}
@@ -577,15 +570,17 @@
                 tick label style={font=\small}, label style={font=\small},
                 every node near coord/.append style={font=\small},
                 ]
-                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(142,120.3)};
-                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(174,14.4) (200,12.2)};
-                \node[teal, anchor=west, font=\small] at (axis cs:145,128) {compact (dimension 4)};
+                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(142,85.4)};
+                \addplot[only marks, mark=square*, mark size=2.5pt, color=teal!60] coordinates {(142,60.6)};
+                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(174,15.4) (200,13.3)};
+                \node[teal, anchor=west, font=\small] at (axis cs:145,92) {compact (dimension 4), four points};
+                \node[teal!70!black, anchor=west, font=\small] at (axis cs:145,62) {two points};
                 \node[blue!55, anchor=south, font=\small] at (axis cs:168,20) {compressed};
                 \node[blue!55, anchor=south west, font=\small] at (axis cs:203,16) {standard};
             \end{axis}
         \end{tikzpicture}
         \caption{The trade at level I on the round-3 prime: signature bytes
-            against verification cost for the three formats of one crate, from the
+            against verification cost for the three formats of one crate, the compact one with four and with two kernel points, from the
             session of Table~\ref{tab:cycles}. The compressed format is placed at its
             current size of 174 bytes; its verification cost was measured with the
             earlier 176-byte layout.}
@@ -599,23 +594,23 @@
 
     \begin{table}[t]
         \centering
-        \caption{Wall-clock milliseconds at level I on the round-3 prime, medians, on the Xeon at 2.80\,GHz of Section~\ref{sec:bench} and on an M4 Pro. The M4 Pro column is
+        \caption{Milliseconds at level I on the round-3 prime, medians, on the EPYC 7B13 guest of Section~\ref{sec:bench} (megacycles over its counter rate of 3049.994\,MHz) and on an M4 Pro. The M4 Pro column is
             pending a run on that machine.}
         \label{tab:ms}
         \small
         \setlength{\tabcolsep}{4pt}
         \begin{tabular}{l l r r}
             \toprule
-            format & operation & Xeon (ms) & M4 Pro (ms) \\
+            format & operation & EPYC (ms) & M4 Pro (ms) \\
             \midrule
-            dimension 2 (standard) & key generation & 13.9 & {\color{red}pending} \\
-            & signing & 40.5 & {\color{red}pending} \\
+            dimension 2 (standard) & key generation & 12.6 & {\color{red}pending} \\
+            & signing & 36.9 & {\color{red}pending} \\
             & verification & 4.4 & {\color{red}pending} \\
-            & verification, compressed & 5.1 & {\color{red}pending} \\
+            & verification, compressed & 5.0 & {\color{red}pending} \\
             \addlinespace
-            dimension 4 (compact) & key generation & 14.9 & {\color{red}pending} \\
-            & signing & 120.2 & {\color{red}pending} \\
-            & verification & 43.0 & {\color{red}pending} \\
+            dimension 4 (compact) & key generation & 13.4 & {\color{red}pending} \\
+            & signing & 107.9 & {\color{red}pending} \\
+            & verification & 28.0 & {\color{red}pending} \\
             \bottomrule
         \end{tabular}
     \end{table}
@@ -626,8 +621,8 @@
     Section~\ref{sec:dim4}. A candidate costs one norm computation; one in two
     reaches a Miller--Rabin test on an $e$-bit number, and composites fail at
     the first round. This loop accounts for the spread of signing times: the
-    median signature needs 68 samples, the mean 114, and the range is 1 to
-    835.
+    median signature needs 79.5 samples, the mean 111.6, and the range is 2 to
+    523.
 
     \begin{table}[t]
         \centering
@@ -641,19 +636,19 @@
             & measured & expected \\
             \midrule
             signatures measured & 100 & \\
-            response samples per signature, mean & 114 & 121 \\
+            response samples per signature, mean & 111.6 & 121 \\
             the same if $q$ had random parity & {\color{red}???} & 241 \\
-            response samples per signature, median (min, max) & 68 (1, 835) & \\
-            primality tests per signature, mean & 57 & 60 \\
-            signing, Mcycles, median (min, max) & 337 (50, 3712) & \\
-            signing, dimension 2, Mcycles, median & 114 & \\
+            response samples per signature, median (min, max) & 79.5 (2, 523) & \\
+            primality tests per signature, mean & 54.8 & 60 \\
+            signing, Mcycles, median (min, max) & 329.0 (48.8, 1900.9) & \\
+            signing, dimension 2, Mcycles, median & 112.5 & \\
             \bottomrule
         \end{tabular}
     \end{table}
 
     \paragraph{Memory}
     At its peak, one compact verification at level I allocates 1674~KiB
-    (1.64~MiB) of heap, measured with a counting allocator around the call;
+    (1.64~MiB) of heap, measured with a counting allocator around the call in a session of 2026-09-26;
     the dimension-2 verifier allocates nothing.
 
     %% ============================================================
@@ -707,9 +702,10 @@
     attack.
 
     The verifier pays for it. In the same code, a dimension-4 verification
-    costs 9.9 times a dimension-2 one at level I (120.3 against 12.2
-    megacycles) and needs about 1.6~MiB of heap where the dimension-2 verifier
-    needs none; signing costs three times as much, because of the search for a
+    costs 6.4 times a dimension-2 one at level I (85.4 against 13.3
+    megacycles), 4.6 times with the two-point verifier below, and needs about
+    1.6~MiB of heap where the dimension-2 verifier needs none; signing costs
+    2.9 times as much, because of the search for a
     good degree. The compact format therefore suits settings where bandwidth
     or storage dominates and a verification of a few tens of milliseconds is
     acceptable; the specification's dimension-2 format remains the better
@@ -732,11 +728,16 @@
         our implementation computes that algorithm's theta structures is checked
         only in part (Remark~\ref{rem:conformance})}. A verifier can therefore
     double and push only two kernel points along each half-chain and obtain
-    the other two by permuting coordinates. We have implemented this variant;
-    it checks the condition at the gluing on each signature and falls back to
-    four points otherwise. On 24 signatures it reproduces every codomain of
-    both half-chains and every verdict of the four-point verifier, on honest
-    and tampered signatures alike; its cost is \textbf{[TBD]}.
+    the other two by permuting coordinates. We have implemented this variant
+    as an option of our Rust port; it checks the condition at the gluing on
+    each signature and falls back to four points otherwise. In the session of
+    Section~\ref{sec:bench}, two-point verification with the check costs 60.6
+    megacycles at level I against 85.4 for the four-point verifier, 0.71 of
+    it, and 59.6 without the check, 0.70. In the port's tests, the two-point
+    and the four-point verifier return the same verdict and the same
+    rejection reason on the five level-I vectors and on 70 distinct tampered
+    inputs, and the same codomain null point at each of the 844 plain steps
+    of both half-chains over the five vectors, in both two-point modes.
 
     \paragraph{Limitations}
     There is only one implementation, and no independent round-3 dimension-4
@@ -753,7 +754,8 @@
     SQIsignHD's with our parameters substituted and has not been re-examined;
     the existence of a good degree in every class is a heuristic in their
     paper and remains one here. The two-point verifier is tested at level I
-    only, on 24 signatures, and is not yet the default; {\color{red}its
+    only, on five vectors and their tampered variants, and is not the
+    default; {\color{red}its
         correctness for every input rests on the conformance of the implementation
         to the algorithm of Theorem~\ref{thm:base}, which is checked only in part
         (Remark~\ref{rem:conformance})}. The format is experimental and not for
@@ -764,11 +766,13 @@
     arithmetic would narrow the gap in verification cost, which decides
     whether the 58 bytes saved at level I are worth having, and there is
     reason to expect room. MIKE's chain costs about 0.07 megacycles per step
-    at level I, against about 0.69 for ours (120.3 megacycles over $2 \cdot
-    87$ steps). The comparison is loose, since MIKE works over $\mathbb{F}_p$
-    on a different processor and our verifier also evaluates a point for its
-    image check, but it suggests that much of our 9.9-fold penalty lies in the
-    implementation rather than in the dimension. MIKE's computation of each
+    at level I, against about 0.49 for our four-point verifier and 0.35 for
+    the two-point one (85.4 and 60.6 megacycles over $2 \cdot 87$ steps). The
+    comparison is loose, since MIKE works over $\mathbb{F}_p$ on a different
+    processor and our verifier also evaluates a point for its image check,
+    but it suggests that much of our 6.4-fold penalty lies in the
+    implementation rather than in the dimension (measured below: 1.18 of the
+    counted floor at our own operation count). MIKE's computation of each
     codomain from two points and its faster doubling on the quotient by the
     automorphism~\cite[Appendix E.2]{BDD+26} would save more than our
     two-point verifier, and its observation that additions, not
@@ -776,11 +780,38 @@
     arithmetic~\cite[Section 6]{BDD+26} points toward field representations
     and vectorization tuned to the Hadamard transform.
 
+    In our two-point verifier the plain dimension-4 steps are 67.1 percent of
+    the cost (point pushes 44.9 percent, codomain computations 22.2 percent),
+    the setup before the chain 19.6 percent, the dimension-2 gluing chain 0.9
+    percent, the image check 6.5 percent and the gluing 6.0 percent, measured
+    in the session of Section~\ref{sec:bench} (basis generation 7.48
+    megacycles, Cornacchia and kernel setup 4.23, dimension-2 steps 0.52,
+    gluing 3.60, point pushes 26.88, codomain computations 13.28, image check
+    3.87; the whole call 60.37); the codomain computations, 33.1 percent of
+    the plain steps, are the part a codomain-from-two-points step would
+    address.
+
+    The two-point verifier's operation count, taken with counters in the
+    field arithmetic at the session's commit, is 132\,921 multiplications,
+    91\,426 squarings, 435\,363 additions, 54 inversions and 11 square roots
+    in $\mathbb{F}_{p^2}$ per verification, 51.0 megacycles at the session's
+    per-operation costs; at the reference count of our floor table, which
+    takes a hand count of the SQIsignHD library's code where that count is
+    below ours and our own count elsewhere, the same costs give 50.8.
+    Measured in the same session, the verifier runs at 1.18 of the former
+    floor and 1.19 of the latter, 9.6 megacycles above the latter, 5.8 of
+    them in the two plain-step phases (1.15 for the point pushes, 1.21 for
+    the codomains; 1.12 for the basis, 1.16 for the setup, 1.35 for the
+    gluing, 1.16 for the image check). What remains is the sixteen-coordinate
+    arithmetic of the plain steps on general points: their operation count
+    is the library's, and the gap sits inside the Hadamard transform and the
+    squaring kernels.
+
     Three years separate the break of SIDH from a two-dimensional {\SQIsign} in
     a NIST round, and one more separates that from primes moved by a new
     attack on the isogeny-path problem. Every construction in this paper is
     young, ours included, and the numbers describe code as it stood in
-    September 2026, not a settled design; that is the reason for caution in
+    November 2026, not a settled design; that is the reason for caution in
     using any of it.
 
 
@@ -1818,6 +1849,22 @@
             where the rule is not defined. Every input that reaches our
             half-chains therefore satisfies the hypotheses of
             Lemma~\ref{lem:basepoints}.
+            \item \emph{Our Rust port.} Of our Rust port we established the same
+            items by reading its code at the commit of the session of
+            Section~\ref{sec:bench}: the index convention of (a) line by line
+            against the appendix, the index $\mathbf i_0$ of (b), the projective
+            use of the kernel points of (d), the base points and the rule of (e),
+            and, for (c), the odd $a_1$, the parity and residue tests on $2^e - q$,
+            and the bound on $m$. The port's verifier does not repeat the goodness
+            test before Cornacchia's algorithm: the only tests on $2^e - q$ are the
+            parity, the residue modulo 4 and the success of the descent. It rejects
+            a transmitted $a$ and $b$ both even before any inversion. The
+            dimension-2 gluing is one chain applied to both pairs of copies;
+            whether its structure, the dimension-4 gluing's change of basis and the
+            plain steps are those of Definition~\ref{def:structures} is not
+            established for the port either, and what the port's tests show is
+            only that its two-point and four-point chains agree at every step and
+            that the SQIsignHD library's verifier accepts its signatures.
         \end{enumerate}
         {\color{red}
             What is not established is that our crate computes the algorithm's
