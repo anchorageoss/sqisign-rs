@@ -1380,9 +1380,17 @@ fn eq_limbs(a: &[u64; NLIMBS], b: &[u64; NLIMBS]) -> Choice {
 
 #[inline]
 fn sqr_n(x: &mut [u64; NLIMBS], n: u32) {
-    for _ in 0..n {
-        let t = *x;
+    // Two buffers in turn: no copy of the value before each squaring.
+    let mut t = [0u64; NLIMBS];
+    let mut i = 0;
+    while i + 1 < n {
+        mont_mul(&mut t, x, x);
         mont_mul(x, &t, &t);
+        i += 2;
+    }
+    if i < n {
+        mont_mul(&mut t, x, x);
+        *x = t;
     }
 }
 
