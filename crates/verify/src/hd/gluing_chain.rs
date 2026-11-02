@@ -32,6 +32,7 @@ use crate::hd::arith::{hadamard, pointwise_square};
 use crate::hd::dim2::{hadamard2, IsogenyChainDim2, TuplePoint};
 use crate::hd::dim4::{
     apply_base_change_theta_dim4, base_change_theta_dim4, product_to_theta_points_dim4_dim2,
+    BaseChangeDim4,
 };
 use crate::hd::gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
 use crate::hd::kani::{gluing_dim2_f1, gluing_dim2_f2};
@@ -236,7 +237,7 @@ fn m4_mul(a: &[[u8; 4]; 4], b: &[[u8; 4]; 4]) -> [[i64; 4]; 4] {
 /// evaluate it on the full kernel basis.
 pub struct KaniGluingChainHalf<L: FpBackend> {
     isogenies_dim2: IsogenyChainDim2<L>,
-    n_dim4: [[Fp2<L>; 16]; 16],
+    n_dim4: BaseChangeDim4<L>,
     gluing_dim4: GluingIsogenyDim4<L>,
     l_trans: [TuplePoint4<L>; 2],
     l_trans_ind: [usize; 2],
@@ -323,7 +324,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         let n_dim2 = crate::hd::dim2::base_change_theta_dim2(&m10, e4);
 
         // dim-4 gluing base change
-        let n_dim4 = base_change_theta_dim4(m_gluing_dim4, e4);
+        let n_dim4 = BaseChangeDim4::new(base_change_theta_dim4(m_gluing_dim4, e4), e4);
 
         // the dim-2 (2,2)-isogeny chain kernel B_K_dim2
         let two_mp2 = 1u128 << (m + 2);
@@ -412,7 +413,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         // domain_base_change null = N_dim4 · (dim2_cod ⊗ dim2_cod).
         let dim2_cod = self.isogenies_dim2.codomain_null();
         let product_null = product_theta_dim2to4(dim2_cod, dim2_cod);
-        let dbc_null = apply_base_change_theta_dim4(&self.n_dim4, &product_null);
+        let dbc_null = self.n_dim4.apply(&product_null);
         if dbc_null.iter().any(|x| bool::from(x.ct_is_zero())) {
             return None;
         }
@@ -420,7 +421,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         let hs = hadamard(&pointwise_square(y.coords()));
         let q: [Fp2<L>; 16] = core::array::from_fn(|i| hs[i].mul(&inv_dbc[i])); // hadamard=false
 
-        let n_inv = crate::hd::dim2::mat_inverse(&self.n_dim4)?;
+        let n_inv = crate::hd::dim2::mat_inverse(self.n_dim4.dense())?;
         let q = apply_base_change_theta_dim4(&n_inv, &q); // product Am² coords
 
         let (q1, q2) = product_to_theta_points_dim4_dim2(&q)?;
@@ -459,7 +460,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
 /// N_dim4 base change`, where `Φ` is the dim-2 chain.
 fn self_eval_to_dim4<L: FpBackend>(
     chain: &IsogenyChainDim2<L>,
-    n_dim4: &[[Fp2<L>; 16]; 16],
+    n_dim4: &BaseChangeDim4<L>,
     p: &TuplePoint4<L>,
     _e1: &EcCurve<L>,
     _e2: &EcCurve<L>,
@@ -469,5 +470,5 @@ fn self_eval_to_dim4<L: FpBackend>(
     let ta = chain.eval(&a);
     let tb = chain.eval(&b);
     let prod = product_theta_dim2to4(&ta, &tb);
-    ThetaPointDim4::new(apply_base_change_theta_dim4(n_dim4, &prod))
+    ThetaPointDim4::new(n_dim4.apply(&prod))
 }

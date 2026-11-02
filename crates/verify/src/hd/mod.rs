@@ -83,7 +83,7 @@ pub use dim2::{
     apply_mat4, base_change_theta_dim2, hadamard2, squared_theta2, GluingThetaIsogenyDim2,
     IsogenyChainDim2, ThetaIsogenyDim2, ThetaStructureDim2, TuplePoint,
 };
-pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4};
+pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4, BaseChangeDim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
 pub use gluing_chain::{
     jac_mul_u128, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,

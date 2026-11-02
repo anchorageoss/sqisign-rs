@@ -9,7 +9,9 @@
 //! coordinates adapted to the dim-4 gluing. The index convention is the
 //! `Theta_dim4` one (`k = i₀ + 2i₁ + 4i₂ + 8i₃`).
 
-use crate::{Fp2, FpBackend};
+use subtle::Choice;
+
+use crate::{Fp, Fp2, FpBackend};
 
 /// `[k]` from a 4-bit multi-index reduced mod 2 (`multindex_to_index∘red_mod_2`).
 #[inline]
@@ -129,6 +131,90 @@ pub fn product_to_theta_points_dim4_dim2<L: FpBackend>(
         }
     });
     Some((p1, p2))
+}
+
+/// A dimension-4 theta base change held in the form its application needs.
+/// The gluing matrices have four nonzero entries per row, each `4·e4^k` for
+/// the fourth root of unity `e4`; the product is then sixteen sums of four
+/// signed or `i`-twisted coordinates, doubled twice, with no multiplication.
+/// A matrix of another shape is applied densely.
+pub struct BaseChangeDim4<L: FpBackend> {
+    dense: [[Fp2<L>; 16]; 16],
+    // per row: (column, exponent k of e4) of the four nonzero entries
+    sparse: Option<[[(u8, u8); 4]; 16]>,
+    e4_is_i: Choice,
+}
+
+impl<L: FpBackend> BaseChangeDim4<L> {
+    /// Build from the matrix of [`base_change_theta_dim4`] and its `e4`.
+    pub fn new(dense: [[Fp2<L>; 16]; 16], e4: &Fp2<L>) -> Self {
+        let i_unit = Fp2::<L> {
+            re: Fp::<L>::zero(),
+            im: Fp::<L>::one(),
+        };
+        let e4_is_i = e4.ct_equal(&i_unit);
+        let is_root = bool::from(e4_is_i) || bool::from(e4.ct_equal(&i_unit.neg()));
+        let four_pow: [Fp2<L>; 4] = {
+            let four = Fp2::<L>::one().mul_small(4);
+            [
+                four.clone(),
+                four.mul(e4),
+                four.mul(&e4.sqr()),
+                four.mul(&e4.sqr().mul(e4)),
+            ]
+        };
+        let mut rows = [[(0u8, 0u8); 4]; 16];
+        let mut ok = is_root;
+        for (i, row) in dense.iter().enumerate() {
+            let mut n = 0usize;
+            for (j, x) in row.iter().enumerate() {
+                if bool::from(x.ct_is_zero()) {
+                    continue;
+                }
+                let k = (0..4).find(|&k| bool::from(x.ct_equal(&four_pow[k])));
+                match k {
+                    Some(k) if n < 4 => {
+                        rows[i][n] = (j as u8, k as u8);
+                        n += 1;
+                    }
+                    _ => ok = false,
+                }
+            }
+            ok &= n == 4;
+        }
+        Self {
+            dense,
+            sparse: if ok { Some(rows) } else { None },
+            e4_is_i,
+        }
+    }
+
+    /// The matrix itself.
+    pub fn dense(&self) -> &[[Fp2<L>; 16]; 16] {
+        &self.dense
+    }
+
+    /// `N · p`.
+    pub fn apply(&self, p: &[Fp2<L>; 16]) -> [Fp2<L>; 16] {
+        let Some(rows) = &self.sparse else {
+            return apply_base_change_theta_dim4(&self.dense, p);
+        };
+        core::array::from_fn(|i| {
+            let mut acc = Fp2::<L>::zero();
+            for &(j, k) in rows[i].iter() {
+                let x = &p[j as usize];
+                let t = match k {
+                    0 => x.clone(),
+                    1 => x.mul_by_i(self.e4_is_i),
+                    2 => x.neg(),
+                    _ => x.mul_by_i(!self.e4_is_i),
+                };
+                acc = acc.add(&t);
+            }
+            let acc = acc.add(&acc);
+            acc.add(&acc)
+        })
+    }
 }
 
 /// Apply a `16×16` theta base-change matrix to a 16-coordinate theta point.
