@@ -221,7 +221,7 @@ Source: no number; the 176-byte sentence of the caption stays true for the sessi
 
 ### E11 Table 4 caption (Part 2 place 10 of 11)
 
-Where: line 602 (sub). Why: the host of the session of record.
+Where: line 602 (sub). Why: the host of the session of record; the column stays the milliseconds of the counter rate, which equal the wall clock on this host to 0.01 ms (section D).
 
 Before:
 ```latex
@@ -229,7 +229,7 @@ Before:
 ```
 After:
 ```latex
-        \caption{on the EPYC 7B13 guest of Section~\ref{sec:bench} (megacycles over its counter rate of 3049.994\,MHz) and on an M4 Pro. The M4 Pro column is
+        \caption{Milliseconds at level I on the round-3 prime, medians, on the EPYC 7B13 guest of Section~\ref{sec:bench} (megacycles over its counter rate of 3049.994\,MHz) and on an M4 Pro. The M4 Pro column is
 ```
 Source: machine.txt lines 10 and 47.
 
@@ -594,10 +594,6 @@ Source: paper-input.md Part 3 (the proposed paragraph) with the no-goodness-test
 - F3, Table 4: the two-point verifier's milliseconds (19.9 with the check, 19.5 without, from 60.6 and 59.6 over 3.049994) are not added as rows, since the decision names the column, not new rows; one line to add if wanted.
 - F4, line 504 (Sizes): "the compact key and signature take 226 bytes as measured" refers to a size observed in the 2026-09-26 session; the session of record did not record sizes, so after P2 "as measured" points at no session in the paper. Options: keep (the size is the format's, Table 2 and Table 1 give it as measured at 142 and 84 bytes), or drop "as measured". Not applied.
 
-## E. Build support files (not paper text)
-
-- The draft declares \\documentclass[journal=tches]{iacrtrans}; the class is not in the TeX Live on this machine. The orchestrator's decision of 2026-11-02 (SECENG-2442, the build inputs): the class from its public repository Cryptosaurus/iacrtrans at the pinned release v0.94 (tag commit ea9229784abe20abdf94f3194993f79d97cc6c91) is committed under paper-dim4/ as a build file, in its own commit: iacrtrans.cls (sha256 12dc0fb78d2e5a3c35d3b20218d699d5005fb9dfe584a424a683ffc416ea26d0), CC-by.pdf (read by the class at its line 323) and the class's COPYING (CC0 1.0). Every package the class and the draft load is installed (kpsewhich). The bibliography the draft names, Dim4SQI.bib, is not on the branch or on this machine; it is the human's (the same DECISION NEEDED); until it arrives a build cannot resolve the citations.
-
 ## D. Checks
 
 - The session numbers recomputed from the raw CSVs (medians over all rounds; the counter-rate milliseconds against the wall-clock medians), logs/session-numbers.txt:
@@ -621,3 +617,7 @@ Source: paper-input.md Part 3 (the proposed paragraph) with the no-goodness-test
 - The scratch apply: scripts/gen_changes.py applied the edits of section A to a copy under the results folder (scratch/main_standalone.applied.tex); the unified diff against 8552b9d is logs/scratch-diff.txt; every changed original line is inside a listed range, and lines inside a listed range whose text is the same before and after (the diff skips them): 535 547 548 583 584 766. The branch's file is untouched (git status clean).
 - Part 2's eleven ratio places, matched: 1 abstract line 48, Section 4 lines 266 to 268, Conclusion lines 710 to 711 (E01, E03, E25); 2 Section 4 line 268 (E03); 3 Cycles line 537 (E06); 4 Cycles lines 539 to 540 (E06); 5 Cycles lines 540 to 542 (E06, dropped); 6 Cycles line 543 (E06); 7 Outlook line 767 (E27); 8 Outlook line 770 (E27); 9 Figure trade lines 580 to 581 (E09); 10 Table 4 lines 602 to 618 (E11 to E18); 11 Table 5 lines 644 to 649 and the loop paragraph lines 629 to 630 (E19 to E24). The twelfth row of Part 2's table, the memory figure, is F1.
 - The C reference in the draft: Table 3 rows 555 to 557 (E08, out), the caption's sentence at 549 (E07, out), the Method sentence at 494 to 498 with its iteration counts (E04, out), the ratios at 540 to 542 (E06, out), "10.6 times the reference's assembly build" at 268 (E03, reworded), "next to the reference's assembly build" at 48 (E01, out), "against the reference's assembly build" at 100 to 101 (E02, out). Every figure of the 2026-09-26 session or the Xeon: lines 48, 266 to 268, 487 to 498, 528, 536 to 543, 555 to 562, 580 to 581, 602, 609, 611 to 618, 629 to 630, 644 to 649, 655 to 657 (F1), 710 to 712, 767, 770, 783; the comment lines of the draft carry none.
+
+## E. Build support files (not paper text)
+
+- The draft declares \documentclass[journal=tches]{iacrtrans}; the class is not in the TeX Live on this machine. The orchestrator's decision of 2026-11-02 (SECENG-2442, the build inputs): the class from its public repository Cryptosaurus/iacrtrans at the pinned release v0.94 (tag commit ea9229784abe20abdf94f3194993f79d97cc6c91) is committed under paper-dim4/ as a build file, in its own commit: iacrtrans.cls (sha256 12dc0fb78d2e5a3c35d3b20218d699d5005fb9dfe584a424a683ffc416ea26d0), CC-by.pdf (read by the class at its line 323) and the class's COPYING (CC0 1.0). Every package the class and the draft load is installed (kpsewhich). The bibliography the draft names, Dim4SQI.bib, is not on the branch or on this machine; it is the human's (the same DECISION NEEDED); until it arrives a build cannot resolve the citations.
