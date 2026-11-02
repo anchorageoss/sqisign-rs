@@ -6,7 +6,7 @@ Sources. Measured: the session of record, paper-dim4/bench/sessions/2026-11-02-9
 
 Registers in the after text: a sentence is measured (it names the session of Section sec:bench), counted (it names the counters at the session's commit), tested (it counts the committed tests), or the draft's own words kept. No sentence of ours claims a proof or a priority. ASCII only; no double hyphen in our text (the draft writes Miller-Rabin with two hyphens at lines 413, 627 and 1805, which we do not edit).
 
-## A. The edits (applied in P2; the scratch diff logs/scratch-diff.txt is this list applied to a copy)
+## A. The edits (applied in P2 to main_standalone.tex alone; the diff logs/scratch-diff.txt is this list applied)
 
 ### E01 abstract (Part 2 place 1 of 11; the C reference clause out)
 
@@ -156,7 +156,7 @@ Source: SECENG-2442: the C reference rows come out of Table 3.
 
 ### E08 Table 3 rows, wholesale (the C rows out; the two-point rows in)
 
-Where: lines 555 to 562 (range). Why: every cell from the session of record; the x dim. 2 column is the dimension-4 verifier over the dimension-2 standard verify of the same session at level I.
+Where: lines 555 to 562 (range). Why: every cell from the session of record; the x dim. 2 column is the dimension-4 verifier over the dimension-2 standard verify of the same session at level I; the compact row keeps the draft's label (its verify cell is the four-point verifier, the compact format's default), the two-point rows are labelled checked and unchecked (with and without the image check), short enough for the column (a longer label overflowed the line in the P2 build by 48 pt).
 
 Before:
 ```latex
@@ -175,9 +175,9 @@ After:
             Rust, dimension 2 & III & 142.2 & 392.9 & 33.7 & \\
             Rust, dimension 2 & V   & 257.0 & 787.5 & 80.7 & \\
             Rust, dimension 2, compressed verify & I & & & 15.4 & \\
-            Rust, dimension 4 (compact), four points & I & 40.8 & 329.0 & 85.4 & 6.4 \\
-            Rust, dimension 4, two points, with the image check & I & & & 60.6 & 4.6 \\
-            Rust, dimension 4, two points, without the check & I & & & 59.6 & 4.5 \\
+            Rust, dimension 4 (compact) & I & 40.8 & 329.0 & 85.4 & 6.4 \\
+            Rust, dim.\ 4, two points, checked & I & & & 60.6 & 4.6 \\
+            Rust, dim.\ 4, two points, unchecked & I & & & 59.6 & 4.5 \\
 ```
 Source: the session table.md (paper-dim4/bench/sessions/2026-11-02-99c13b0/table.md), Rust rows, median (Mcycles): dim2 I 38.5 / 112.5 / 13.3, III 142.2 / 392.9 / 33.7, V 257.0 / 787.5 / 80.7, compressed I 15.4; dim4 40.8 / 329.0 / 85.4; two-check 60.6; two-nocheck 59.6; ratios 85.4/13.3 = 6.4, 60.6/13.3 = 4.6, 59.6/13.3 = 4.48 -> 4.5.
 
@@ -461,7 +461,7 @@ After:
     inputs, and the same codomain null point at each of the 844 plain steps
     of both half-chains over the five vectors, in both two-point modes.
 ```
-Source: the session table.md (paper-dim4/bench/sessions/2026-11-02-99c13b0/table.md), Rust rows, median (Mcycles): 60.6, 85.4, 59.6; 60.6/85.4 = 0.71, 59.6/85.4 = 0.698 -> 0.70 (numbers.json ratios_from_cells 0.71 and 0.7); tested: crates/sqisign-rs/tests/two_point.rs at d45823d, COUNT = 5 vectors (line 27), 15 tampered variants per vector (lines 88 to 122 and 144: 6 + 9), 75 variants of which 70 distinct (the flip of byte 82 repeats the q-bit flip); the plain steps from the codomain dump of SECENG-2439 (runs/codomains-r12-s0.txt, identical to the baseline): 844 two-check and 844 four-point plain-step lines over vectors 0 to 4, compared in both two-point modes by codomains_agree_at_every_step (lines 172 to 211).
+Source: the session table.md (paper-dim4/bench/sessions/2026-11-02-99c13b0/table.md), Rust rows, median (Mcycles): 60.6, 85.4, 59.6; 60.6/85.4 = 0.71, 59.6/85.4 = 0.698 -> 0.70 (numbers.json ratios_from_cells 0.71 and 0.7); tested: crates/sqisign-rs/tests/two_point.rs at d45823d, COUNT = 5 vectors (line 27), 15 tampered variants per vector (lines 90 to 121 and 144: 6 + 9), 75 variants of which 70 distinct (the flip of byte 82 repeats the q-bit flip); the plain steps from the codomain dump of SECENG-2439 (runs/codomains-r12-s0.txt, identical to the baseline): 844 two-check and 844 four-point plain-step lines over vectors 0 to 4, compared in both two-point modes by codomains_agree_at_every_step (lines 172 to 218).
 
 ### E27 Outlook, the per-step figure and the penalty sentence (Part 2 places 7 and 8 of 11)
 
@@ -572,6 +572,51 @@ After (the before lines kept, these lines added below them):
 ```
 Source: paper-input.md Part 3 (the proposed paragraph) with the no-goodness-test sentence expanded and the both-even sentence as SECENG-2442 asks. Code reading at d45823d (the verifier code of the session commit 99c13b0 and of 8552b9d), every item by file and line under crates/verify/src/hd/: (a) the multi-index map, dim4.rs lines 18 to 21 (red2_index, bit k of the index from component k); the blocks of the 8 x 8 matrix taken as A = rows 0 to 3 and columns 0 to 3, B = rows 4 to 7 and columns 0 to 3, C = rows 0 to 3 and columns 4 to 7, D = rows 4 to 7 and columns 4 to 7, applied column-wise by mat_prod_vect, dim4.rs lines 24 and 41 to 55 (base_change_theta_dim4); the kernel generators from columns 4 to 7 of the starting matrices in that order, gluing_chain.rs lines 164 and 238 (j = 4 + jj) and the doc at line 224; copies 0 and 1 on E_com and 2 and 3 on E_chl, self_contained.rs lines 404 to 408 (the fixed bases of R_com and S_com on e_com and of their images on e_chal) and 308 (TuplePoint4 with the point on copy 0); the permutation of the two-point verifier, two_point.rs line 34 (PI = 0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15, coordinate a of the result from coordinate PI[a]); bit k carried by kernel generator k, isogeny.rs lines 247 to 250. (b) dim4.rs lines 66 to 81 (the first i0 in the order 0 to 15 whose row is non-zero, i0 = 0 when the row for 0 is non-zero). (c) kani.rs lines 53 to 55 (2^e - q even or not 1 mod 4 returns None) and 85 (the odd member returned first); self_contained.rs line 64 (MAX_GLUING_M = 40) and 376 to 382 (m = the trailing zeros of a2, m > 40 rejected as GluingBound); no primality test before Cornacchia: build_setup_prof calls norm_equation_2f_minus_q at self_contained.rs line 372 (the function declared at line 339; build_setup at 331 wraps it) with no test before it, and no primality function exists under crates/verify/src/hd (grep for miller, is_prime, probable). (d) isogeny.rs lines 13 to 27 and 249 to 250 (the codomain from each kernel point's own ratios). (e) the matrix read as the map from the commitment basis to points of E_chl: response.rs lines 196 to 197 (the images a P + b Q and c P + d Q on the rescaled challenge basis); lambda = q^-1 mod 2^r: self_contained.rs lines 180 to 181 and 401 (inverse_mod_pow2) used as R2 = [lambda] S in gluing_chain.rs lines 140 to 152; the dropped entry: hd_verify.rs lines 103 to 116 and response.rs lines 187 to 192; a and b both even rejected before any inversion: response.rs lines 155 to 159 (since 783f783). The reading of paper-input.md Part 3 at 2541c3c (with SECENG-2420's convention.md) is the earlier reading of the same items; the lines above are the ones at d45823d. The dimension-2 gluing applied to both pairs of copies by one chain: gluing_chain.rs line 393 (one IsogenyChainDim2 built per half-chain in new_prof), lines 412 and 502 (the calls of self_eval_to_dim4) and 508 to 521 (self_eval_to_dim4: the pairs of copies 0 and 2 and of copies 1 and 3 evaluated through that one chain, then the product and the dimension-4 base change). The acceptance by the SQIsignHD library's verifier is paper-input.md Part 3's statement (the SECENG-2420 harness), not re-run here.
 
+### E31 Memory paragraph (F1, decided (a) on SECENG-2442 at 10:00Z: the one dated figure kept, its session named)
+
+Where: line 656 (sub). Why: the 1674 KiB peak heap was not measured in the session of record; the sentence names its session, the one exception to one session on one host; the Conclusion's clause at line 711 stays as it is (E25).
+
+Before:
+```latex
+    (1.64~MiB) of heap, measured with a counting allocator around the call;
+```
+After:
+```latex
+    (1.64~MiB) of heap, measured with a counting allocator around the call in a session of 2026-09-26;
+```
+Source: SECENG-2442 comment 94915c7e (F1 (a) as recommended in comment 0c7c2dbe); the figure is the draft's own, from the 2026-09-26 session; no new number.
+
+### E32 Limitations sentence (F2, decided (a) on SECENG-2442 at 10:00Z: the port's count)
+
+Where: lines 755 to 756 (range). Why: the co-author's 24-signature count, dropped from the [TBD] passage by E26, replaced by the port's tested count; the red clause that follows is untouched.
+
+Before:
+```latex
+    paper and remains one here. The two-point verifier is tested at level I
+    only, on 24 signatures, and is not yet the default; {\color{red}its
+```
+After:
+```latex
+    paper and remains one here. The two-point verifier is tested at level I
+    only, on five vectors and their tampered variants, and is not the
+    default; {\color{red}its
+```
+Source: SECENG-2442 comment 94915c7e (F2 (a)); paper-input.md Part 1, the note on the Limitations paragraph; tested: crates/sqisign-rs/tests/two_point.rs at d45823d, COUNT = 5 vectors (line 27) and their tampered variants (lines 90 to 121 and 144), as in E26.
+
+### E33 Sizes paragraph (F4, taken as recommended (a) on SECENG-2442, no answer by P2's edit: the two words dropped)
+
+Where: line 504 (sub). Why: the size was observed in the 2026-09-26 session and the session of record did not record sizes; the figure 226 is the format's (Tables 1 and 2) and stays.
+
+Before:
+```latex
+    key and signature take 226 bytes as measured and 223 bit-packed, against
+```
+After:
+```latex
+    key and signature take 226 bytes and 223 bit-packed, against
+```
+Source: SECENG-2442 comment 94915c7e (F4, option (a) recommended, taken at the next wakeup if unanswered; the human's comment overrules it); no new number.
+
 ## B. Lines read and left as they are (context, not edits)
 
 - Line 46 and line 82: "September 2026" is the date the round-3 primes were adopted, not the session; unchanged.
@@ -587,12 +632,12 @@ Source: paper-input.md Part 3 (the proposed paragraph) with the no-goodness-test
 - Lines 587 and 589 to 591 (the figure caption's 174 and 176 bytes): the draft's claim about the compressed layout; the session of record measured the 176-byte layout (E05's source), so the sentence stays true; unchanged.
 - Outside main_standalone.tex: paper-dim4/main.tex (the 682-line file of 2026-10-27, its source comments at lines 77, 240, 266, 294, 472, 481, 507, 520, 583 and 600 and its Method paragraph at 455 to 456), BENCH.md and DRAFT_NOTES.md carry the 2026-09-26 session, the Xeon and the C reference. They are not the draft (the human's decision of SECENG-2442, option A: main_standalone.tex is the file) and are not edited; P2's grep for surviving figures is scoped to main_standalone.tex.
 
-## C. Open for the human before P2 (not applied; not in the decision list)
+## C. Items beyond the decision list, decided on SECENG-2442 (version 5 of this log, for P2)
 
-- F1, lines 655 to 657 (Memory) and line 711 (the Conclusion's "about 1.6~MiB of heap"): the 1674 KiB peak heap is a figure of the 2026-09-26 session; the session of record has no memory block, so it cannot be replaced from the records. Options: (a) keep the paragraph and name its session ("measured with a counting allocator around the call in a session of 2026-09-26"), which keeps one dated figure in the paper and needs an exception in P2's grep; (b) drop the paragraph and the clause at line 711. Recommendation: (a), the smaller change; the figure is the draft's and the verifier's heap use has not been re-measured.
-- F2, lines 755 to 756 (Limitations): "tested at level I only, on 24 signatures, and is not yet the default" refers to the co-author's implementation, whose 24-signature sentence E26 drops. For the port the sentence would read "tested at level I only, on five vectors and their tampered variants, and is not the default" (paper-input.md Part 1, the note on the Limitations paragraph). Not applied: the human says whether the count stays the co-author's or becomes the port's.
-- F3, Table 4: the two-point verifier's milliseconds (19.9 with the check, 19.5 without, from 60.6 and 59.6 over 3.049994) are not added as rows, since the decision names the column, not new rows; one line to add if wanted.
-- F4, line 504 (Sizes): "the compact key and signature take 226 bytes as measured" refers to a size observed in the 2026-09-26 session; the session of record did not record sizes, so after P2 "as measured" points at no session in the paper. Options: keep (the size is the format's, Table 2 and Table 1 give it as measured at 142 and 84 bytes), or drop "as measured". Not applied.
+- F1 (the 1674 KiB heap, lines 655 to 657 and the Conclusion's clause at line 711): decided (a) by the orchestrator on SECENG-2442 at 10:00Z (comment 94915c7e), past the human's wakeup, reversible by the human's comment: the paragraph and the clause stay and the Memory sentence names its session of 2026-09-26, the one dated figure kept in the paper and the one exception in P2's grep. Entry E31; the clause at 711 is unchanged (E25).
+- F2 (the Limitations count, lines 755 to 756): decided (a) at 10:00Z: the port's count. Entry E32.
+- F3 (two-point rows in Table 4): decided (a) at 10:00Z: no new rows; Table 4 keeps its seven rows (E11 to E18). No entry.
+- F4 ("as measured" at line 504): a DECISION NEEDED on SECENG-2442 (comment 94915c7e) with (a) recommended, drop the two words; taken as (a) at P2's edit since no answer had come. Entry E33. If the human answers (b), E33 is reverted as one line.
 
 ## D. Checks
 
@@ -614,9 +659,9 @@ Source: paper-input.md Part 3 (the proposed paragraph) with the no-goodness-test
   - dim4-verify-two-nocheck: runs 200, median 59.6 Mcycles, 19.5 ms at the counter rate, wall-clock median 19.5 ms
   - dim4-sign extra column over 100 signatures: samples sum 11155, mean 111.55 rounded half up 111.6, median 79.5, min 2, max 523; primality tests sum 5475, mean 54.75 rounded half up 54.8; signing Mcycles median 329.0, min 48.8, max 1900.9
   - codomain dump: plain-step lines over the five vectors, two-check 844, four 844
-- The scratch apply: scripts/gen_changes.py applied the edits of section A to a copy under the results folder (scratch/main_standalone.applied.tex); the unified diff against 8552b9d is logs/scratch-diff.txt; every changed original line is inside a listed range, and lines inside a listed range whose text is the same before and after (the diff skips them): 535 547 548 583 584 766. The branch's file is untouched (git status clean).
+- The apply: scripts/gen_changes.py applied the edits of section A to a copy under the results folder (scratch/main_standalone.applied.tex) and, in P2, to the branch's file; the unified diff against 8552b9d is logs/scratch-diff.txt; every changed original line is inside a listed range, and lines inside a listed range whose text is the same before and after (the diff skips them): 535 547 548 583 584 755 766. P2's grep over main_standalone.tex for the 2026-09-26 session, the Xeon and the C reference has one expected hit, E31's sentence (F1).
 - Part 2's eleven ratio places, matched: 1 abstract line 48, Section 4 lines 266 to 268, Conclusion lines 710 to 711 (E01, E03, E25); 2 Section 4 line 268 (E03); 3 Cycles line 537 (E06); 4 Cycles lines 539 to 540 (E06); 5 Cycles lines 540 to 542 (E06, dropped); 6 Cycles line 543 (E06); 7 Outlook line 767 (E27); 8 Outlook line 770 (E27); 9 Figure trade lines 580 to 581 (E09); 10 Table 4 lines 602 to 618 (E11 to E18); 11 Table 5 lines 644 to 649 and the loop paragraph lines 629 to 630 (E19 to E24). The twelfth row of Part 2's table, the memory figure, is F1.
-- The C reference in the draft: Table 3 rows 555 to 557 (E08, out), the caption's sentence at 549 (E07, out), the Method sentence at 494 to 498 with its iteration counts (E04, out), the ratios at 540 to 542 (E06, out), "10.6 times the reference's assembly build" at 268 (E03, reworded), "next to the reference's assembly build" at 48 (E01, out), "against the reference's assembly build" at 100 to 101 (E02, out). Every figure of the 2026-09-26 session or the Xeon: lines 48, 266 to 268, 487 to 498, 528, 536 to 543, 555 to 562, 580 to 581, 602, 609, 611 to 618, 629 to 630, 644 to 649, 655 to 657 (F1), 710 to 712, 767, 770, 783; the comment lines of the draft carry none.
+- The C reference in the draft: Table 3 rows 555 to 557 (E08, out), the caption's sentence at 549 (E07, out), the Method sentence at 494 to 498 with its iteration counts (E04, out), the ratios at 540 to 542 (E06, out), "10.6 times the reference's assembly build" at 268 (E03, reworded), "next to the reference's assembly build" at 48 (E01, out), "against the reference's assembly build" at 100 to 101 (E02, out). Every figure of the 2026-09-26 session or the Xeon: lines 48, 266 to 268, 487 to 498, 528, 536 to 543, 555 to 562, 580 to 581, 602, 609, 611 to 618, 629 to 630, 644 to 649, 655 to 657 (E31, F1: the one kept, with its session named), 710 to 712, 755 to 756 (E32), 767, 770, 783, and the "as measured" at 504 (E33); the comment lines of the draft carry none.
 
 ## E. Build support files (not paper text)
 
