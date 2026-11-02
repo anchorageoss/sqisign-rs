@@ -59,14 +59,6 @@ pub fn mat_inverse<L: FpBackend, const N: usize>(m: &[[Fp2<L>; N]; N]) -> Option
     Some(inv)
 }
 
-/// `[x+1, …]` per-coordinate inverse of a 4-vector; `None` if any coord is zero.
-fn inv4<L: FpBackend>(v: &[Fp2<L>; 4]) -> Option<[Fp2<L>; 4]> {
-    if v.iter().any(|x| bool::from(x.ct_is_zero())) {
-        return None;
-    }
-    Some(core::array::from_fn(|i| crate::hd::field::inv(&v[i])))
-}
-
 /// Lift a Montgomery `(X : Z)` Kummer coordinate to a Jacobian point on
 /// `y² = x³ + A x² + x`. The `y`-sign is arbitrary (the HD-image check compares
 /// only `x`, i.e. up to `±`). `Z = 0` is the identity.
@@ -74,7 +66,11 @@ fn lift_kummer<L: FpBackend>(curve: &EcCurve<L>, x: &Fp2<L>, z: &Fp2<L>) -> JacP
     if bool::from(z.ct_is_zero()) {
         return JacPoint::identity();
     }
-    let xa = x.mul(&crate::hd::field::inv(z));
+    let xa = if bool::from(z.ct_equal(&Fp2::one())) {
+        x.clone()
+    } else {
+        x.mul(&crate::hd::field::inv(z))
+    };
     let y2 = xa.mul(&xa.sqr().add(&curve.a.mul(&xa)).add(&Fp2::one()));
     JacPoint::new(xa, y2.sqrt(), Fp2::one())
 }
@@ -257,9 +253,13 @@ pub fn apply_mat4<L: FpBackend>(n: &[[Fp2<L>; 4]; 4], p: &[Fp2<L>; 4]) -> [Fp2<L
 /// and `N` sums of signed or `i`-twisted terms; 4 M in place of 16.
 pub struct FoldedBaseChangeDim2<L: FpBackend> {
     zero12: [Fp2<L>; 4],
+    // 1 / zero12 up to the common factor (products_of_others), for the inverse
+    inv_zero12_scaled: [Fp2<L>; 4],
     // per row of N: (column, negative, imaginary, doublings); 4 unused columns
     // are marked with column 255
     rows: [[(u8, bool, bool, u8); 4]; 4],
+    // N N^* is a scalar (checked on the entries at construction)
+    unitary: bool,
 }
 
 impl<L: FpBackend> FoldedBaseChangeDim2<L> {
@@ -291,10 +291,67 @@ impl<L: FpBackend> FoldedBaseChangeDim2<L> {
                 slot += 1;
             }
         }
+        // N N^*: for rows i != j the shared columns contribute
+        // c_i c_j e4^(k_i - k_j); zero iff the weights of the exponent
+        // differences 0 and 2, and 1 and 3, agree.
+        let expo = |neg: bool, imag: bool| -> i32 { (imag as i32) + 2 * (neg as i32) };
+        let mut unitary = true;
+        'rows: for i in 0..4 {
+            for j in (i + 1)..4 {
+                let mut w = [0i32; 4];
+                for &(ci, ni, ii, di) in rows[i].iter() {
+                    for &(cj, nj, ij, dj) in rows[j].iter() {
+                        if ci != 255 && ci == cj {
+                            let d = (expo(ni, ii) - expo(nj, ij)).rem_euclid(4) as usize;
+                            w[d] += 1 << (di + dj);
+                        }
+                    }
+                }
+                if w[0] != w[2] || w[1] != w[3] {
+                    unitary = false;
+                    break 'rows;
+                }
+            }
+        }
         Some(Self {
             zero12: zero12.clone(),
+            inv_zero12_scaled: crate::hd::field::products_of_others(zero12),
             rows,
+            unitary,
         })
+    }
+
+    /// `M2^{-1} v` up to a scalar: `S (zero12^{-1} (N^* v))` with `S^{-T} = S / 4`,
+    /// `zero12^{-1}` as products of the others and `N^{-1}` the conjugate
+    /// transpose; `None` when `N N^*` is not a scalar.
+    pub fn apply_inverse_scaled(&self, v: &[Fp2<L>; 4]) -> Option<[Fp2<L>; 4]> {
+        if !self.unitary {
+            return None;
+        }
+        let mut u: [Fp2<L>; 4] = core::array::from_fn(|_| Fp2::zero());
+        for (i, row) in self.rows.iter().enumerate() {
+            for &(j, neg, imag, d) in row.iter() {
+                if j == 255 {
+                    break;
+                }
+                // conj: +i becomes -i and -i becomes +i
+                let mut t = if imag {
+                    v[i].mul_by_i(subtle::Choice::from(neg as u8))
+                } else if neg {
+                    v[i].neg()
+                } else {
+                    v[i].clone()
+                };
+                for _ in 0..d {
+                    t = t.add(&t);
+                }
+                u[j as usize] = u[j as usize].add(&t);
+            }
+        }
+        let u: [Fp2<L>; 4] = core::array::from_fn(|j| u[j].mul(&self.inv_zero12_scaled[j]));
+        // S u from the Hadamard of u: rows (+ + + +), (- - + +), (- + - +), (+ - - +)
+        let h = hadamard2(&u);
+        Some([h[0].clone(), h[2].neg(), h[1].neg(), h[3].clone()])
     }
 
     /// `M2 v`.
@@ -555,11 +612,22 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
     /// `domain_bc` null (`inv(codomain_bc.null_dual)` up to the global Hadamard
     /// scalar, which cancels in the Kummer ratios).
     pub fn dual_eval(&self, coords: &[Fp2<L>; 4]) -> Option<TuplePoint<L>> {
-        let inv_bc = inv4(&self.null_bc)?;
+        // 1 / null_bc up to a common factor; the Kummer ratios below cancel it.
+        if self.null_bc.iter().any(|x| bool::from(x.ct_is_zero())) {
+            return None;
+        }
+        let inv_bc = crate::hd::field::products_of_others(&self.null_bc);
         let st = squared_theta2(coords);
         let img: [Fp2<L>; 4] = core::array::from_fn(|k| st[k].mul(&inv_bc[k]));
-        let n_split = mat_inverse(&self.base_change_matrix)?;
-        let bc = apply_mat4(&n_split, &img); // (X1X2, X1Z2, Z1X2, Z1Z2)
+        // (X1X2, X1Z2, Z1X2, Z1Z2) up to a scalar
+        let bc = match self
+            .folded
+            .as_ref()
+            .and_then(|f| f.apply_inverse_scaled(&img))
+        {
+            Some(v) => v,
+            None => apply_mat4(&mat_inverse(&self.base_change_matrix)?, &img),
+        };
         let (x1x2, x1z2, z1x2, z1z2) = (bc[0].clone(), bc[1].clone(), bc[2].clone(), bc[3].clone());
 
         let (p1, p2) = if !bool::from(z1z2.ct_is_zero()) {
@@ -787,7 +855,11 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
             } else {
                 self.plain[j - 1].codomain().null()
             };
-            let inv = inv4(dj)?;
+            // 1 / D_j up to a common factor: the point is projective.
+            if dj.iter().any(|x| bool::from(x.ct_is_zero())) {
+                return None;
+            }
+            let inv = crate::hd::field::products_of_others(dj);
             let st = squared_theta2(&cur);
             let prod: [Fp2<L>; 4] = core::array::from_fn(|k| st[k].mul(&inv[k]));
             cur = hadamard2(&prod);

@@ -143,6 +143,9 @@ pub struct BaseChangeDim4<L: FpBackend> {
     // per row: (column, exponent k of e4) of the four nonzero entries
     sparse: Option<[[(u8, u8); 4]; 16]>,
     e4_is_i: Choice,
+    // N N^* is a scalar (checked on the exponents at construction), so the
+    // inverse up to a scalar is the conjugate transpose of the sparse form
+    unitary: bool,
 }
 
 impl<L: FpBackend> BaseChangeDim4<L> {
@@ -182,11 +185,59 @@ impl<L: FpBackend> BaseChangeDim4<L> {
             }
             ok &= n == 4;
         }
+        // N N^*: for rows i != j the shared columns contribute e4^(k_i - k_j);
+        // the sum is zero iff the exponent differences 0 and 2, and 1 and 3,
+        // come in equal numbers.
+        let mut unitary = ok;
+        if ok {
+            'rows: for i in 0..16 {
+                for j in (i + 1)..16 {
+                    let mut cnt = [0i32; 4];
+                    for &(ci, ki) in rows[i].iter() {
+                        for &(cj, kj) in rows[j].iter() {
+                            if ci == cj {
+                                cnt[((ki + 4 - kj) % 4) as usize] += 1;
+                            }
+                        }
+                    }
+                    if cnt[0] != cnt[2] || cnt[1] != cnt[3] {
+                        unitary = false;
+                        break 'rows;
+                    }
+                }
+            }
+        }
         Self {
             dense,
             sparse: if ok { Some(rows) } else { None },
             e4_is_i,
+            unitary,
         }
+    }
+
+    /// `N^{-1} p` up to a scalar through the conjugate transpose of the
+    /// sparse form, `None` when the matrix is not in that form or `N N^*`
+    /// is not a scalar.
+    pub fn apply_inverse_scaled(&self, p: &[Fp2<L>; 16]) -> Option<[Fp2<L>; 16]> {
+        let rows = self.sparse.as_ref()?;
+        if !self.unitary {
+            return None;
+        }
+        let mut out: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::zero());
+        for (i, row) in rows.iter().enumerate() {
+            let x = &p[i];
+            for &(j, k) in row.iter() {
+                // conj(e4^k) = e4^(-k)
+                let t = match k {
+                    0 => x.clone(),
+                    1 => x.mul_by_i(!self.e4_is_i),
+                    2 => x.neg(),
+                    _ => x.mul_by_i(self.e4_is_i),
+                };
+                out[j as usize] = out[j as usize].add(&t);
+            }
+        }
+        Some(out)
     }
 
     /// The matrix itself.

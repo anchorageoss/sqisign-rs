@@ -417,12 +417,19 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         if dbc_null.iter().any(|x| bool::from(x.ct_is_zero())) {
             return None;
         }
-        let inv_dbc: [Fp2<L>; 16] = core::array::from_fn(|i| crate::hd::field::inv(&dbc_null[i]));
+        // 1 / dbc_null up to a common factor; the split below normalises by its pivot.
+        let inv_dbc: [Fp2<L>; 16] = crate::hd::field::products_of_others(&dbc_null);
         let hs = hadamard(&pointwise_square(y.coords()));
         let q: [Fp2<L>; 16] = core::array::from_fn(|i| hs[i].mul(&inv_dbc[i])); // hadamard=false
 
-        let n_inv = crate::hd::dim2::mat_inverse(self.n_dim4.dense())?;
-        let q = apply_base_change_theta_dim4(&n_inv, &q); // product Am² coords
+        // product Am^2 coords, up to a scalar
+        let q = match self.n_dim4.apply_inverse_scaled(&q) {
+            Some(v) => v,
+            None => {
+                let n_inv = crate::hd::dim2::mat_inverse(self.n_dim4.dense())?;
+                apply_base_change_theta_dim4(&n_inv, &q)
+            }
+        };
 
         let (q1, q2) = product_to_theta_points_dim4_dim2(&q)?;
         let q1h = hadamard2(&q1);

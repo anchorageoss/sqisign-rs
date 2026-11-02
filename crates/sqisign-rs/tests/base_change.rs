@@ -4,7 +4,9 @@
 //! (`FoldedBaseChangeDim2`) give the dense product's field elements on the
 //! matrices of the five level-I vectors, on random matrices of each detected
 //! shape, for both fourth roots of unity, and the dense fall-back is taken
-//! on a matrix of another shape. Feature `compact`.
+//! on a matrix of another shape; the inverses up to a scalar undo the base
+//! changes on the vectors' matrices and are absent where the rows are not
+//! orthogonal. Feature `compact`.
 #![cfg(feature = "compact")]
 
 use sqisign_rs::compact::{compact_keygen, compact_public_key_to_bytes, compact_sign};
@@ -70,6 +72,11 @@ impl Lcg {
     }
 }
 
+// `a` and `b` are the same projective point: a[j] b[0] = a[0] b[j] for all j.
+fn proportional<const K: usize>(a: &[F; K], b: &[F; K]) -> bool {
+    (0..K).all(|j| same(&a[j].mul(&b[0]), &a[0].mul(&b[j])))
+}
+
 fn check_dim4(n: &[[F; 16]; 16], e4: &F, sparse_expected: bool, seed: u64, label: &str) {
     let bc = BaseChangeDim4::new(n.clone(), e4);
     assert_eq!(bc.is_sparse(), sparse_expected, "{label}: shape detection");
@@ -83,7 +90,30 @@ fn check_dim4(n: &[[F; 16]; 16], e4: &F, sparse_expected: bool, seed: u64, label
                 "{label}: point {t} coordinate {j}"
             );
         }
+        // the inverse up to a scalar, where the form has one, undoes the base change
+        if let Some(back) = bc.apply_inverse_scaled(&fast) {
+            assert!(proportional(&back, &p), "{label}: inverse of point {t}");
+        }
     }
+}
+
+// The base change of a theta matrix has the inverse form.
+fn check_dim4_inverse_present(n: &[[F; 16]; 16], e4: &F, label: &str) {
+    let bc = BaseChangeDim4::new(n.clone(), e4);
+    let p: [F; 16] = core::array::from_fn(|j| elt(90_000 + j as u64));
+    assert!(
+        bc.apply_inverse_scaled(&p).is_some(),
+        "{label}: no inverse form"
+    );
+}
+
+fn check_dim2_inverse_present(zero12: &[F; 4], n: &[[F; 4]; 4], label: &str) {
+    let f = FoldedBaseChangeDim2::new(zero12, n).expect(label);
+    let v: [F; 4] = core::array::from_fn(|j| elt(91_000 + j as u64));
+    assert!(
+        f.apply_inverse_scaled(&v).is_some(),
+        "{label}: no inverse form"
+    );
 }
 
 fn check_dim2(zero12: &[F; 4], n: &[[F; 4]; 4], folded_expected: bool, seed: u64, label: &str) {
@@ -104,6 +134,9 @@ fn check_dim2(zero12: &[F; 4], n: &[[F; 4]; 4], folded_expected: bool, seed: u64
                     same(&fast[j], &dense[j]),
                     "{label}: point {t} coordinate {j}"
                 );
+            }
+            if let Some(back) = f.apply_inverse_scaled(&fast) {
+                assert!(proportional(&back, &v), "{label}: inverse of point {t}");
             }
         }
     }
@@ -182,6 +215,32 @@ fn random_matrices_of_each_shape_and_the_fall_back() {
                 &format!("dim2 two-per-row root {r} matrix {t}"),
             );
         }
+        // a matrix of the shape whose rows are not orthogonal has no inverse form
+        let four = F::one().mul_small(4);
+        let mut n4u: [[F; 16]; 16] = core::array::from_fn(|_| core::array::from_fn(|_| F::zero()));
+        for (i, row) in n4u.iter_mut().enumerate() {
+            for c in 0..4 {
+                row[(i + c) % 16] = four.clone();
+            }
+        }
+        let bcu = BaseChangeDim4::new(n4u.clone(), e4);
+        assert!(
+            bcu.is_sparse(),
+            "dim4 root {r}: the shifted-ones matrix has the shape"
+        );
+        let p: [F; 16] = core::array::from_fn(|j| elt(80_000 + j as u64));
+        assert!(
+            bcu.apply_inverse_scaled(&p).is_none(),
+            "dim4 root {r}: no inverse form expected"
+        );
+        let n2u: [[F; 4]; 4] = core::array::from_fn(|_| core::array::from_fn(|_| F::one()));
+        let zero12u: [F; 4] = core::array::from_fn(|j| elt(81_000 + j as u64));
+        let fu = FoldedBaseChangeDim2::new(&zero12u, &n2u).expect("the all-ones matrix folds");
+        let v: [F; 4] = core::array::from_fn(|j| elt(82_000 + j as u64));
+        assert!(
+            fu.apply_inverse_scaled(&v).is_none(),
+            "dim2 root {r}: no inverse form expected"
+        );
         // another shape: one entry 3 (not 1, 2 or 4 times a root) in each matrix
         let mut n4 = random_dim4(&mut g, e4);
         n4[5][7] = F::one().mul_small(3);
@@ -259,6 +318,7 @@ fn check_vector(tag: &str, pkb: &[u8; PK_BYTES], sig: &[u8; SIG_BYTES], msg: &[u
             seed + 10 * h as u64,
             &format!("{tag} dim4 half {}", h + 1),
         );
+        check_dim4_inverse_present(&n4, &k.e4, &format!("{tag} dim4 half {}", h + 1));
     }
     let mg2 = [
         gluing_dim2_f1(k.a1, k.a2, q4),
@@ -283,6 +343,7 @@ fn check_vector(tag: &str, pkb: &[u8; PK_BYTES], sig: &[u8; SIG_BYTES], msg: &[u
             seed + 20 + 10 * h as u64,
             &format!("{tag} dim2 half {}", h + 1),
         );
+        check_dim2_inverse_present(&k.zero12, &n2, &format!("{tag} dim2 half {}", h + 1));
     }
 }
 
