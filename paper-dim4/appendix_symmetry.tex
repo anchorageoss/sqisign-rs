@@ -1,0 +1,441 @@
+%% ============================================================
+%% Appendix: the order-4 symmetry of the dimension-4 verifier.
+%% Include with \appendix \input{appendix-symmetry} in Dim4SQI.tex.
+%% Uses \Echl and \Ecom from the main preamble.
+%% ============================================================
+\section{The order-4 symmetry of the verifier's chain}
+\label{app:symmetry}
+
+This appendix collects what can be proved about the automorphism of order
+4 mentioned in Section~\ref{sec:conc}, and states precisely what remains
+open before MIKE's saving of two kernel points out of four~\cite[Appendix
+E.2]{BDD+26} could be applied to the verifier of Section~\ref{sec:dim4}.
+
+\paragraph{Notation}
+Throughout, $E$ denotes a supersingular elliptic curve over
+$\mathbb{F}_{p^2}$ and $E^2 = E \times E$. Homomorphisms between squares of
+curves are written as $2 \times 2$ matrices whose entries are homomorphisms
+between the curves, acting on column vectors:
+\[
+\begin{pmatrix} u & v \\ w & z \end{pmatrix}
+\begin{pmatrix} P \\ Q \end{pmatrix}
+=
+\begin{pmatrix} u(P) + v(Q) \\ w(P) + z(Q) \end{pmatrix}.
+\]
+An integer $n$ stands for the multiplication map $[n]$. For a homomorphism
+$\psi$ we write $\widehat{\psi}$ for its dual. With respect to the product
+polarisations, the dual of a matrix is the transpose of the matrix of
+duals; in particular the dual of an integer matrix is its transpose. We
+write $\Echl$ for the challenge curve, $\Ecom$ for the commitment curve,
+$\sigma \colon \Echl \to \Ecom$ for the response, of odd degree $q$, and
+$a_1, a_2$ for integers with $a_1^2 + a_2^2 = 2^e - q$, as in
+Section~\ref{sec:dim4}. Finally
+\[
+A_1 = \Echl^2, \qquad A_2 = \Ecom^2, \qquad A = A_1 \times A_2,
+\]
+so that $A$ is the abelian fourfold on which the verifier's chain starts.
+
+\subsection{The automorphism \texorpdfstring{$J$}{J} of \texorpdfstring{$E^2$}{E\^{}2}}
+
+\begin{definition}
+    On any square $E^2$, let
+    \[
+    J = \begin{pmatrix} 0 & 1 \\ -1 & 0 \end{pmatrix},
+    \qquad\text{that is,}\qquad
+    J(P, Q) = (Q, -P),
+    \]
+    and on $A = A_1 \times A_2$ let $D = \operatorname{diag}(J, J)$ be $J$
+    acting on each square separately.
+\end{definition}
+
+\begin{lemma}
+    \label{lem:J}
+    \leavevmode
+    \begin{enumerate}[label=(\roman*)]
+        \item $J^2 = -1$, so $J$ has order 4.
+        \item The endomorphism
+        $\alpha = \left(\begin{smallmatrix} a_1 & a_2 \\ -a_2 & a_1
+        \end{smallmatrix}\right)$ of Figure~\ref{fig:kani} equals
+        $a_1 + a_2 J$, and its dual is
+        $\widehat{\alpha} = \alpha^{\mathsf{T}} = a_1 - a_2 J$.
+        \item $\widehat{\alpha}\,\alpha = \alpha\,\widehat{\alpha} = a_1^2 + a_2^2
+        = 2^e - q$.
+        \item $\widehat{J} = J^{\mathsf{T}} = -J = J^{-1}$, so $J$ preserves the
+        product polarisation of $E^2$: it is an automorphism of $E^2$ as a
+        principally polarised abelian surface.
+    \end{enumerate}
+\end{lemma}
+
+\begin{proof}
+    (i) $J^2(P, Q) = J(Q, -P) = (-P, -Q)$. (ii) We have
+    \[
+    (a_1 + a_2 J)(P, Q) = \bigl([a_1]P + [a_2]Q, \; -[a_2]P + [a_1]Q\bigr),
+    \]
+    which is $\alpha(P, Q)$; the dual
+    of an integer matrix is its transpose, and $J^{\mathsf{T}} = -J$. (iii)
+    $(a_1 + a_2 J)(a_1 - a_2 J) = a_1^2 - a_2^2 J^2 = a_1^2 + a_2^2$, since
+    $J$ commutes with integers. (iv) $J^{\mathsf{T}} J = 1$ by direct
+    computation, and an automorphism $\gamma$ preserves the polarisation
+    exactly when $\widehat{\gamma}\gamma = 1$.
+\end{proof}
+
+\subsection{The verifier's isogeny commutes with \texorpdfstring{$D$}{D}}
+
+Write $\Sigma = \operatorname{diag}(\sigma, \sigma) \colon A_1 \to A_2$, the
+map $\sigma \oplus \sigma$ of Figure~\ref{fig:kani}, so that
+$\widehat{\Sigma} = \operatorname{diag}(\widehat{\sigma},
+\widehat{\sigma})$. Up to the order and signs of its blocks, which do not
+affect anything below, the verifier's dimension-4 isogeny is the Kani
+endomorphism~\cite[Section 4]{DLRW24}
+\[
+F = \begin{pmatrix} \alpha & \widehat{\Sigma} \\
+    -\Sigma & \widehat{\alpha} \end{pmatrix}
+\colon A_1 \times A_2 \longrightarrow A_1 \times A_2,
+\qquad
+F(x_1, x_2) = \bigl(\alpha(x_1) + \widehat{\Sigma}(x_2), \;
+-\Sigma(x_1) + \widehat{\alpha}(x_2)\bigr),
+\]
+where the $\alpha$ in the top-left corner acts on $A_1$ and the
+$\widehat{\alpha}$ in the bottom-right corner on $A_2$. Its dual is
+\[
+\widehat{F} = \begin{pmatrix} \widehat{\alpha} & -\widehat{\Sigma} \\
+    \Sigma & \alpha \end{pmatrix}.
+\]
+
+\begin{lemma}
+    \label{lem:kani}
+    $\widehat{F} F = F \widehat{F} = 2^e$. Hence $F$ is an isogeny of degree
+    $2^{4e}$, and $\ker F = \widehat{F}\bigl(A[2^e]\bigr)$.
+\end{lemma}
+
+\begin{proof}
+    Every entry of $F$ and $\widehat{F}$ is an integer matrix or a
+    componentwise map $\operatorname{diag}(\psi, \psi)$, and these commute with
+    each other: for an integer matrix $M$ and any homomorphism $\psi$ of
+    curves, $\operatorname{diag}(\psi, \psi) M = M \operatorname{diag}(\psi,
+    \psi)$, because $\psi$ is a group homomorphism. The diagonal blocks of
+    $\widehat{F} F$ are $\widehat{\alpha}\alpha + \widehat{\Sigma}\Sigma =
+    (2^e - q) + q = 2^e$ and $\Sigma\widehat{\Sigma} + \alpha\widehat{\alpha}
+    = 2^e$, by Lemma~\ref{lem:J}(iii) and $\widehat{\sigma}\sigma =
+    \sigma\widehat{\sigma} = q$; the off-diagonal blocks are
+    $\widehat{\alpha}\widehat{\Sigma} - \widehat{\Sigma}\widehat{\alpha} = 0$
+    and $\Sigma\alpha - \alpha\Sigma = 0$. The same holds for
+    $F\widehat{F}$. Then $(\deg F)^2 = \deg [2^e] = 2^{8e}$ on a fourfold, so
+    $\deg F = 2^{4e}$. Finally $\widehat{F}(A[2^e]) \subseteq \ker F$ because
+    $F\widehat{F} = 2^e$, and both groups have $2^{4e}$ elements, since
+    $\ker \widehat{F} \subseteq A[2^e]$ has $2^{4e}$ elements and
+    $|A[2^e]| = 2^{8e}$.
+\end{proof}
+
+\begin{proposition}
+    \label{prop:commute}
+    $F \circ D = D \circ F$. In particular $\ker F$ is stable under $D$.
+\end{proposition}
+
+\begin{proof}
+    Since $D = \operatorname{diag}(J, J)$, the identity $FD = DF$ holds block
+    by block exactly when each block of $F$ commutes with $J$. The blocks
+    $\alpha$ and $\widehat{\alpha}$ are polynomials in $J$
+    (Lemma~\ref{lem:J}(ii)), and $\Sigma$, $\widehat{\Sigma}$ are componentwise
+    maps, which commute with every integer matrix (proof of
+    Lemma~\ref{lem:kani}). Explicitly, $J\Sigma(P, Q) = J(\sigma P, \sigma Q)
+    = (\sigma Q, -\sigma P) = \Sigma(Q, -P) = \Sigma J(P, Q)$. If $F(x) = 0$
+    then $F(D x) = D F(x) = 0$.
+\end{proof}
+
+\subsection{Consequences along the chain}
+
+The verifier computes $F$ as a chain of $e$ isogenies of degree 2. Write
+$K = \ker F$ and, for $0 \le k \le e$, let $F_k \colon A \to A_k =
+A / [2^{e-k}]K$ be the partial chain after $k$ steps, so that $F_e = F$ up
+to isomorphism. The two half-chains that meet in the middle are partial
+chains of this kind, one read from each end.
+
+\begin{proposition}
+    \label{prop:descent}
+    For every $k$, there is an automorphism $D_k$ of $A_k$ with
+    $D_k \circ F_k = F_k \circ D$. It satisfies $D_k^2 = -1$ and
+    $\widehat{D_k} = -D_k$, and it preserves the principal polarisation of
+    $A_k$.
+\end{proposition}
+
+\begin{proof}
+    $D$ is a group automorphism with $D(K) = K$
+    (Proposition~\ref{prop:commute}), hence $D([2^{e-k}]K) = [2^{e-k}]K$, so
+    $F_k \circ D$ vanishes on $\ker F_k$ and factors as $D_k \circ F_k$; $D_k$
+    is an automorphism because $D$ is. The identities $D_k^2 = -1$ and
+    $\widehat{D_k} = -D_k$ follow from $D^2 = -1$ and $\widehat{D} = -D$
+    (Lemma~\ref{lem:J}) by uniqueness of the factorisation. The principal
+    polarisation of $A_k$ is the one induced from $2^k$ times that of $A$
+    through the isotropic kernel $\ker F_k$; $D$ preserves both, so $D_k$
+    preserves the induced one.
+\end{proof}
+
+\begin{remark}[The module viewpoint]
+\label{rem:module}
+The varieties here are maximal: each curve has $(p+1)^2$ points over
+$\mathbb{F}_{p^2}$. By the anti-equivalence $A \mapsto M_A =
+\operatorname{Hom}(A, E_0)$ of~\cite[Theorem 2.5]{PRS26}, under which
+principal polarisations correspond to unimodular Hermitian forms $H_A$ and
+isogenies to module monomorphisms~\cite[Table 1]{PRS26}, the automorphism
+$D$ corresponds to $f \mapsto f \circ D$ on $M_A$, which preserves $H_A$
+by Lemma~\ref{lem:J}(iv) and squares to $-1$. The partial chain $F_k$
+corresponds to the inclusion $\psi_k \colon M_{A_k} \hookrightarrow M_A$,
+$f \mapsto f \circ F_k$, whose image consists of the morphisms vanishing on
+$\ker F_k$. Since $D(\ker F_k) = \ker F_k$, that image is stable under
+$f \mapsto f \circ D$, and $f \circ D_k \circ F_k = f \circ F_k \circ D$
+shows that $D_k$ corresponds to the restriction of $f \mapsto f \circ D$
+to it. This is Proposition~\ref{prop:descent} in module form: $D$
+descends along the chain exactly because each partial kernel, equivalently
+each image submodule, is $D$-stable.
+\end{remark}
+
+\begin{proposition}
+    \label{prop:weil}
+    Every $A_k$ is of Weil type in the sense of~\cite[Definition 4.1]{BDD+26}:
+    $D_k$ embeds $\mathbb{Z}[i]$ in $\operatorname{End}(A_k)$, with
+    $i \mapsto D_k$, and acts on the tangent space at the origin with
+    eigenvalues $i, i, -i, -i$.
+\end{proposition}
+
+\begin{proof}
+    On the tangent space of $E^2$ the differential of $J$ is the matrix
+    $\left(\begin{smallmatrix} 0 & 1 \\ -1 & 0 \end{smallmatrix}\right)$,
+    whose eigenvalues are $i$ and $-i$; these lie in $\mathbb{F}_{p^2}$ because
+    $p \equiv 3 \pmod 4$. Hence $D = \operatorname{diag}(J, J)$ has eigenvalues
+    $i, i, -i, -i$ on the tangent space of $A$. Isogenies of degree a power of
+    2 are separable in odd characteristic, so the differential of $F_k$ is an
+    isomorphism, and it intertwines $D$ with $D_k$
+    (Proposition~\ref{prop:descent}); the eigenvalues are therefore the same.
+    This is the argument of~\cite[proof of Proposition G.1]{BDD+26}.
+\end{proof}
+
+\begin{proposition}
+    \label{prop:forged}
+    For any matrix the verifier receives, honest or not, the kernel it builds
+    is stable under $D$. Whenever that kernel defines a chain, that is, when it
+    is maximal isotropic and the computation succeeds, the conclusions of
+    Propositions~\ref{prop:descent} and~\ref{prop:weil} hold for that chain.
+\end{proposition}
+
+\begin{proof}
+    The verifier builds its kernel from the transmitted action rather than
+    from $\sigma$: the transmitted matrix defines a map $\sigma'$ on the
+    $2^r$-torsion, and the verifier uses $\Sigma' = \operatorname{diag}(\sigma',
+    \sigma')$ in place of $\Sigma$. Like $\Sigma$, the map $\Sigma'$ acts
+    componentwise, so it commutes with $J$, and the kernel generators
+    $(\widehat{\alpha}(x), \Sigma'(x))$ satisfy $D(\widehat{\alpha}(x),
+    \Sigma'(x)) = (\widehat{\alpha}(Jx), \Sigma'(Jx))$, which is again of that
+    form. The proofs of Propositions~\ref{prop:descent} and~\ref{prop:weil} use
+    only that the kernel is $D$-stable and that the chain has 2-power degree.
+\end{proof}
+
+\subsection{The kernel as a module over \texorpdfstring{$\mathbb{Z}[i]$}{Z[i]}}
+
+Let $R_e = (\mathbb{Z}/2^e)[i]$, acting on $2^e$-torsion with $i$ acting as
+$J$ (or $D$).
+
+\begin{lemma}
+    \label{lem:free}
+    $E^2[2^e]$ is a free $R_e$-module of rank 2, and so is $\ker F$.
+\end{lemma}
+
+\begin{proof}
+    Let $(S, T)$ be a basis of $E[2^e]$. Since $J(S, 0) = (0, -S)$ and
+    $J(T, 0) = (0, -T)$, the four points
+    $(S, 0), (T, 0), (0, S), (0, T)$, which form a $\mathbb{Z}/2^e$-basis of
+    $E^2[2^e]$, are $(S, 0)$, $(T, 0)$, $-J(S, 0)$ and $-J(T, 0)$; so $(S, 0)$ and $(T, 0)$ form an $R_e$-basis. For the kernel,
+    consider
+    \[
+    \iota \colon A_1[2^e] \to A, \qquad
+    \iota(x) = \widehat{F}(x, 0) = \bigl(\widehat{\alpha}(x), \Sigma(x)\bigr).
+    \]
+    Its image lies in $\ker F$ by
+    Lemma~\ref{lem:kani}. It is injective, because $\widehat{\alpha}$ has odd
+    degree $(2^e - q)^2$ and is therefore injective on 2-power torsion. Its
+    domain has $2^{4e}$ elements, as does $\ker F$, so $\iota$ is a bijection
+    onto $\ker F$. Finally $\iota$ commutes with $J$, so it is $R_e$-linear, and
+    $\ker F \cong A_1[2^e] = \Echl^2[2^e]$ is free of rank 2.
+\end{proof}
+
+MIKE uses the corresponding statement about its own kernel~\cite[proof of
+Corollary G.1]{BDD+26} to show that the pairing $e_{1+i}$ is alternate on
+its fourfolds, which in turn is what makes its adapted theta coordinates
+exist. On the starting fourfold $A$ the analogous pairing is alternate.
+
+\begin{lemma}
+    \label{lem:alternate}
+    The Weil--Cartier pairing $e_{1+D}$ on $A[1 + D]$ is alternate.
+\end{lemma}
+
+\begin{proof}
+    It suffices to treat one square $E^2$, since $A$ is a product of two
+    and the pairings multiply. If $(1 + J)(P, Q) = (P + Q, Q - P) = 0$, then
+    $P = -Q$ and $2P = 0$, so $\ker(1 + J) = \{(u, u) : u \in E[2]\}$. With
+    the formula of~\cite[proof of Corollary G.1]{BDD+26},
+    $e_{1+J}(x, x) = e_2(J x_0, x_0)$ for any $x_0$ with $(1 + J) x_0 = x$.
+    For $x = (u, u)$ take $x_0 = (0, u)$, since $(1 + J)(0, u) = (0, u) +
+    (u, 0) = (u, u)$. Then $e_2(J x_0, x_0) = e_2\bigl((u, 0), (0, u)\bigr) =
+    e_2(u, 0)\, e_2(0, u) = 1$.
+\end{proof}
+
+\subsection{What remains open}
+
+MIKE's saving of two kernel points out of four~\cite[Theorem
+E.1]{BDD+26} does not follow from Propositions~\ref{prop:descent}
+and~\ref{prop:weil} alone. It needs level-2 theta coordinates that are
+\emph{adapted to $[i]$} in the sense of~\cite[Definition G.1]{BDD+26},
+built from a basis of the 4-torsion through the $(1 + i)$-torsion. For
+such coordinates, \cite[Proposition G.3]{BDD+26} shows that $[i]$ acts on
+the sixteen theta coordinates as a fixed permutation that fixes four of
+them and swaps the other twelve in six pairs; that statement assumes only
+an adapted basis, so it would apply to $D_k$ unchanged. What MIKE then
+proves for its own chain (its Theorem 4.1, Lemma G.3 and gluing
+algorithms) is that adapted coordinates can be chosen at the start and
+remain adapted at every step. For the verifier of
+Section~\ref{sec:dim4}, the following steps are not yet done.
+\begin{enumerate}
+    \item Choose theta coordinates on $A$, adapted to $D$ and compatible
+    with the kernel $\ker F$; Lemmas~\ref{lem:free}
+    and~\ref{lem:alternate} are the starting point.
+    \item Carry them through the gluing steps, from a product of four
+    elliptic curves; these steps differ from MIKE's, which glue into
+    Scholten's construction.
+    \item Check that the theta coordinates which MIKE assumes nonzero
+    (\cite[Heuristic E.1]{BDD+26}) are nonzero on this family of
+    fourfolds as well.
+\end{enumerate}
+For the two-point evaluation of the kernel points, item 1 is settled in
+practice by the observation below; items 2 and 3 matter for MIKE's
+computation of the codomain from two points, which we have not
+implemented.
+Because Proposition~\ref{prop:forged} lets a verifier rely on the symmetry
+without checking it, a forged signature could still be built to make one
+of these coordinates vanish; an optimised verifier must then reject the
+signature rather than divide by zero.
+
+\paragraph{What the implementation shows}
+We solved for the matrix $N_k$ with $N_k\,\theta(x) \sim \theta(Dx)$ from
+20 random points $x$ at the gluing codomain and after plain steps 1, 2, 3,
+20, 43, 70 and 84 of the first half-chain of a level-I signature. At every
+step the solution is unique up to scale and agrees with held-out points,
+as Proposition~\ref{prop:descent} predicts, and it is the same pure
+permutation, with all scalars equal to 1: it exchanges index bits 0 and 2
+and bits 1 and 3, fixing coordinates 0, 5, 10 and 15 and exchanging the
+other twelve in six pairs. This is the shape of~\cite[Proposition
+G.3]{BDD+26} up to a relabelling of the index bits, and the theta null
+points accordingly have six pairs of equal coordinates. After the gluing,
+$D$ maps the first two kernel generators to the other two, up to sign. So
+the verifier's coordinates are adapted to $D$ without any change of theta
+structure. We have not proved that this holds for every signature
+(Conjecture~\ref{conj:twopoint} below); the implementation checks the relation on the kernel generators of each
+signature and falls back to four points when it fails, which happened on
+none of the 24 signatures tested.
+
+%% ------------------------------------------------------------
+%% OPEN ISSUE, set in red on purpose: remove the colour once the
+%% conjecture is proved (or the two-point claim is withdrawn).
+%% ------------------------------------------------------------
+{\color{red}
+    \subsection{The conjecture behind the two-point verifier}
+    \label{app:conjecture}
+
+    The two-point verifier rests on more than
+    Propositions~\ref{prop:commute} to~\ref{prop:forged}: those show that the
+    chain respects $D$, not that $D$ acts in the verifier's own theta
+    coordinates as one fixed permutation. We state what is needed as a
+    conjecture.
+
+    Let $\pi$ be the permutation of $\{0, \ldots, 15\}$ that exchanges bits 0
+    and 2 and bits 1 and 3 of the index $k = i_0 + 2 i_1 + 4 i_2 + 8 i_3$.
+
+    \begin{conjecture}
+        \label{conj:twopoint}
+        For every signature, honest or not, for which the verifier's half-chains
+        are defined, and with the symplectic matrices and gluing changes of basis
+        the verifier uses:
+        \begin{enumerate}[label=(\roman*)]
+            \item on every intermediate fourfold $A_k$ of either half-chain,
+            including the codomain of the gluing, $\theta_a(D_k x) =
+            \theta_{\pi(a)}(x)$ for all $x \in A_k$ and all $a$, as projective
+            points in the level-2 theta coordinates the verifier computes;
+            \item after the gluing, the four kernel generators satisfy
+            $\theta(g_2) = \pi\,\theta(g_0)$ and $\theta(g_3) = \pi\,\theta(g_1)$
+            projectively, where $\pi$ permutes coordinates.
+        \end{enumerate}
+        Consequently, the two-point chain computes the same isogenies, and the
+        same codomains, as the four-point chain.
+    \end{conjecture}
+
+    \paragraph{Evidence}
+    Part (i) was first observed at the gluing codomain and after plain steps
+    1, 2, 3, 20, 43, 70 and 84 of the first half-chain of one level-I
+    signature, where solving for the matrix of $D_k$ gives $\pi$ and nothing
+    else. It was then checked at every step of both half-chains, on four
+    random points per signature and on every codomain null point: on 32
+    honest level-I signatures from four keys, 64 half-chains and 5\,472
+    steps, and on 96 signatures forged by replacing the transmitted response
+    entries with random residues, of which 76 pass the setup, giving 144
+    computed half-chains and 12\,318 steps. No step failed, and as a control,
+    $\theta(Dx)$ never equalled $\theta(x)$ without the permutation. Part
+    (ii), and identical codomains along both half-chains, was observed on 24
+    level-I signatures from three keys. The forged signatures keep an honestly
+    generated $q$, commitment curve and challenge; signatures with a forged
+    $q$, and levels III and V, which are not implemented, remain untested.
+
+    \paragraph{Why it matters}
+    The implementation checks part (ii) on each signature and falls back to
+    four points when it fails, but it does not check part (i) after the
+    gluing. If part (i) failed at a later step, the two-point chain would
+    build wrong kernels, and the soundness of the verifier, which assumes the
+    chain computes the isogeny with the transmitted kernel, would no longer
+    follow. Until the conjecture is proved, a cheap safeguard is to check at
+    every step that the codomain null point is fixed by $\pi$ (six
+    comparisons), a necessary condition that would at least locate a
+    failure.
+
+    \paragraph{A tentative approach}
+    An induction along the chain, after MIKE's treatment of its own
+    fourfolds~\cite[Proposition G.3 and Lemma G.3]{BDD+26}.
+    \begin{enumerate}
+        \item \emph{The product.} On $E^2$, give both copies the level-2 theta
+        structure induced by the same basis of $E[4]$, so that
+        $\theta_{(i,j)}(P, Q) = \theta_i(P)\,\theta_j(Q)$. Since level-2 theta
+        functions are even,
+        \[
+        \theta_{(i,j)}\bigl(J(P, Q)\bigr) = \theta_i(Q)\,\theta_j(-P)
+        = \theta_{(j,i)}(P, Q),
+        \]
+        so $J$ exchanges the two index bits of the square, and $D$ on $\Ecom^2
+        \times \Echl^2$ exchanges two pairs of index bits. To check: that the
+        verifier gives both copies of each curve the same basis, and which
+        index bits its product coordinates assign to which copy; $\pi$ suggests
+        that the two copies of a curve sit at bits $\{0, 2\}$ and $\{1, 3\}$,
+        possibly after the gluing's change of basis.
+        \item \emph{The gluing.} The theta structure on the gluing codomain is
+        induced through the change-of-basis matrices built from the verifier's
+        symplectic matrices. To show: $D$ acts on the resulting symplectic
+        basis by a block matrix $\left(\begin{smallmatrix} A & 0 \\ 0 &
+            A^{-\mathsf{T}} \end{smallmatrix}\right)$ with $A$ the permutation
+        matrix of $\pi$. Such a matrix acts on level-2 theta coordinates by
+        permuting their indices, with no characters~\cite[Theorem 12]{Dar24};
+        that would give part (i) at the gluing codomain. The Kani blocks are of
+        the form $a + bJ$ (Lemma~\ref{lem:J}) and commute with $D$; what needs
+        checking is the symplectic completion and the gluing change of basis
+        computed from them.
+        \item \emph{The induction.} If $D$ acts by that block matrix on the
+        symplectic basis inducing the theta structure of $A_k$, then, since
+        each step commutes with $D$ (Proposition~\ref{prop:descent}), it acts
+        by the same matrix on the image basis inducing the structure of
+        $A_{k+1}$, hence by the same permutation $\pi$. The second half-chain,
+        computed from the other end, would follow in the same way from its own
+        starting matrix.
+        \item \emph{The kernel generators.} Part (ii) would follow from the
+        form of the kernel basis built from the starting symplectic matrix:
+        the kernel of $F$ is $D$-stable for any received matrix
+        (Proposition~\ref{prop:forged}), and the question is only whether the
+        chosen generators come in pairs $(g, Dg)$.
+    \end{enumerate}
+    The base cases, steps 1 and 2, depend on the exact matrices in the
+    implementation, and are where the work lies.
+}
