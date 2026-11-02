@@ -251,6 +251,86 @@ pub fn apply_mat4<L: FpBackend>(n: &[[Fp2<L>; 4]; 4], p: &[Fp2<L>; 4]) -> [Fp2<L
     })
 }
 
+/// The product-to-theta base change `M2 = (N diag(zero12)) S^T` applied through
+/// its factors when every entry of `N` is a small multiple (1, 2 or 4) of a
+/// fourth root of unity: `S^T v` is a Hadamard, `diag(zero12)` four products,
+/// and `N` sums of signed or `i`-twisted terms; 4 M in place of 16.
+pub struct FoldedBaseChangeDim2<L: FpBackend> {
+    zero12: [Fp2<L>; 4],
+    // per row of N: (column, negative, imaginary, doublings); 4 unused columns
+    // are marked with column 255
+    rows: [[(u8, bool, bool, u8); 4]; 4],
+}
+
+impl<L: FpBackend> FoldedBaseChangeDim2<L> {
+    /// `None` when some entry of `n` is not `c e4^k` with `c` in 1, 2, 4.
+    pub fn new(zero12: &[Fp2<L>; 4], n: &[[Fp2<L>; 4]; 4]) -> Option<Self> {
+        let mut rows = [[(255u8, false, false, 0u8); 4]; 4];
+        for (i, row) in n.iter().enumerate() {
+            let mut slot = 0usize;
+            for (j, x) in row.iter().enumerate() {
+                if bool::from(x.ct_is_zero()) {
+                    continue;
+                }
+                let mut found = None;
+                for d in 0..3u8 {
+                    let c = Fp2::<L>::one().mul_small(1 << d);
+                    let ci = c.mul_by_i(subtle::Choice::from(1));
+                    if bool::from(x.ct_equal(&c)) {
+                        found = Some((false, false, d));
+                    } else if bool::from(x.ct_equal(&c.neg())) {
+                        found = Some((true, false, d));
+                    } else if bool::from(x.ct_equal(&ci)) {
+                        found = Some((false, true, d));
+                    } else if bool::from(x.ct_equal(&ci.neg())) {
+                        found = Some((true, true, d));
+                    }
+                }
+                let (neg, imag, d) = found?;
+                rows[i][slot] = (j as u8, neg, imag, d);
+                slot += 1;
+            }
+        }
+        Some(Self {
+            zero12: zero12.clone(),
+            rows,
+        })
+    }
+
+    /// `M2 · v`.
+    pub fn apply(&self, v: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
+        // S^T v is the Hadamard of v with its rows reordered.
+        let h = hadamard2(v);
+        let u = [
+            h[3].mul(&self.zero12[0]),
+            h[1].mul(&self.zero12[1]),
+            h[2].mul(&self.zero12[2]),
+            h[0].mul(&self.zero12[3]),
+        ];
+        core::array::from_fn(|i| {
+            let mut acc = Fp2::<L>::zero();
+            for &(j, neg, imag, d) in self.rows[i].iter() {
+                if j == 255 {
+                    break;
+                }
+                let mut t = if imag {
+                    // +i when not negated, -i when negated
+                    u[j as usize].mul_by_i(subtle::Choice::from(!neg as u8))
+                } else if neg {
+                    u[j as usize].neg()
+                } else {
+                    u[j as usize].clone()
+                };
+                for _ in 0..d {
+                    t = t.add(&t);
+                }
+                acc = acc.add(&t);
+            }
+            acc
+        })
+    }
+}
+
 /// `montgomery_to_theta_matrix_dim2(zero12, N)`: the matrix mapping product
 /// Montgomery coordinates `(X1X2, X1Z2, Z1X2, Z1Z2)` to theta coordinates under
 /// the base change `N`, and the resulting theta null point. `zero12` is the
@@ -337,6 +417,7 @@ fn tuple_product_xz<L: FpBackend>(p: &TuplePoint<L>) -> [Fp2<L>; 4] {
 /// A computed dim-2 gluing isogeny (`GluingThetaIsogenyDim2`).
 pub struct GluingThetaIsogenyDim2<L: FpBackend> {
     base_change_matrix: [[Fp2<L>; 4]; 4],
+    folded: Option<FoldedBaseChangeDim2<L>>,
     /// The product theta-null after the base change `N` (`domain_bc` null); kept
     /// for the dual (splitting) evaluation.
     null_bc: [Fp2<L>; 4],
@@ -360,12 +441,18 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         e2: &EcCurve<L>,
     ) -> Option<Self> {
         let (base_change_matrix, null_bc) = montgomery_to_theta_matrix_dim2(zero12, n);
+        let folded = FoldedBaseChangeDim2::new(zero12, n);
+        let bc = |v: &[Fp2<L>; 4]| match &folded {
+            Some(f) => f.apply(v),
+            None => apply_mat4(&base_change_matrix, v),
+        };
         let t_shift = k1_8.double(e1, e2); // 2·K1_8 (4-torsion shift)
-        let t1 = apply_mat4(&base_change_matrix, &tuple_product_xz(k1_8));
-        let t2 = apply_mat4(&base_change_matrix, &tuple_product_xz(k2_8));
+        let t1 = bc(&tuple_product_xz(k1_8));
+        let t2 = bc(&tuple_product_xz(k2_8));
         let (codomain, precomp, zero_idx) = Self::special_compute_codomain(&t1, &t2)?;
         Some(Self {
             base_change_matrix,
+            folded,
             null_bc,
             codomain,
             precomp,
@@ -448,9 +535,18 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
     /// Evaluate on a `TuplePoint` → codomain theta point.
     pub fn eval(&self, p: &TuplePoint<L>) -> [Fp2<L>; 4] {
         let p_sum = p.add(&self.t_shift, &self.e1, &self.e2);
-        let iso_p = apply_mat4(&self.base_change_matrix, &tuple_product_xz(p));
-        let iso_p_sum = apply_mat4(&self.base_change_matrix, &tuple_product_xz(&p_sum));
+        let iso_p = self.base_change(&tuple_product_xz(p));
+        let iso_p_sum = self.base_change(&tuple_product_xz(&p_sum));
         self.special_image(&iso_p, &iso_p_sum)
+    }
+
+    /// `M2 · v`, through the folded form when the base change has one.
+    #[inline]
+    fn base_change(&self, v: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
+        match &self.folded {
+            Some(f) => f.apply(v),
+            None => apply_mat4(&self.base_change_matrix, v),
+        }
     }
 
     /// Dual (splitting) evaluation (`DualGluingThetaIsogenyDim2`): a dim-2 theta
