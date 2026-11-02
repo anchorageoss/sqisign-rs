@@ -1,0 +1,5 @@
+Random seed: "--seed={ 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 }"
+SQIsign_p500_27 (100 iterations)
+  keypair    | average   139.942 | stddev   104.904 | median   104.951 | min    82.512 | max   799.648  (megacycles)
+  sign       | average   374.923 | stddev    86.971 | median   359.671 | min   243.619 | max   623.526  (megacycles)
+  verify     | average    31.600 | stddev     0.580 | median    31.254 | min    31.020 | max    33.422  (megacycles)
