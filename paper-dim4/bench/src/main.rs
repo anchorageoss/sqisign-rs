@@ -745,6 +745,105 @@ fn main() {
             "four points",
         ),
         "fp2-ops" => fp2_ops(&a, &raw_dir),
+        "basis-dim2" => basis_dim2(&a, &raw_dir),
         other => panic!("unknown block {other}"),
+    }
+}
+
+/// The torsion basis from hints per curve, ours against the dimension-2
+/// verifier's (basis-dim2): the dimension-2 verifier's
+/// ec_curve_to_basis_2f_from_hint on its own level-I keys at its exponent
+/// (challenge bits plus the extra torsion), and on the curves of this
+/// round's set (E_pk and each E_com) at that exponent and at the full
+/// exponent 324 with a hint computed outside the timing; ours
+/// (hd_torsion_basis) on the same curves with the wire hints. Cycles per
+/// basis, median and minimum over reps repetitions of n bases, rdtsc.
+fn basis_dim2(a: &Args, raw_dir: &Path) {
+    use sqisign_rs::generate;
+    use sqisign_verify::ec::basis::{ec_curve_to_basis_2f_from_hint, ec_curve_to_basis_2f_to_hint};
+    use sqisign_verify::ec::EcCurve;
+    use sqisign_verify::hd::{hd_torsion_basis, parse_public_key, parse_signature};
+    use sqisign_verify::precomp::{p324_3::TWO_ADIC_EXPONENT, EXTRA_TORSION};
+    use sqisign_verify::{Level, Level1, PublicKey as PublicKeyDim2};
+    let path = raw_dir.join("basis-dim2.csv");
+    let new = !path.exists();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .unwrap();
+    if new {
+        writeln!(file, "# the torsion basis from hints per curve (basis-dim2): cycles per basis, median and minimum over reps repetitions of n bases, rdtsc; kind = dim2-native (the dimension-2 verifier's function on its own level-I keys, f = challenge bits + 2), dim2-on-ours-f130 and dim2-on-ours-f324 (the same function on this round's E_pk and E_com with a hint computed outside the timing), ours (hd_torsion_basis with the wire hints, the full exponent)").unwrap();
+        writeln!(file, "round,kind,curve,f,n,reps,median_per_basis,min_per_basis").unwrap();
+    }
+    let reps = 11usize;
+    let n = 100u64;
+    let mut row = |kind: &str, curve: &str, f: u32, (med, min): (u64, u64)| {
+        writeln!(
+            file,
+            "{},{},{},{},{},{},{:.1},{:.1}",
+            a.round,
+            kind,
+            curve,
+            f,
+            n,
+            reps,
+            med as f64 / n as f64,
+            min as f64 / n as f64
+        )
+        .unwrap();
+    };
+    let measure = |body: &mut dyn FnMut()| -> (u64, u64) {
+        let mut v: Vec<u64> = (0..reps)
+            .map(|_| {
+                let t = cycles();
+                for _ in 0..n {
+                    body();
+                }
+                cycles() - t
+            })
+            .collect();
+        v.sort_unstable();
+        (v[reps / 2], v[0])
+    };
+    // the dimension-2 verifier on its own keys
+    let f2 = Level1::PARAMS.challenge_bits + EXTRA_TORSION;
+    let mut rng = StdRng::seed_from_u64(a.seed ^ (a.round as u64) ^ 0xba515);
+    for k in 0..5 {
+        let (pk, _sk) = generate::<Level1>(&mut rng);
+        let pkb = pk.to_bytes();
+        let pk2 = PublicKeyDim2::<Level1>::from_bytes(&pkb).unwrap();
+        let inner = pk2.inner();
+        let curve0 = inner.curve.clone();
+        let hint = inner.hint_pk;
+        let r = measure(&mut || {
+            let mut c = curve0.clone();
+            black_box(ec_curve_to_basis_2f_from_hint(&mut c, f2, hint));
+        });
+        row("dim2-native", &format!("E_pk key {k}"), f2, r);
+    }
+    // this round's curves: E_pk and each E_com
+    let set = signature_set(a);
+    let p = parse_public_key::<P324_3>(&set.pk).unwrap();
+    let mut curves: Vec<(String, Fp2<P324_3>, u32, u32)> =
+        vec![("E_pk".to_string(), p.a_pk.clone(), p.hint_pk_p, p.hint_pk_q)];
+    for (j, (sig, _msg)) in set.sigs.iter().enumerate() {
+        let s = parse_signature::<P324_3>(sig).unwrap();
+        curves.push((format!("E_com sig {j}"), s.a_com.clone(), s.hint_com_p, s.hint_com_q));
+    }
+    for (name, a_coeff, hp, hq) in &curves {
+        let r = measure(&mut || {
+            black_box(hd_torsion_basis::<P324_3>(a_coeff, *hp, *hq));
+        });
+        row("ours", name, TWO_ADIC_EXPONENT, r);
+        for f in [f2, TWO_ADIC_EXPONENT] {
+            let mut c = EcCurve::<P324_3>::from_a(a_coeff).unwrap();
+            let (_basis, hint) = ec_curve_to_basis_2f_to_hint(&mut c, f, 0).unwrap();
+            let r = measure(&mut || {
+                let mut cc = c.clone();
+                black_box(ec_curve_to_basis_2f_from_hint(&mut cc, f, hint));
+            });
+            row(&format!("dim2-on-ours-f{f}"), name, f, r);
+        }
     }
 }
