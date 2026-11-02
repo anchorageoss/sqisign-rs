@@ -187,9 +187,14 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
             let s = strategy[strat_idx];
             level.push(s);
             prev += s;
-            let src = kernel_elements.last().expect("non-empty kernel stack");
-            let next: [ThetaPointDim4<L>; 2] =
-                core::array::from_fn(|i| cur.double_iter(&src[i], s));
+            // The doublings run in place on a copy of the top pair.
+            let mut next = kernel_elements
+                .last()
+                .expect("non-empty kernel stack")
+                .clone();
+            for pt in next.iter_mut() {
+                cur.double_iter_assign(pt, s);
+            }
             kernel_elements.push(next);
             strat_idx += 1;
         }
@@ -212,15 +217,17 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         kernel_elements.pop();
         level.pop();
 
-        // Push the remaining saved pairs through the isogeny.
+        // Push the remaining saved pairs through the isogeny, in place.
         for elt in kernel_elements.iter_mut() {
             for slot in elt.iter_mut() {
-                *slot = iso.image(slot)?;
+                if !iso.image_assign(slot) {
+                    return None;
+                }
             }
         }
         let t3 = prof.now();
         prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
-        cur = iso.codomain().clone();
+        cur = iso.into_codomain();
         cur_ready = cur.precompute();
         prof.add(SLOT_PLAIN_CODOMAIN, prof.now() - t3);
     }

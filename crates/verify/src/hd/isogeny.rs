@@ -130,6 +130,35 @@ impl<L: FpBackend> IsogenyDim4<L> {
         }
         Some(apply_plain_image(&self.inv_dual_null, p))
     }
+
+    /// [`Self::image`] in place: `p <- image(p)`; `false`, with `p` untouched,
+    /// when the codomain has a zero dual null coordinate.
+    #[inline]
+    pub fn image_assign(&self, p: &mut ThetaPointDim4<L>) -> bool {
+        if self.has_zero_dual {
+            return false;
+        }
+        apply_plain_image_assign(&self.inv_dual_null, p);
+        true
+    }
+
+    /// The codomain structure, moved out (the chain continues on it).
+    #[inline]
+    pub fn into_codomain(self) -> ThetaStructureDim4<L> {
+        self.codomain
+    }
+}
+
+/// [`apply_plain_image`] in place on the point's coordinates.
+#[inline]
+pub fn apply_plain_image_assign<L: FpBackend>(
+    inv_dual_null: &[Fp2<L>; N],
+    p: &mut ThetaPointDim4<L>,
+) {
+    let a = p.coords_mut();
+    to_squared_theta_assign(a);
+    pointwise_mul_assign(a, inv_dual_null);
+    hadamard_assign(a);
 }
 
 /// Apply a *plain*-step image map given its precomputed `1/O`:

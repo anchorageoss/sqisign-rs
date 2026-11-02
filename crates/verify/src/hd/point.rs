@@ -29,6 +29,12 @@ impl<L: FpBackend> ThetaPointDim4<L> {
         &self.coords
     }
 
+    /// The 16 coordinates, for the in-place image and doubling.
+    #[inline]
+    pub fn coords_mut(&mut self) -> &mut [Fp2<L>; THETA_DIM4_N] {
+        &mut self.coords
+    }
+
     /// The pivot: index of the first non-zero coordinate (capped at 15, to
     /// match the sage `ThetaPointDim4.__eq__` convention). For any genuine
     /// (non-zero) theta point this is the smallest `k` with `P[k] ≠ 0`.

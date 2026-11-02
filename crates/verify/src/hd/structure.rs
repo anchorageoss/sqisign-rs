@@ -113,27 +113,40 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
     /// Requires [`Self::precompute`] to have been called.
     #[inline]
     pub fn double(&self, p: &ThetaPointDim4<L>) -> ThetaPointDim4<L> {
+        let mut q = p.clone();
+        self.double_assign(&mut q);
+        q
+    }
+
+    /// [`Self::double`] in place: `p <- 2·p`.
+    #[inline]
+    pub fn double_assign(&self, p: &mut ThetaPointDim4<L>) {
         debug_assert!(
             self.precomputed,
             "ThetaStructureDim4::double called before precompute()"
         );
         // U_χ(P) = S(H(S(P))), then ⊙ 1/H(S(O)), H, ⊙ 1/O, all in place.
-        let mut a = p.coords().clone();
-        to_squared_theta_assign(&mut a);
-        pointwise_square_assign(&mut a);
-        pointwise_mul_assign(&mut a, &self.inv_dual_sq);
-        hadamard_assign(&mut a);
-        pointwise_mul_assign(&mut a, &self.inv_null);
-        ThetaPointDim4::new(a)
+        let a = p.coords_mut();
+        to_squared_theta_assign(a);
+        pointwise_square_assign(a);
+        pointwise_mul_assign(a, &self.inv_dual_sq);
+        hadamard_assign(a);
+        pointwise_mul_assign(a, &self.inv_null);
     }
 
     /// Iterated doubling: `P ↦ 2ⁿ·P`. Returns `P` unchanged for `n == 0`.
     #[inline]
     pub fn double_iter(&self, p: &ThetaPointDim4<L>, n: u32) -> ThetaPointDim4<L> {
         let mut out = p.clone();
-        for _ in 0..n {
-            out = self.double(&out);
-        }
+        self.double_iter_assign(&mut out, n);
         out
+    }
+
+    /// [`Self::double_iter`] in place: `p <- 2ⁿ·p`.
+    #[inline]
+    pub fn double_iter_assign(&self, p: &mut ThetaPointDim4<L>, n: u32) {
+        for _ in 0..n {
+            self.double_assign(p);
+        }
     }
 }
