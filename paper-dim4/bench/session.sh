@@ -10,7 +10,9 @@
 #   paper-dim4/bench/session.sh <out dir> [core] [rounds]
 #
 # Blocks run round-robin: in each round every Rust block once, then one C
-# reference level (I, III, V in turn, once each over the first three rounds).
+# reference level (I, III, V in turn, once each over the first three rounds);
+# the fp2-ops block (the per-operation costs) runs once per round after the
+# profile blocks.
 # Run after `cargo build --release` in paper-dim4/bench; the script refuses
 # to run if a cargo, LaTeX or Sage job is running. The legacy all-in-one
 # run of 2026-09-26 is `dim4-session legacy` (feature round2).
@@ -37,7 +39,7 @@ R2_KEYGEN=13; R2_SIGN=13; R2_VERIFY=50          # dimension 2, per level
 R4_KEYGEN=13; R4_SIGN=25; R4_VERIFY=50; R4_PROFILE=25; SIGS=5
 C_ITERS="p324_3:300 p500_27:100 p664_17:100"
 
-log "session start; out $OUT; core $CORE; rounds $ROUNDS; per round: dim2 keygen/sign/verify $R2_KEYGEN/$R2_SIGN/$R2_VERIFY, dim4 keygen/sign/verify/profile $R4_KEYGEN/$R4_SIGN/$R4_VERIFY/$R4_PROFILE over $SIGS signatures; C iterations $C_ITERS"
+log "session start; out $OUT; core $CORE; rounds $ROUNDS; per round: dim2 keygen/sign/verify $R2_KEYGEN/$R2_SIGN/$R2_VERIFY, dim4 keygen/sign/verify/profile $R4_KEYGEN/$R4_SIGN/$R4_VERIFY/$R4_PROFILE over $SIGS signatures, fp2-ops once; C iterations $C_ITERS"
 log "commit $(git -C "$ROOT" rev-parse HEAD) ($(git -C "$ROOT" status --short | wc -l) uncommitted paths)"
 log "binaries: $(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$BIN" | awk '{print $6, $7}'); C reference: the-sqisign $(git -C "$HOME/the-sqisign" rev-parse --short HEAD) $SQ ($(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$SQ/benchmark_p324_3" | awk '{print $6}'))"
 OTHER="$(pgrep -af 'cargo|rustc|pdflatex|bibtex|sage-venv|/usr/bin/sage' | grep -v "$$" | grep -v pgrep || true)"
@@ -62,6 +64,7 @@ for ((r = 1; r <= ROUNDS; r++)); do
   for mode in two-check four; do
     block "profile-$mode r$r" "$BIN" "profile-$mode" --out "$OUT" --round "$r" --runs "$R4_PROFILE" --sigs "$SIGS"
   done
+  block "fp2-ops r$r" "$BIN" fp2-ops --out "$OUT" --round "$r"
   idx=$((r - 1))
   if [ "$idx" -lt "${#C_LEVELS[@]}" ]; then
     spec="${C_LEVELS[$idx]}"; prime="${spec%%:*}"; it="${spec##*:}"

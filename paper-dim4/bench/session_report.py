@@ -14,6 +14,7 @@ Reads, under the session directory:
 Writes, under the session directory:
   table.md                   the rows (medians; signing with mean and maximum)
   profile.md                 the phase profile of both verifiers
+  costs.md                   the per-operation costs of the fp2-ops block
   numbers.json               every value, and the ratios from the printed cells
 
 Medians are the statistic; the signing rows carry the mean and the maximum
@@ -304,11 +305,38 @@ def main():
         numbers["profile"][mode] = prof
     with open(os.path.join(sdir, "profile.md"), "w") as f:
         f.write("\n".join(plines) + "\n")
+    # The per-operation costs (block fp2-ops): per operation and variant the
+    # median over the rounds of the block's own medians, in cycles.
+    costs_path = os.path.join(sdir, "raw", "fp2-ops.csv")
+    if os.path.exists(costs_path):
+        per = {}
+        with open(costs_path) as f:
+            for line in f:
+                if line.startswith("#") or line.startswith("round,"):
+                    continue
+                parts = line.rstrip("\n").split(",")
+                if len(parts) < 7:
+                    continue
+                key = (parts[1], parts[2])
+                per.setdefault(key, []).append((float(parts[5]), float(parts[6])))
+        clines = ["#### Cycles per Fp2 operation (block fp2-ops, once per round; per operation and variant the median over the rounds of the block's medians, and the minimum of its minima; dep = each operation on the previous result, lane16 = sixteen independent elements, composite = one call on one point)\n"]
+        clines.append("| operation | variant | rounds | median (cycles) | min (cycles) |")
+        clines.append("|---|---|---|---|---|")
+        numbers["costs"] = {}
+        for (op, variant), vals in per.items():
+            med = statistics.median(v[0] for v in vals)
+            mn = min(v[1] for v in vals)
+            numbers["costs"][f"{op}/{variant}"] = {"rounds": len(vals), "median": med, "min": mn}
+            clines.append(f"| {op} | {variant} | {len(vals)} | {med:.1f} | {mn:.1f} |")
+        with open(os.path.join(sdir, "costs.md"), "w") as f:
+            f.write("\n".join(clines) + "\n")
     with open(os.path.join(sdir, "numbers.json"), "w") as f:
         json.dump(numbers, f, indent=1, sort_keys=True)
         f.write("\n")
     print(open(os.path.join(sdir, "table.md")).read())
     print(open(os.path.join(sdir, "profile.md")).read())
+    if os.path.exists(os.path.join(sdir, "costs.md")):
+        print(open(os.path.join(sdir, "costs.md")).read())
 
 
 if __name__ == "__main__":
