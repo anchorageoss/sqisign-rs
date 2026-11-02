@@ -23,7 +23,8 @@ and the KAT files under crates/kat/kat/ are unchanged from main.
 The paper. paper-dim4/main_standalone.tex is the paper's source (the
 appendix is inline from its \appendix line) and paper-dim4/appendix_symmetry.tex
 is the appendix as a separate file; both are the human's draft committed
-unedited at 8552b9d and then edited by the change log. paper-dim4/iacrtrans.cls,
+unedited at 8552b9d; the change log edits main_standalone.tex alone and
+appendix_symmetry.tex is unchanged since 8552b9d. paper-dim4/iacrtrans.cls,
 CC-by.pdf and COPYING-iacrtrans are the IACR Transactions class and its
 licence, copied unmodified from Cryptosaurus/iacrtrans at tag v0.94 (commit
 cbe3b01, the hashes in its message), build support only.
@@ -52,17 +53,20 @@ of 78c2106 and cannot carry its own hash.
 
 ## The session of record
 
-paper-dim4/bench/sessions/2026-11-02-99c13b0/ is the session every number
-of the paper's Section 5 comes from: 2026-11-02 07:24:15Z to 07:28:39Z,
-build 99c13b0, core 3. Its files: table.md (the rows in megacycles with the
+paper-dim4/bench/sessions/2026-11-02-99c13b0/ is the session of record
+for the paper's Section 5, every cycle count, millisecond, ratio, profile
+share and floor figure in it (the one exception is the Memory paragraph's
+heap figure, which names its own session of 2026-09-26): 2026-11-02
+07:24:15Z to 07:28:39Z, build 99c13b0, core 3. Its files: table.md (the rows in megacycles with the
 run counts, medians, means, minima and maxima, and the ratios from the
 printed cells), numbers.json (the same, machine-readable, with the TSC rate
-3049.994 MHz), profile.md (the eight phases and sixteen sub-slots of both
-dimension-4 verifiers), costs.md (the cycles per field operation of the
+3049.994 MHz), profile.md (the phase rows, the harness's decode row and the
+code's eight slots, and the sixteen sub-slots of both dimension-4
+verifiers), costs.md (the cycles per field operation of the
 fp2-ops block), machine.txt (the host, the TSC flags, the kernel, the
 toolchain, the memory), session.log (one start, one end, every block with
-its exit code), raw/ (one CSV per block with every iteration's cycles and
-nanoseconds), binary-sha256.txt (the session binary's hash and commit),
+its exit code), raw/ (26 CSVs: one per table row with every iteration's cycles and
+nanoseconds, one for the fp2-ops block, eight for the profiles), binary-sha256.txt (the session binary's hash and commit),
 blocks.stdout and the three C reference outputs (tracking only, not cited
 in the paper). The method, measured in that session: one build of the
 harness from a wiped target, one pinned core, four rounds that visit every
