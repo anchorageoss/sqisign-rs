@@ -297,7 +297,7 @@ impl<L: FpBackend> FoldedBaseChangeDim2<L> {
         })
     }
 
-    /// `M2 · v`.
+    /// `M2 v`.
     pub fn apply(&self, v: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
         // S^T v is the Hadamard of v with its rows reordered.
         let h = hadamard2(v);
@@ -540,7 +540,7 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         self.special_image(&iso_p, &iso_p_sum)
     }
 
-    /// `M2 · v`, through the folded form when the base change has one.
+    /// `M2 v`, through the folded form when the base change has one.
     #[inline]
     fn base_change(&self, v: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
         match &self.folded {

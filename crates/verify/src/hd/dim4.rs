@@ -134,7 +134,7 @@ pub fn product_to_theta_points_dim4_dim2<L: FpBackend>(
 }
 
 /// A dimension-4 theta base change held in the form its application needs.
-/// The gluing matrices have four nonzero entries per row, each `4·e4^k` for
+/// The gluing matrices have four nonzero entries per row, each `4 e4^k` for
 /// the fourth root of unity `e4`; the product is then sixteen sums of four
 /// signed or `i`-twisted coordinates, doubled twice, with no multiplication.
 /// A matrix of another shape is applied densely.
@@ -194,7 +194,7 @@ impl<L: FpBackend> BaseChangeDim4<L> {
         &self.dense
     }
 
-    /// `N · p`.
+    /// `N p`.
     pub fn apply(&self, p: &[Fp2<L>; 16]) -> [Fp2<L>; 16] {
         let Some(rows) = &self.sparse else {
             return apply_base_change_theta_dim4(&self.dense, p);
