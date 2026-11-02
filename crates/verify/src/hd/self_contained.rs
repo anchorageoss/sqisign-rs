@@ -399,7 +399,8 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     // 4-torsion points, points_m and every kernel generator read them.
     let mask_r = (1u128 << L::R) - 1;
     let lambda = inverse_mod_pow2(q4, mask_r);
-    let bits = L::R as usize;
+    // one entry past the scalars' width, for the top digit of a non-adjacent form
+    let bits = L::R as usize + 1;
     let tables = [
         FixedBase::new(&rsp.r_com, bits, &e_com),
         FixedBase::new(&rsp.s_com, bits, &e_com),
