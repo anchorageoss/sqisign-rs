@@ -34,13 +34,14 @@ and the source of every number and sentence.
 
 Earlier material, not the paper. paper-dim4/main.tex (682 lines),
 paper-dim4/tables/, paper-dim4/figures/ with figures/data/, BENCH.md,
-DRAFT_NOTES.md, FIGURES.md and the committed paper-dim4/main_standalone.pdf
-of 2026-10-05 (12 pages) are the files of an earlier generated pipeline:
-figures/bundle.py wrote the earlier main_standalone.tex from main.tex and
-the tables, and they carry the session of 2026-09-26 on an Intel Xeon,
-which is not the session the paper now reports. They are not the paper's
-figures. They stay as they are until the orchestrator's pending decision on
-them (SECENG-2442) is taken. paper-dim4/bench/ is the measurement harness
+DRAFT_NOTES.md and FIGURES.md are the files of an earlier generated
+pipeline: figures/bundle.py wrote the earlier main_standalone.tex from
+main.tex and the tables, and they carry the session of 2026-09-26 on an
+Intel Xeon, which is not the session the paper now reports. They are not
+the paper's figures. They stay as they are under the residue decision (a)
+of SECENG-2442 (the DECIDED comment headed 11:13Z), which also removed the
+generated main_standalone.pdf of 2026-10-05 that came with them from the
+branch. paper-dim4/bench/ is the measurement harness
 (its own README.md) and bench/sessions/ holds the session records.
 
 ## The head commit
@@ -118,8 +119,12 @@ In paper-dim4/, with the class files of this directory:
 
     latexmk -pdf -interaction=nonstopmode -f -outdir=build main_standalone.tex
 
-The output is build/main_standalone.pdf (build/ is ignored by git). The
-draft's bibliography file Dim4SQI.bib is required and is not on the branch
+The output is build/main_standalone.pdf (build/ is ignored by git).
+paper-dim4/build/main.pdf is the committed PDF of the draft at 78c2106,
+built by this command, sha256
+92e6f435838ee0b5b87ba1c84b709f95778cd7b2125c39a9db9be35f20938d5b, 23 pages,
+with 98 undefined citations and no bibliography; it is re-committed when
+the bibliography is. The draft's bibliography file Dim4SQI.bib is required and is not on the branch
 yet; until it is committed beside the draft, the build ends with undefined
 citations and no bibliography: at 78c2106, 0 errors, 0 undefined
 references, 98 undefined citations over the draft's 23 cited keys, 23
