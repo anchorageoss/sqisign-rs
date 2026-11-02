@@ -80,8 +80,11 @@ impl<L: FpBackend> FixedBase<L> {
         Self { pts }
     }
 
-    /// `[k] B` by additions of the stored multiples over the set bits of
-    /// `k` (`k` below `2^bits`); the identity for `k = 0` and `B` itself for
+    /// `[k] B` by additions and subtractions of the stored multiples over
+    /// the non-adjacent form of `k` (`k` below `2^bits`), about one third of
+    /// the positions nonzero against one half for the binary form; the
+    /// binary form when the non-adjacent form would need `2^bits B`, which
+    /// the table does not hold. The identity for `k = 0` and `B` itself for
     /// `k = 1`, as `jac_mul_u128`.
     pub fn mul(&self, k: u128, curve: &EcCurve<L>) -> JacPoint<L> {
         if k == 0 {
@@ -92,6 +95,37 @@ impl<L: FpBackend> FixedBase<L> {
         }
         let top = 127 - k.leading_zeros() as usize;
         debug_assert!(top < self.pts.len());
+        // digits d_i in {-1, 0, 1}, no two adjacent nonzero; the form of a
+        // number of `top + 1` bits has at most `top + 2` digits
+        let mut acc: Option<JacPoint<L>> = None;
+        let mut rest = k;
+        let mut i = 0usize;
+        while rest != 0 {
+            if rest & 1 == 1 {
+                if i >= self.pts.len() {
+                    return self.mul_binary(k, curve);
+                }
+                let term = if rest & 3 == 3 {
+                    rest += 1;
+                    self.pts[i].neg()
+                } else {
+                    rest -= 1;
+                    self.pts[i].clone()
+                };
+                acc = Some(match acc {
+                    None => term,
+                    Some(a) => jac_add(&a, &term, curve),
+                });
+            }
+            rest >>= 1;
+            i += 1;
+        }
+        acc.unwrap_or_else(JacPoint::identity)
+    }
+
+    /// `[k] B` over the set bits of `k`.
+    fn mul_binary(&self, k: u128, curve: &EcCurve<L>) -> JacPoint<L> {
+        let top = 127 - k.leading_zeros() as usize;
         let mut acc = self.pts[top].clone();
         for i in (0..top).rev() {
             if (k >> i) & 1 == 1 {
@@ -116,26 +150,32 @@ pub fn point_matrix_product_k_fixed<L: FpBackend>(
     e2: &EcCurve<L>,
 ) -> [TuplePoint4<L>; 4] {
     let on_s = |w: u128| w.wrapping_mul(lambda) & mask;
+    // [a] P + [b] Q with no addition when a scalar is zero (most entries are)
+    let sum = |ta: &FixedBase<L>, a: u128, tb: &FixedBase<L>, b: u128, e: &EcCurve<L>| {
+        if a == 0 {
+            tb.mul(b, e)
+        } else if b == 0 {
+            ta.mul(a, e)
+        } else {
+            jac_add(&ta.mul(a, e), &tb.mul(b, e), e)
+        }
+    };
     core::array::from_fn(|jj| {
         let j = 4 + jj;
-        let comp0 = jac_add(
-            &tables[0].mul(m[0][j] & mask, e1),
-            &tables[1].mul(m[4][j] & mask, e1),
-            e1,
-        );
-        let comp1 = jac_add(
-            &tables[0].mul(m[1][j] & mask, e1),
-            &tables[1].mul(m[5][j] & mask, e1),
-            e1,
-        );
-        let comp2 = jac_add(
-            &tables[2].mul(m[2][j] & mask, e2),
-            &tables[3].mul(on_s(m[6][j] & mask), e2),
+        let comp0 = sum(&tables[0], m[0][j] & mask, &tables[1], m[4][j] & mask, e1);
+        let comp1 = sum(&tables[0], m[1][j] & mask, &tables[1], m[5][j] & mask, e1);
+        let comp2 = sum(
+            &tables[2],
+            m[2][j] & mask,
+            &tables[3],
+            on_s(m[6][j] & mask),
             e2,
         );
-        let comp3 = jac_add(
-            &tables[2].mul(m[3][j] & mask, e2),
-            &tables[3].mul(on_s(m[7][j] & mask), e2),
+        let comp3 = sum(
+            &tables[2],
+            m[3][j] & mask,
+            &tables[3],
+            on_s(m[7][j] & mask),
             e2,
         );
         TuplePoint4::new(comp0, comp1, comp2, comp3)
