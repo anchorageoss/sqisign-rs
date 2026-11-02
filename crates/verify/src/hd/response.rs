@@ -4,6 +4,8 @@
 //! w_com`, the dropped scalar from `a d − b c ≡ k q (mod 2^r)`, and the
 //! images `σ(R_com) = a P_resc + b Q_resc`, `σ(S_com) = c P_resc + d Q_resc`.
 
+use alloc::vec::Vec;
+
 use crate::ec::jacobian::{jac_add, jac_dbl};
 use crate::ec::pairing::{fp2_dlog_2e, weil};
 use crate::ec::{EcCurve, JacPoint, MAX_ORDER_WORDS};
@@ -54,28 +56,79 @@ fn jac_double_mul<L: FpBackend>(
     let (ma, mb) = (a.unsigned_abs(), b.unsigned_abs());
     let pa = if a < 0 { p.neg() } else { p.clone() };
     let qb = if b < 0 { q.neg() } else { q.clone() };
-    let both = ma | mb;
-    if both == 0 {
+    if ma | mb == 0 {
         return JacPoint::identity();
     }
+    // the joint sparse form of (|a|, |b|): digit pairs in {-1, 0, 1}^2, at
+    // most half of the positions nonzero, against three quarters for the
+    // joint binary form; the table holds P, Q, P + Q and P - Q and their
+    // negatives
+    let digits = joint_sparse_form(ma, mb);
     let pq = jac_add(&pa, &qb, curve);
-    let pick = |i: u32| -> Option<&JacPoint<L>> {
-        match ((ma >> i) & 1, (mb >> i) & 1) {
-            (1, 0) => Some(&pa),
-            (0, 1) => Some(&qb),
-            (1, 1) => Some(&pq),
-            _ => None,
+    let pmq = jac_add(&pa, &qb.neg(), curve);
+    let table = [
+        pa.clone(), // (1, 0)
+        qb.clone(), // (0, 1)
+        pq,         // (1, 1)
+        pmq,        // (1, -1)
+        pa.neg(),   // (-1, 0)
+        qb.neg(),   // (0, -1)
+    ];
+    let pick = |u: i8, v: i8| -> Option<JacPoint<L>> {
+        match (u, v) {
+            (0, 0) => None,
+            (1, 0) => Some(table[0].clone()),
+            (0, 1) => Some(table[1].clone()),
+            (1, 1) => Some(table[2].clone()),
+            (1, -1) => Some(table[3].clone()),
+            (-1, 0) => Some(table[4].clone()),
+            (0, -1) => Some(table[5].clone()),
+            (-1, -1) => Some(table[2].neg()),
+            _ => Some(table[3].neg()), // (-1, 1)
         }
     };
-    let top = 127 - both.leading_zeros();
-    let mut acc = pick(top).expect("the top bit is set").clone();
-    for i in (0..top).rev() {
+    let top = digits.len() - 1;
+    let mut acc = pick(digits[top].0, digits[top].1).expect("the top digit pair is nonzero");
+    for &(u, v) in digits[..top].iter().rev() {
         acc = jac_dbl(&acc, curve);
-        if let Some(t) = pick(i) {
-            acc = jac_add(&acc, t, curve);
+        if let Some(t) = pick(u, v) {
+            acc = jac_add(&acc, &t, curve);
         }
     }
     acc
+}
+
+/// The joint sparse form of `(a, b)` (Solinas), least significant pair
+/// first, the last pair nonzero.
+fn joint_sparse_form(mut a: u128, mut b: u128) -> Vec<(i8, i8)> {
+    let mut out = Vec::with_capacity(130);
+    let (mut da, mut db) = (0u128, 0u128);
+    while a + da > 0 || b + db > 0 {
+        let la = (a & 7) + da;
+        let lb = (b & 7) + db;
+        let digit = |l: u128, other: u128| -> i8 {
+            if l & 1 == 0 {
+                return 0;
+            }
+            let mut u: i8 = if l & 3 == 1 { 1 } else { -1 };
+            if (l & 7 == 3 || l & 7 == 5) && other & 3 == 2 {
+                u = -u;
+            }
+            u
+        };
+        let u = digit(la, lb);
+        let v = digit(lb, la);
+        if 1 + u as i32 == 2 * da as i32 {
+            da = 1 - da;
+        }
+        if 1 + v as i32 == 2 * db as i32 {
+            db = 1 - db;
+        }
+        a >>= 1;
+        b >>= 1;
+        out.push((u, v));
+    }
+    out
 }
 
 /// Recover the response images from the challenge state and the signature.
