@@ -41,7 +41,7 @@ C_ITERS="p324_3:300 p500_27:100 p664_17:100"
 
 log "session start; out $OUT; core $CORE; rounds $ROUNDS; per round: dim2 keygen/sign/verify $R2_KEYGEN/$R2_SIGN/$R2_VERIFY, dim4 keygen/sign/verify/profile $R4_KEYGEN/$R4_SIGN/$R4_VERIFY/$R4_PROFILE over $SIGS signatures, fp2-ops once; C iterations $C_ITERS"
 log "commit $(git -C "$ROOT" rev-parse HEAD) ($(git -C "$ROOT" status --short | wc -l) uncommitted paths)"
-log "binaries: $(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$BIN" | awk '{print $6, $7}'); C reference: the-sqisign $(git -C "$HOME/the-sqisign" rev-parse --short HEAD) $SQ ($(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$SQ/benchmark_p324_3" | awk '{print $6}'))"
+log "binaries: $(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$BIN" | awk '{print $6, $7}') sha256 $(sha256sum "$BIN" | cut -c1-16); C reference: the-sqisign $(git -C "$HOME/the-sqisign" rev-parse --short HEAD) $SQ ($(ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ "$SQ/benchmark_p324_3" | awk '{print $6}'))"
 OTHER="$(pgrep -af 'cargo|rustc|pdflatex|bibtex|sage-venv|/usr/bin/sage' | grep -v "$$" | grep -v pgrep || true)"
 if [ -n "$OTHER" ]; then log "REFUSED: other jobs running: $OTHER"; exit 2; fi
 log "process check before: clean"
