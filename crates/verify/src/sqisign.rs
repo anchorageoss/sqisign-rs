@@ -379,8 +379,14 @@ pub(crate) fn challenge_state<L: FpBackend + PrimePrecomp>(
     let f_chall = params.challenge_bits + EXTRA_TORSION;
     let e_pk = key.curve.clone();
     let bas_ea = &key.basis;
+    // The ladder walks every bit of the words it is given; the challenge
+    // scalar is decoded from challenge_bytes bytes (signature_from_bytes,
+    // hash_to_challenge), so its words past that are zero and only the
+    // words holding the challenge are passed: CHALLENGE_BITS bits, not
+    // the order's width.
+    let chall_words = params.challenge_bytes.div_ceil(8);
     let kernel = ec_ladder3pt(
-        &chall_coeff[..L::ORDER_WORDS],
+        &chall_coeff[..chall_words],
         &bas_ea.p,
         &bas_ea.q,
         &bas_ea.pmq,
