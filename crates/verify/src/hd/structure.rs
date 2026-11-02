@@ -85,8 +85,8 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
             return true;
         }
         let o = self.null_point.coords();
-        let so = pointwise_square(o);
-        let hso = hadamard(&so);
+        let mut hso = o.clone();
+        to_squared_theta_assign(&mut hso);
 
         let suitable = o.iter().all(|c| !bool::from(c.ct_is_zero()))
             && hso.iter().all(|c| !bool::from(c.ct_is_zero()));

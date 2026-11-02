@@ -32,9 +32,7 @@
 
 use crate::{Fp2, FpBackend};
 
-use crate::hd::arith::{
-    hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square, to_squared_theta_assign,
-};
+use crate::hd::arith::{hadamard, hadamard_assign, pointwise_mul_assign, to_squared_theta_assign};
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 use crate::hd::structure::ThetaStructureDim4;
 
@@ -62,9 +60,12 @@ impl<L: FpBackend> IsogenyDim4<L> {
     /// documented as exceptional in large characteristic). At Level 1 this has
     /// not been observed.
     pub fn from_kernel(k8: &[ThetaPointDim4<L>; 4]) -> Option<Self> {
-        // Squared-dual coordinates of each kernel point.
-        let hsk: [[Fp2<L>; N]; 4] =
-            core::array::from_fn(|k| hadamard(&pointwise_square(k8[k].coords())));
+        // Squared-dual coordinates of each kernel point, one copy each.
+        let hsk: [[Fp2<L>; N]; 4] = core::array::from_fn(|k| {
+            let mut a = k8[k].coords().clone();
+            to_squared_theta_assign(&mut a);
+            a
+        });
 
         // Plain step: the dual null and the image weights as products, no inversion,
         // when no coordinate is zero; the inversion path with its zero handling otherwise.

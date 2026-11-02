@@ -18,18 +18,22 @@ pub fn inv<L: FpBackend>(x: &Fp2<L>) -> Fp2<L> {
 }
 
 /// `out[i] = prod_{j != i} x[j]`: `1 / x` up to the common factor `prod_j x[j]`, with no
-/// inversion (`3n - 1` products by prefix and suffix products).
+/// inversion: the prefix products in place, then the running suffix (`3n - 6` products).
 #[inline]
 pub fn products_of_others<L: FpBackend, const N: usize>(x: &[Fp2<L>; N]) -> [Fp2<L>; N] {
-    let mut pre: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::one());
-    for i in 1..N {
-        pre[i] = pre[i - 1].mul(&x[i - 1]);
+    let mut out: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::one());
+    if N < 2 {
+        return out;
     }
-    let mut out: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
-    let mut suf = Fp2::<L>::one();
-    for i in (0..N).rev() {
-        out[i] = pre[i].mul(&suf);
+    out[1] = x[0].clone();
+    for i in 2..N {
+        out[i] = out[i - 1].mul(&x[i - 1]);
+    }
+    let mut suf = x[N - 1].clone();
+    for i in (1..N - 1).rev() {
+        out[i].mul_assign(&suf);
         suf.mul_assign(&x[i]);
     }
+    out[0] = suf;
     out
 }
