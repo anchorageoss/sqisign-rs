@@ -77,8 +77,8 @@ pub use params::{Prime, P324_3, P500_27, P664_17};
 pub use precomp::PrimePrecomp;
 pub use signature::{self, SignatureEncoding, Verifier};
 pub use sqisign::{
-    hash_to_challenge, verify_batch, BatchItem, PreparedPublicKey, VerifyParams,
-    MAX_PUBLICKEY_BYTES, MAX_SIGNATURE_BYTES,
+    hash_to_challenge, verify_batch, verify_reason, BatchItem, PreparedPublicKey, RejectReason,
+    VerifyParams, MAX_PUBLICKEY_BYTES, MAX_SIGNATURE_BYTES,
 };
 pub use types::{
     verify_bytes_prepared, CompressedSignature, Level, Level1, Level3, Level5, PublicKey, Signature,

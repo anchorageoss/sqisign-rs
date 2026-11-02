@@ -465,8 +465,32 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
     sig: &Signature<L>,
     msg: &[u8],
 ) -> Option<()> {
+    verify_reason(params, key, sig, msg).ok()
+}
+
+/// Where a verification stops: a diagnostic for tests, not an API for
+/// callers (the verdict is the `Result`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RejectReason {
+    /// An entry of the basis-change matrix is out of range.
+    BasisChangeMatrix,
+    /// The challenge isogeny or a canonical basis could not be computed
+    /// (the auxiliary curve, the kernel, the chain, a hint).
+    ChallengeState,
+    /// The chain ran and the recomputed challenge did not match, or a
+    /// step of the response chain failed.
+    Response,
+}
+
+/// `verify_prepared` with the stopping point on rejection.
+pub fn verify_reason<L: FpBackend + PrimePrecomp>(
+    params: &VerifyParams,
+    key: &PreparedPublicKey<L>,
+    sig: &Signature<L>,
+    msg: &[u8],
+) -> Result<(), RejectReason> {
     if !check_canonical_basis_change_matrix(params, sig) {
-        return None;
+        return Err(RejectReason::BasisChangeMatrix);
     }
     let st = challenge_state(
         params,
@@ -475,7 +499,8 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
         &sig.chall_coeff,
         sig.hint_chall,
         sig.hint_aux,
-    )?;
+    )
+    .ok_or(RejectReason::ChallengeState)?;
     finish(
         params,
         key,
@@ -484,6 +509,7 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
         &sig.chall_coeff,
         msg,
     )
+    .ok_or(RejectReason::Response)
 }
 
 /// One item of [`verify_batch`]: a prepared key, a message and an encoded
