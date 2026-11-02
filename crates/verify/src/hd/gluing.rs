@@ -122,31 +122,47 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
         // λₖ⁻¹: the projective factor relating P + Tₖ to the reference
         // representative. Pick any (j, j⊕indₖ) with both HSL[k][j] ≠ 0 and
         // O[j⊕indₖ] ≠ 0, and set λₖ⁻¹ = (HS_P[j⊕indₖ]·O[j]) / (HSL[k][j]·O[j⊕indₖ]).
-        let mut lambda_inv: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
+        // The quotient is never formed: the image is scaled by the product of the
+        // denominators, each translate's entries by its numerator and the others'
+        // denominators, so no inversion is needed.
+        let mut lam_num: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
+        let mut lam_den: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
         for (k, ind) in l_trans_ind.iter().enumerate() {
             for j in 0..N {
                 let jpk = j ^ ind;
                 if !bool::from(hsl[k][j].ct_is_zero()) && !bool::from(o[jpk].ct_is_zero()) {
-                    let num = hs_p[jpk].mul(&o[j]);
-                    let den = hsl[k][j].mul(&o[jpk]);
-                    lambda_inv[k] = num.mul(&den.inv());
+                    lam_num[k] = hs_p[jpk].mul(&o[j]);
+                    lam_den[k] = hsl[k][j].mul(&o[jpk]);
                     break;
                 }
             }
         }
+        let mut den_all = Fp2::<L>::one();
+        for d in lam_den.iter().take(nt) {
+            den_all = den_all.mul(d);
+        }
+        let lam_scaled: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|k| {
+            let mut s = lam_num[k].clone();
+            for (j, d) in lam_den.iter().enumerate().take(nt) {
+                if j != k {
+                    s = s.mul(d);
+                }
+            }
+            s
+        });
 
         // U_χ(f(P)): direct where O[i] ≠ 0, else via a translate.
         let mut u: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
         for (i, ui) in u.iter_mut().enumerate() {
             if !self.dual_null_zero[i] {
-                *ui = hs_p[i].mul(&self.inv_dual_null[i]);
+                *ui = hs_p[i].mul(&self.inv_dual_null[i]).mul(&den_all);
             } else {
                 for (k, ind) in l_trans_ind.iter().enumerate() {
                     let ipk = i ^ ind;
                     if !self.dual_null_zero[ipk] {
                         *ui = self.inv_dual_null[ipk]
                             .mul(&hsl[k][ipk])
-                            .mul(&lambda_inv[k]);
+                            .mul(&lam_scaled[k]);
                         break;
                     }
                 }

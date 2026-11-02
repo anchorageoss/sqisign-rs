@@ -427,22 +427,21 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         let y = axby[1 ^ z0].mul(&self.precomp[1 ^ z0]);
         let z = axby[2 ^ z0].mul(&self.precomp[2 ^ z0]);
         let t = axby[3 ^ z0].clone();
-
-        let lam = if !bool::from(z.ct_is_zero()) {
-            let zb = aybx[3 ^ z0].clone();
-            z.mul(&crate::hd::field::inv(&zb))
-        } else {
-            let tb = aybx[2 ^ z0].mul(&self.precomp[2 ^ z0]);
-            t.mul(&crate::hd::field::inv(&tb))
-        };
         let xb = aybx[1 ^ z0].mul(&self.precomp[1 ^ z0]);
-        let x = xb.mul(&lam);
+
+        // lambda = z / zb (or t / tb) is carried projectively: x = xb * num and the
+        // other three coordinates scaled by den, no inversion.
+        let (num, den) = if !bool::from(z.ct_is_zero()) {
+            (z.clone(), aybx[3 ^ z0].clone())
+        } else {
+            (t.clone(), aybx[2 ^ z0].mul(&self.precomp[2 ^ z0]))
+        };
 
         let mut xyzt = [Fp2::<L>::zero(), Fp2::zero(), Fp2::zero(), Fp2::zero()];
-        xyzt[0 ^ z0] = x;
-        xyzt[1 ^ z0] = y;
-        xyzt[2 ^ z0] = z;
-        xyzt[3 ^ z0] = t;
+        xyzt[0 ^ z0] = xb.mul(&num);
+        xyzt[1 ^ z0] = y.mul(&den);
+        xyzt[2 ^ z0] = z.mul(&den);
+        xyzt[3 ^ z0] = t.mul(&den);
         hadamard2(&xyzt)
     }
 
