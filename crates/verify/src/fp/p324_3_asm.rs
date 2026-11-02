@@ -1597,15 +1597,21 @@ impl FpBackend for P324_3 {
 
     #[inline]
     fn fp2_sqr_assign(a: &mut Fp2<Self>) {
-        let (a_re, a_im) = (*as_arr(&a.re.limbs), *as_arr(&a.im.limbs));
+        // Both halves into locals first, then stored: the in-place stores of
+        // the earlier form sat on the dependent chain (SECENG-2435).
+        let (a_re, a_im) = (as_arr(&a.re.limbs), as_arr(&a.im.limbs));
         let mut sum = [0u64; NLIMBS];
         let mut diff = [0u64; NLIMBS];
-        add_lazy(&mut sum, &a_re, &a_im);
-        sub_lazy_2p(&mut diff, &a_re, &a_im);
-        mont_mul(as_arr_mut(&mut a.re.limbs), &sum, &diff);
         let mut twice = [0u64; NLIMBS];
-        add_lazy(&mut twice, &a_re, &a_re);
-        mont_mul(as_arr_mut(&mut a.im.limbs), &twice, &a_im);
+        add_lazy(&mut sum, a_re, a_im);
+        sub_lazy_2p(&mut diff, a_re, a_im);
+        add_lazy(&mut twice, a_re, a_re);
+        let mut re = [0u64; NLIMBS];
+        let mut im = [0u64; NLIMBS];
+        mont_mul(&mut re, &sum, &diff);
+        mont_mul(&mut im, &twice, a_im);
+        *as_arr_mut(&mut a.re.limbs) = re;
+        *as_arr_mut(&mut a.im.limbs) = im;
     }
 
     #[inline]
