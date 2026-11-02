@@ -194,6 +194,12 @@ impl<L: FpBackend> BaseChangeDim4<L> {
         &self.dense
     }
 
+    /// Whether the matrix had the four-entries-per-row shape (else the
+    /// dense product is used).
+    pub fn is_sparse(&self) -> bool {
+        self.sparse.is_some()
+    }
+
     /// `N p`.
     pub fn apply(&self, p: &[Fp2<L>; 16]) -> [Fp2<L>; 16] {
         let Some(rows) = &self.sparse else {
