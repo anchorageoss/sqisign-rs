@@ -158,16 +158,8 @@ pub fn torsion_basis_2f_from_hint<L: FpBackend>(
         cofactor_bits,
         &mut curve,
     );
-    // both points to Z = 1 with one inversion
-    let zz = kp.z.mul(&kq.z);
-    if bool::from(zz.ct_is_zero()) {
-        return None;
-    }
-    let inv = zz.inv();
-    kp.x = kp.x.mul(&kq.z).mul(&inv);
-    kq.x = kq.x.mul(&kp.z).mul(&inv);
-    kp.z = Fp2::one();
-    kq.z = Fp2::one();
+    kp.normalize();
+    kq.normalize();
 
     let kpq = hd_difference_point(&kp.x, &kq.x, curve_a);
     Some(hd_lift_basis(&kp.x, &kq, &kpq, curve_a))
