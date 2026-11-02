@@ -265,6 +265,12 @@ pub struct FoldedBaseChangeDim2<L: FpBackend> {
 impl<L: FpBackend> FoldedBaseChangeDim2<L> {
     /// `None` when some entry of `n` is not `c e4^k` with `c` in 1, 2, 4.
     pub fn new(zero12: &[Fp2<L>; 4], n: &[[Fp2<L>; 4]; 4]) -> Option<Self> {
+        // the twelve admissible entries: c, -c, c i, -c i for c = 1, 2, 4
+        let consts: [[Fp2<L>; 4]; 3] = core::array::from_fn(|d| {
+            let c = Fp2::<L>::one().mul_small(1 << d);
+            let ci = c.mul_by_i(subtle::Choice::from(1));
+            [c.clone(), c.neg(), ci.clone(), ci.neg()]
+        });
         let mut rows = [[(255u8, false, false, 0u8); 4]; 4];
         for (i, row) in n.iter().enumerate() {
             let mut slot = 0usize;
@@ -273,17 +279,11 @@ impl<L: FpBackend> FoldedBaseChangeDim2<L> {
                     continue;
                 }
                 let mut found = None;
-                for d in 0..3u8 {
-                    let c = Fp2::<L>::one().mul_small(1 << d);
-                    let ci = c.mul_by_i(subtle::Choice::from(1));
-                    if bool::from(x.ct_equal(&c)) {
-                        found = Some((false, false, d));
-                    } else if bool::from(x.ct_equal(&c.neg())) {
-                        found = Some((true, false, d));
-                    } else if bool::from(x.ct_equal(&ci)) {
-                        found = Some((false, true, d));
-                    } else if bool::from(x.ct_equal(&ci.neg())) {
-                        found = Some((true, true, d));
+                for (d, cs) in consts.iter().enumerate() {
+                    for (v, c) in cs.iter().enumerate() {
+                        if bool::from(x.ct_equal(c)) {
+                            found = Some((v & 1 == 1, v >= 2, d as u8));
+                        }
                     }
                 }
                 let (neg, imag, d) = found?;
