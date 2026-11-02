@@ -15,9 +15,10 @@ the field arithmetic path, one session before and one after; SECENG-2433,
 the plain steps, the gluing, the image check and the dimension-2 ladder
 worked to the counted floor slot by slot, the floor table, one session
 after; SECENG-2442, this paper update. The tests of the two-point verifier
-are crates/sqisign-rs/tests/two_point.rs and base_change.rs and
-crates/kat/tests/tampered.rs. crates/verify/src/ec/ and the KAT files under
-crates/kat/kat/ are unchanged from main.
+are crates/sqisign-rs/tests/two_point.rs and base_change.rs;
+crates/kat/tests/tampered.rs tests the dimension-2 verifier's rejection of a
+KAT signature with any one byte flipped (SECENG-2438). crates/verify/src/ec/
+and the KAT files under crates/kat/kat/ are unchanged from main.
 
 The paper. paper-dim4/main_standalone.tex is the paper's source (the
 appendix is inline from its \appendix line) and paper-dim4/appendix_symmetry.tex
@@ -70,7 +71,8 @@ ran on the host inside its window. The rule for every local measurement
 between sessions is the same: no chain, build or dump runs while a
 measurement runs. The two earlier sessions, 2026-11-01-327c5d2 (the state
 before the setup work) and 2026-11-01-d91ab15 (before the floor work), sit
-beside it with the same files.
+beside it with the same layout, plus session.stdout and without costs.md and
+binary-sha256.txt.
 
 ## The vectors
 
@@ -95,12 +97,16 @@ Signatures_r3lvl1.txt, Signatures_r3lvl1_bad.txt and the two non-residue
 tables) are the inputs of the Sage oracle sqisignhd-harness/round3/verify_r3.py,
 in the library's text format, committed at 08e9f65 (2026-09-25). The record
 (SECENG-2422's REPORT, 2026-11-01): their signatures are not what the signer
-produces on this machine at any commit from 08e9f65 to c6a0c38, with or
-without SQISIGN_FORCE_PORTABLE; the public keys, commitments, hints and
+produces on this machine at 08e9f65, 5abfdff, 8718c97, 6e1c134 or c6a0c38,
+nor with SQISIGN_FORCE_PORTABLE=1; the public keys, commitments, hints and
 challenges are identical and the scalars a, b, c_or_d and q differ in every
 vector; both sets are accepted by the library's verifier under passagemath
-10.8.13. Where the checked-in signatures came from is not recorded on the
-branch. The human keeps them as they are (SECENG-2442, record item 1).
+10.8.13. sqisignhd-harness/round3/Data/README.md
+(line 6, unchanged since main) records their provenance as
+compact_vectors.rs with the seeds it names; the runs of SECENG-2422 did not
+reproduce the checked-in signatures from it, and where they came from is the
+human's question. The human keeps them as they are (SECENG-2442, record
+item 1).
 
 ## How to rebuild the PDF
 
