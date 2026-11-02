@@ -230,10 +230,11 @@ fn codomain_dual_null_projective<L: FpBackend>(
         if p_num.iter().any(|x| bool::from(x.ct_is_zero())) {
             return None;
         }
+        // O = p_num (.) others(p_den), and 1/O up to a scalar is others(O) itself:
+        // 42 products in place of others(p_num) and the 16 products with p_den.
         let others_den = crate::hd::field::products_of_others(&p_den);
-        let others_num = crate::hd::field::products_of_others(&p_num);
         let o: [Fp2<L>; N] = core::array::from_fn(|j| p_num[j].mul(&others_den[j]));
-        let w: [Fp2<L>; N] = core::array::from_fn(|j| p_den[j].mul(&others_num[j]));
+        let w = crate::hd::field::products_of_others(&o);
         return Some((o, w));
     }
     None
