@@ -24,24 +24,32 @@ pub fn hadamard<L: FpBackend>(p: &[Fp2<L>; N]) -> [Fp2<L>; N] {
     a
 }
 
-/// [`hadamard`] in place: each butterfly `(x, y) <- (x + y, x - y)` with one
-/// temporary and the in-place field operations.
+/// [`hadamard`] in place: the four radix-2 stages as out-of-place butterflies
+/// between the array and one temporary, `dst[i] = src[i] + src[i + s]` and
+/// `dst[i + s] = src[i] - src[i + s]` (SECENG-2435: no temporary per butterfly).
 #[inline]
 pub fn hadamard_assign<L: FpBackend>(a: &mut [Fp2<L>; N]) {
-    for stride in [1usize, 2, 4, 8] {
-        let mut block = 0;
-        while block < N {
-            for j in block..block + stride {
-                let (lo, hi) = a.split_at_mut(j + stride);
-                let x = &mut lo[j];
-                let y = &mut hi[0];
-                let mut t = x.clone();
-                t.sub_assign(y);
-                x.add_assign(y);
-                *y = t;
-            }
-            block += 2 * stride;
-        }
+    let mut t: [Fp2<L>; N] = core::array::from_fn(|i| butterfly(a, i, 1));
+    butterfly_stage(&t, a, 2);
+    butterfly_stage(a, &mut t, 4);
+    butterfly_stage(&t, a, 8);
+}
+
+/// Coordinate `i` of the stride-`s` stage applied to `src`.
+#[inline(always)]
+fn butterfly<L: FpBackend>(src: &[Fp2<L>; N], i: usize, s: usize) -> Fp2<L> {
+    if i & s == 0 {
+        src[i].add(&src[i | s])
+    } else {
+        src[i ^ s].sub(&src[i])
+    }
+}
+
+/// The stride-`s` stage, `src` into `dst`.
+#[inline(always)]
+fn butterfly_stage<L: FpBackend>(src: &[Fp2<L>; N], dst: &mut [Fp2<L>; N], s: usize) {
+    for (i, d) in dst.iter_mut().enumerate() {
+        *d = butterfly(src, i, s);
     }
 }
 
