@@ -1345,6 +1345,21 @@ fn canonical(a: &[u64; NLIMBS]) -> [u64; NLIMBS] {
     c
 }
 
+/// `2p`, for the zero test on the lazily reduced range.
+const TWO_P: [u64; NLIMBS] = {
+    let mut out = [0u64; NLIMBS];
+    let mut carry = 0u64;
+    let mut i = 0;
+    while i < NLIMBS {
+        let (s1, c1) = P[i].overflowing_add(P[i]);
+        let (s2, c2) = s1.overflowing_add(carry);
+        out[i] = s2;
+        carry = (c1 | c2) as u64;
+        i += 1;
+    }
+    out
+};
+
 #[inline]
 fn is_zero_limbs(a: &[u64; NLIMBS]) -> Choice {
     let mut acc = 0u64;
@@ -1456,7 +1471,10 @@ impl FpBackend for P324_3 {
 
     #[inline]
     fn is_zero(a: &Limbs) -> Choice {
-        is_zero_limbs(&canonical(as_arr(a)))
+        // Below 3p a value is zero exactly when its limbs are 0, p or 2p:
+        // three compares in place of the two conditional subtractions.
+        let a = as_arr(a);
+        is_zero_limbs(a) | eq_limbs(a, &P) | eq_limbs(a, &TWO_P)
     }
 
     #[inline]
