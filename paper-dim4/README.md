@@ -21,16 +21,28 @@ KAT signature with any one byte flipped (SECENG-2438). crates/verify/src/ec/
 and the KAT files under crates/kat/kat/ are unchanged from main.
 
 The paper. paper-dim4/main_standalone.tex is the paper's source (the
-appendix is inline from its \appendix line) and paper-dim4/appendix_symmetry.tex
-is the appendix as a separate file; both are the human's draft committed
-unedited at 8552b9d; the change log edits main_standalone.tex alone and
-appendix_symmetry.tex is unchanged since 8552b9d. paper-dim4/iacrtrans.cls,
-CC-by.pdf and COPYING-iacrtrans are the IACR Transactions class and its
-licence, copied unmodified from Cryptosaurus/iacrtrans at tag v0.94 (commit
-cbe3b01, the hashes in its message), build support only.
-paper-dim4/CHANGES.md is the full list of edits to main_standalone.tex since
-the draft at 8552b9d: every changed line with its text before, its text after
-and the source of every number and sentence.
+appendix is inline from its \appendix line). Its base on the branch is the
+author's file of 2026-11-10, committed unedited at e29dc36 from
+gs://eclipse-revision-ops/refs/dim4/ (UPDATE-2026-11-10.md; sha256
+8d84d50ba716ed0a3df71bfa3f31be48dbebceec74ad9eac8fcae1edfacdfa40, 2227
+lines) together with its bibliography, paper-dim4/refs.bib and
+paper-dim4/Dim4SQI.bib, the same 26 entries under two names (sha256
+05765b2710da7394f39387ee81f11fcb310df901badc46fc51b290e9441a0edf; the
+\bibliography line names Dim4SQI). The author's file is their own edit of
+the paper and is not on top of the branch's earlier edit 78c2106; that edit
+and its base 8552b9d (the human's draft of Oct 31) are history.
+paper-dim4/appendix_symmetry.tex is the appendix as a separate file, the
+human's file of Oct 31 (f5076fda), which main_standalone.tex does not read.
+paper-dim4/iacrtrans.cls, CC-by.pdf and COPYING-iacrtrans are the IACR
+Transactions class and its licence, copied unmodified from
+Cryptosaurus/iacrtrans at tag v0.94 (commit cbe3b01, the hashes in its
+message), build support only. paper-dim4/CHANGES.md is version 2 of the
+edit log: the disposition of the 33 edits of the earlier log against the
+author's text (covered, superseded by the author's rewrite, superseded by
+the coming session of record, or PENDING and not applied), the author's
+text flagged where a build or a record of this branch disagrees with it,
+and one PENDING item; it applies no edit, and no byte of any .tex or .bib
+has changed since e29dc36.
 
 Earlier material, not the paper. paper-dim4/main.tex (682 lines),
 paper-dim4/tables/, paper-dim4/figures/ with figures/data/, BENCH.md,
@@ -46,19 +58,24 @@ branch. paper-dim4/bench/ is the measurement harness
 
 ## The head commit
 
-The paper edit is commit 78c2106 (main_standalone.tex alone, applied from
-CHANGES.md); the change log's commits are fd5b937 before it and a01a199,
-515ce42, fec8401 and 739a400 earlier; the class files are cbe3b01; the
-draft is 8552b9d; the code head is d45823d. This README's commit sits on top
-of 78c2106 and cannot carry its own hash.
+The paper's base is commit e29dc36 (main_standalone.tex, refs.bib and
+Dim4SQI.bib, the author's bytes of 2026-11-10); the edit log's version 2 is
+d068284; the committed PDF and this README follow in one commit on top of
+d068284, which cannot carry its own hash. Earlier, now history: the edit
+78c2106 and its log fd5b937 (with a01a199, 515ce42, fec8401 and 739a400
+before it), against the draft 8552b9d; the class files are cbe3b01. The
+code head is d45823d; no paper commit changes code.
 
 ## The session of record
 
-paper-dim4/bench/sessions/2026-11-02-99c13b0/ is the session of record
-for the paper's Section 5, every cycle count, millisecond, ratio, profile
-share and floor figure in it (the one exception is the Memory paragraph's
-heap figure, which names its own session of 2026-09-26): 2026-11-02
-07:24:15Z to 07:28:39Z, build 99c13b0, core 3. Its files: table.md (the rows in megacycles with the
+paper-dim4/bench/sessions/2026-11-02-99c13b0/ is the session of record on
+the branch: the measurement of the branch's code (d45823d) on this host,
+2026-11-02 07:24:15Z to 07:28:39Z, build 99c13b0, core 3, and the source of
+every figure the earlier edit 78c2106 put in the paper. The author's text at
+e29dc36 quotes a session of 2026-11-04 on another machine (its Setup
+paragraph) of which no record is on the branch; the next session of record,
+one session on one build of the branch head, is the goal SECENG-2617, and
+which figures the paper quotes is decided on SECENG-2425. Its files: table.md (the rows in megacycles with the
 run counts, medians, means, minima and maxima, and the ratios from the
 printed cells), numbers.json (the same, machine-readable, with the TSC rate
 3049.994 MHz), profile.md (the phase rows, the harness's decode row and the
@@ -115,19 +132,29 @@ item 1).
 
 ## How to rebuild the PDF
 
-In paper-dim4/, with the class files of this directory:
+In paper-dim4/, with the class files of this directory, four passes by
+hand:
 
-    latexmk -pdf -interaction=nonstopmode -f -outdir=build main_standalone.tex
+    pdflatex -interaction=nonstopmode -output-directory=build main_standalone.tex
+    (cd build && BIBINPUTS=..: bibtex main_standalone)
+    pdflatex -interaction=nonstopmode -output-directory=build main_standalone.tex
+    pdflatex -interaction=nonstopmode -output-directory=build main_standalone.tex
 
-The output is build/main_standalone.pdf (build/ is ignored by git).
-paper-dim4/build/main.pdf is the committed PDF of the draft at 78c2106,
-built by this command, sha256
-92e6f435838ee0b5b87ba1c84b709f95778cd7b2125c39a9db9be35f20938d5b, 23 pages,
-with 98 undefined citations and no bibliography; it is re-committed when
-the bibliography is. The draft's bibliography file Dim4SQI.bib is required and is not on the branch
-yet; until it is committed beside the draft, the build ends with undefined
-citations and no bibliography: at 78c2106, 0 errors, 0 undefined
-references, 98 undefined citations over the draft's 23 cited keys, 23
-pages. Do not run make figures, make check or figures/bundle.py: they
-regenerate main_standalone.tex from the earlier pipeline's main.tex and
-tables and would overwrite the paper.
+bibtex runs inside build/ and needs the bib path pointed at paper-dim4/
+(BIBINPUTS=..:); run without it, it opens no database and every citation
+stays undefined. latexmk (latexmk -pdf -interaction=nonstopmode -f
+-outdir=build main_standalone.tex) runs the same passes but stops after
+bibtex on the db.png error below, so the four passes are the recipe. The
+output is build/main_standalone.pdf (build/ is ignored by git).
+paper-dim4/build/main.pdf is the committed PDF of the base at e29dc36 with
+the log at d068284, built by these passes, sha256
+a6c362a6703c5facfa71f250a560708a0cada5819b82f55954eadbc158cb4991, 29 pages:
+0 undefined references, 0 undefined citations (21 entries from Dim4SQI.bib,
+bibtex 0 warnings), one overfull box (4.2 pt, the author's paragraph at
+lines 733 to 739), and one error: the author's appendix heading at line
+1641 includes db.png, a file neither on the branch nor in the bucket, so
+pdftex prints the file name in its place (the human has been asked for the
+file; nothing of ours changes the .tex). Do not run make pdf, make figures,
+make check or figures/bundle.py: the pdf target depends on figures, and
+they regenerate main_standalone.tex from the earlier pipeline's main.tex
+and tables and would overwrite the paper.
