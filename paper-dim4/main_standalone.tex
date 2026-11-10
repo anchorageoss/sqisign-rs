@@ -5,6 +5,8 @@
 \usepackage{booktabs}
 \usepackage{threeparttable}
 \usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,decorations.pathreplacing}
 \usepackage{pgfplots}
@@ -42,11 +44,10 @@
     }
 
     \begin{abstract}
-        {\SQIsign} has the smallest combined public key and signature of any known post-quantum signature. Its dimension-2 signature carries an auxiliary curve whose only purpose is to make the response computable in dimension 2; {\SQIsign HD}'s dimension-4 response needs no such curve.
-        We take {\SQIsign HD}'s construction to the round-3 {\SQIsign} primes, adopted in September 2026 after Wesolowski's attack, derive its parameters for them, and implement it in our Rust port of the {\SQIsign} reference code.
-        At NIST level I the dimension-4 signature takes 142 bytes, or 139 with the bit-packed layout we give, against 200 for the specification's format; with the 84-byte public key, key and signature together take 226 bytes, or 223, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack.
-        The price is verification: measured in one session, the dimension-4 verifier costs 6.4 times the dimension-2 verifier of the same code (85.4 against 13.3 megacycles), or 4.6 times with two kernel points pushed instead of four (60.6 megacycles).
-        We also give a verifier that pushes two kernel points instead of four along the chain, and prove that the algorithm it implements computes the same isogenies as the four-point one.
+        {\SQIsign} has the smallest combined public key and signature of any known post-quantum signature. Its dimension-2 signature carries an auxiliary curve whose only purpose is to make the response computable in dimension 2; {\SQIsign HD}'s dimension-4 response needs no such curve, at the price of a much costlier verification.
+        We show that the verifier's chain respects an automorphism of order 4 that acts on its theta coordinates as one fixed permutation, for every input, honest or forged, so that each half-chain can be computed by pushing two kernel points instead of four, and the constants of each step on ten coordinates instead of sixteen; along the way, we prove that the change of basis the verifier applies at the gluing expresses the structure the rest of the chain needs.
+        We implement the dimension-4 scheme at the round-3 {\SQIsign} primes, adopted in September 2026 after Wesolowski's attack, at all three security levels, in our Rust port of the reference code. The two-point verifier takes 0.63, 0.61 and 0.60 times the cycles of the four-point one at levels I, III and V.
+        At level I a dimension-4 signature takes 139 bytes, against 200 for the specification's format, almost all of the difference coming from the absence of the auxiliary curve; key and signature together take 223 bytes, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack; its verification costs 4.0 times the dimension-2 verifier of the same code with two points (28.5 against 7.1 megacycles), and 6.4 times with four.
     \end{abstract}
 
     %% ============================================================
@@ -55,74 +56,150 @@
 
     {\SQIsign} is a signature scheme whose public key is an elliptic curve and
     whose signature describes a path of curves. Its first version had the
-    smallest signatures of any post-quantum proposal and verified fast, but
-    signed in seconds, with a signer built on the KLPT algorithm for finding
+    smallest signatures of any post-quantum proposal and verified fast, but it
+    signed in seconds, because its signer relied on the KLPT algorithm to find
     paths in the quaternion algebra of the curve~\cite{FKL+20}.
 
-    In 2022 three groups broke the SIDH key exchange by recovering an isogeny
-    between elliptic curves from its action on a few points, embedding it, by
-    Kani's lemma~\cite{Kan97}, in an isogeny between higher-dimensional abelian
-    varieties~\cite{CD23,MMP+23,Rob23}. The attack became a tool for
+    The situation changed in 2022, when three groups broke the SIDH key
+    exchange by recovering an isogeny between elliptic curves from its action
+    on a few points, which they embedded, by Kani's lemma~\cite{Kan97}, in an
+    isogeny between higher-dimensional abelian
+    varieties~\cite{CD23,MMP+23,Rob23}. The attack soon became a tool for
     {\SQIsign}: the signer no longer needs a path of smooth degree, since any
     isogeny of known degree can be handed to the verifier through its action
-    on points and rebuilt in higher dimension.
-
-    SQIsignHD did this in dimension 4~\cite{DLRW24}. Its signer is fast and
-    its signature small, and the cost moves to the verifier, which computes a
-    chain of dimension-4 isogenies; its authors released a C signer and a
-    SageMath verifier~\cite{DLRW25}. SQIsign2D-West brought the response back
-    to dimension 2~\cite{BDF+24}: the signer computes one more isogeny, the
+    on points and rebuilt in higher dimension. SQIsignHD was the first to do
+    so, in dimension 4~\cite{DLRW24}. Its signer is fast and its signature
+    small, while the cost moves to the verifier, which computes a chain of
+    dimension-4 isogenies; its authors released a C signer and a SageMath
+    verifier~\cite{DLRW25}. SQIsign2D-West then brought the response back to
+    dimension 2~\cite{BDF+24}: the signer computes one more isogeny, the
     auxiliary one, so that the verifier's chain runs on a product of two
     elliptic curves. Verification became fast again at the cost of sending the
     auxiliary curve, and this design has been {\SQIsign}'s submission to NIST
     since its second round~\cite{AAA+25,AAA+26}.
 
-    In 2026 Wesolowski gave an algorithm for the supersingular isogeny problem
-    in time and memory $p^{1/3+o(1)}$~\cite{Wes26}. The round-3 submission of
-    September 2026 answered by replacing the round-2 primes with larger ones,
-    $3 \cdot 2^{324} - 1$, $27 \cdot 2^{500} - 1$ and $17 \cdot 2^{664} - 1$ at
-    levels I, III and V~\cite{AAA+26}.
+    The parameters moved once more in 2026, when Wesolowski gave an algorithm
+    for the supersingular isogeny problem in time and memory
+    $p^{1/3+o(1)}$~\cite{Wes26}. The round-3 submission of September 2026
+    answered by replacing the round-2 primes with larger ones, $3 \cdot 2^{324}
+    - 1$, $27 \cdot 2^{500} - 1$ and $17 \cdot 2^{664} - 1$ at levels I, III
+    and V~\cite{AAA+26}.
 
-    \paragraph{Contributions}
-    This paper takes SQIsignHD's dimension-4 response to those primes. We
-    start from sqisign-rs, our Rust implementation of {\SQIsign}, whose
-    round-3 dimension-2 signer and verifier reproduce the reference's
-    known-answer vectors byte for byte~\cite{Ray26c}. We
+    \paragraph{Our contributions.}
+    We revisit SQIsignHD's dimension-4 response at these primes. Our research
+    contributions concern the verifier's chain of dimension-4 isogenies.
     \begin{itemize}
-        \item derive the dimension-4 parameters for the round-3 primes, and
-        build the signer and verifier at level I behind a feature flag
-        (Section~\ref{sec:dim4});
-        \item check our signatures against the SQIsignHD authors' own
-        verifier, re-parameterized to our prime;
-        \item make explicit which matrix entry is dropped and how it is
-        recovered, and give a bit-packed encoding that saves three more bytes
-        (Section~\ref{sec:dim4});
-        \item measure everything in one session, and compare our verifier's cost with MIKE's
-        dimension-4 chains (Sections~\ref{sec:bench} and~\ref{sec:conc});
-        \item implement a verifier that uses an automorphism of order 4 to push
-        two kernel points instead of four. It agrees with the four-point
-        verifier on every signature we tested, and we prove that the algorithm
-        it implements computes the same isogenies as the four-point one for
-        every input (Appendix~\ref{app:symmetry}); {\color{red}that our
-            implementation conforms to that algorithm is checked only in part
-            (Remark~\ref{rem:conformance})}.
+        \item \emph{Two-point verification.} We prove that the verifier's
+        chain respects an automorphism of order 4 that acts on its theta
+        coordinates as one fixed permutation of the sixteen coordinates, for
+        every input, so that each half-chain can be computed by doubling and
+        pushing two kernel points instead of four
+        (Theorems~\ref{thm:conditional} and~\ref{thm:base}). We also prove that
+        the null points along the chain are fixed by this permutation
+        (Proposition~\ref{prop:symnull}), so that the constants of each step
+        are determined by ten coordinates instead of sixteen. In our
+        measurements the two-point verifier takes 0.63, 0.61 and 0.60 times the
+        cycles of the four-point one at levels I, III and V
+        (Section~\ref{sec:twopoint} and Appendix~\ref{app:symmetry}).
+        \item \emph{The change of basis at the gluing.} We prove that the
+        change of basis the verifier applies before the dimension-4 gluing,
+        given by closed formulas in~\cite{Dar24}, expresses the structure that
+        the rest of the chain needs (Section~\ref{sec:gluing} and
+        Proposition~\ref{prop:gluingbasis}).
     \end{itemize}
+    These results are supported by engineering work that makes the
+    dimension-4 response usable at the round-3 primes. The rule of SQIsignHD's library for
+    the bound $2^e$ on the response degree is written in terms of the security
+    parameter and admits no response at these primes; we restate it in terms
+    of $\sqrt{p}$ and derive $e$ and the torsion exponent $r$ at all three
+    levels (Section~\ref{sec:params}). We make explicit which entry of the
+    transmitted matrix is dropped and how the verifier recovers it, and give a
+    bit-packed layout, with which a level-I signature takes 139 bytes against
+    200 for the specification's format (Section~\ref{sec:wire}). Finally, we
+    implemented the scheme and both verifiers at all three levels in
+    sqisign-rs, our Rust implementation of {\SQIsign}, whose dimension-2 signer
+    and verifier reproduce the reference's known-answer vectors byte for
+    byte~\cite{Ray26c}; the SQIsignHD authors' verifier, re-parameterized to our
+    level-I prime, accepts our signatures.
 
-    \paragraph{Organization}
-    Section~\ref{sec:terms} defines the terminology and
-    Section~\ref{sec:related} reviews related work. Section~\ref{sec:dim4}
-    describes the compact format and derives its parameters,
-    Section~\ref{sec:bench} reports the measurements, and
-    Section~\ref{sec:suf} explains why dimension 4 does not make {\SQIsign}
-    strongly unforgeable. Section~\ref{sec:conc} concludes, with the two-point
-    verifier, the limitations of this work and the steps that remain.
-    Appendix~\ref{app:symmetry} proves the symmetry the two-point verifier
-    relies on.
+    The remainder of this paper is organized as follows. In
+    Section~\ref{sec:terms} we recall the theta-model formulas the verifier uses and fix the terminology, and in
+    Section~\ref{sec:related} we review related work. Section~\ref{sec:dim4}
+    describes SQIsignHD's dimension-4 response at the round-3 primes and
+    identifies the two issues our results address.
+    Section~\ref{sec:twopoint} presents two-point verification, and
+    Section~\ref{sec:gluing} the change of basis at the gluing.
+    Section~\ref{sec:engineering} gives the parameters and the wire format of
+    our implementation, and Section~\ref{sec:bench} reports our experimental
+    results. We conclude in
+    Section~\ref{sec:conc}. Appendix~\ref{app:symmetry} contains the proofs on
+    which two-point verification rests, Appendix~\ref{app:remains} relates our
+    implementation to the algorithm those proofs concern, and
+    Appendix~\ref{app:beyond} discusses further savings and an open question.
 
     %% ============================================================
-    \section{Terminology}
+    \section{Preliminaries}
     \label{sec:terms}
     %% ============================================================
+
+    \subsection{Level-2 theta coordinates and 2-isogenies}
+    \label{sec:theta}
+    The verifier computes chains of 2-isogenies between abelian varieties in
+    the level-2 theta model, with the formulas of Dartois~\cite{Dar24}, which we
+    recall. Let $A$ be a principally polarized abelian variety of dimension $g$
+    over $\mathbb{F}_{p^2}$, with a level-2 theta structure. Its theta
+    coordinates $\theta(x) = (\theta_i(x))_{0 \le i < 2^g}$ map the Kummer
+    variety $A/{\pm 1}$ to $\mathbb{P}^{2^g - 1}$; the index $i$ stands for the
+    element of $(\mathbb{Z}/2\mathbb{Z})^g$ given by its bits, and $\theta(0)$ is
+    the theta null point. For vectors $x, y$ of $2^g$ coordinates, write $x
+    \star y$ for the coordinatewise product, $x^{-1}$ for the coordinatewise
+    inverse, $S(x) = x \star x$, and $H$ for the Hadamard transform,
+    \[
+    (H x)_j = \sum_{i=0}^{2^g - 1} (-1)^{i \cdot j} x_i ,
+    \]
+    where $i \cdot j$ is the dot product of the bit vectors; $H^2 = 2^g$. All
+    the formulas below are projective: they hold up to a scalar.
+
+    Let $f \colon A \to B$ be an isogeny with kernel $K \cong
+    (\mathbb{Z}/2\mathbb{Z})^g$, isotropic for the Weil pairing on $A[2]$, and
+    give $B$ the theta structure that $f$ induces~\cite[Section 4]{Dar24}. Let
+    $U = H(\theta_B(0))$ be the dual theta null point of $B$. Images are then
+    computed as
+    \begin{equation}
+        \label{eq:image}
+        \theta_B(f(x)) = H\bigl(U^{-1} \star H(S(\theta_A(x)))\bigr),
+    \end{equation}
+    when $U$ has no zero coordinate~\cite[Algorithm 1]{Dar24}. To find $U$, let
+    $T_0, \ldots, T_{g-1} \in A[8]$ be points such that $4T_0, \ldots, 4T_{g-1}$
+    generate $K$, with $T_l$ attached to bit $l$ by the theta structure. Then,
+    for all indices $j$ and all $l$,
+    \begin{equation}
+        \label{eq:codomain}
+        U_{j \oplus 2^l} \cdot H(S(\theta_A(T_l)))_j = U_j \cdot
+        H(S(\theta_A(T_l)))_{j \oplus 2^l},
+    \end{equation}
+    which determines $U$, and with it $\theta_B(0) = H(U)$, along a spanning tree
+    of the hypercube of indices when the coordinates involved do not
+    vanish~\cite[Algorithms 2--4 and Remark 17]{Dar24}. Finally, doubling on $A$
+    is
+    \begin{equation}
+        \label{eq:double}
+        \theta_A(2x) = \theta_A(0)^{-1} \star H\bigl(W^{-1} \star
+        S(H(S(\theta_A(x))))\bigr), \qquad W = H(S(\theta_A(0)))
+    \end{equation}
+    \cite[Algorithm 8]{Dar24}. A chain of $n$ 2-isogenies is computed from
+    points of order $2^{n+2}$ above its kernel: each step takes the 8-torsion
+    points above the kernel of the next 2-isogeny by doubling, computes the
+    codomain by~\eqref{eq:codomain}, and pushes the remaining points
+    by~\eqref{eq:image}; a strategy decides which multiples to keep, as for
+    isogenies of elliptic curves~\cite{DLRW24}. In dimension $g = 4$, every $S$
+    and $\star$ costs 16 squarings or multiplications in $\mathbb{F}_{p^2}$, and
+    every $H$ costs 64 additions. Steps whose kernel meets a product of lower
+    dimension, such as the gluing of Section~\ref{sec:gluing}, need modified
+    formulas~\cite[Section 4.3]{Dar24}.
+
+    \subsection{Terms}
+    \label{sec:glossary}
 
     \begin{description}[style=nextline,leftmargin=2em,font=\normalfont\itshape]
         \item[auxiliary isogeny]
@@ -152,12 +229,13 @@
         determined by its kernel; ``walking'' from one curve to another means
         composing isogenies of small degree.
         \item[Kani embedding]
-        Kani's lemma: an isogeny of degree $q$ between elliptic curves, together
-        with one of degree $N - q$, sits inside an isogeny of degree $N$ between
-        products of curves. In dimension 4 the second isogeny is replaced by an
-        endomorphism of the same curves built from a sum of two squares, $N - q =
-        a_1^2 + a_2^2$, so nothing extra is computed or sent.
-        \item[KAT]
+        Kani's lemma: an isogeny of degree $q$ between elliptic curves,
+        together with one of degree $N - q$, sits inside an $N$-isogeny between
+        products of curves, of degree $N^g$ in dimension $g$. In dimension 4
+        the second isogeny is replaced by an endomorphism of the same curves
+        built from a sum of two squares, $N - q = a_1^2 + a_2^2$, so nothing
+        extra is computed or sent.
+    \item[KAT]
         Known-answer test: the reference's published keys and signatures for fixed
         seeds, which an implementation must reproduce byte for byte.
         \item[megacycle]
@@ -188,86 +266,57 @@
     %% ============================================================
 
     \paragraph{SQIsignHD}
-    The construction is due to Dartois, Leroux, Robert and
-    Wesolowski~\cite{DLRW24}. The response has degree $q < 2^e$ with $2^e - q$
+    Our starting point is the construction of Dartois, Leroux, Robert and
+    Wesolowski~\cite{DLRW24}: the response has degree $q < 2^e$ with $2^e - q$
     a prime congruent to 1 modulo 4, and the verifier rebuilds it as a $(2^e,
     2^e, 2^e, 2^e)$-isogeny on $\Ecom^2 \times \Echl^2$, computed as two
-    half-chains that meet in the middle (their Section 4). Their library,
-    version 2.0, consists of a C signer, described in its README as a light
-    modification of the SQIsign2D-West implementation, and a SageMath verifier
-    built on the Theta dim4 package~\cite{DLRW25,Dar25}. Its parameter
-    script~\cite{DLRW25} sets $e = \lambda + \lceil \log_2 2\lambda \rceil$
-    and $r = \lceil e/2 \rceil + 2$ for primes of about $2\lambda$ bits, the
-    size of the {\SQIsign} primes before the attack of~\cite{Wes26};
-    Section~\ref{sec:dim4} explains why the rule for $e$ does not carry over to
-    the round-3 primes. The dimension-4 arithmetic, chains of 2-isogenies in
-    the level-2 theta model, is Dartois's~\cite{Dar24}.
+    half-chains that meet in the middle (their Section 4). Their library
+    consists of a C signer and a SageMath verifier built on the Theta dim4
+    package~\cite{DLRW25,Dar25}; its parameters, $e = \lambda + \lceil \log_2
+    2\lambda \rceil$ and $r = \lceil e/2 \rceil + 2$, were set for primes of
+    about $2\lambda$ bits, the size of the {\SQIsign} primes before Wesolowski's
+    attack~\cite{Wes26} (Section~\ref{sec:params}). The dimension-4 arithmetic, and
+    the step formulas our verifier uses, are Dartois's~\cite{Dar24}.
 
-    \paragraph{The submission}
-    The round-3 submission is a dimension-2 scheme in the SQIsign2D-West
-    design~\cite{BDF+24,AAA+26}. Its reference code, the-sqisign~\cite{SQI26},
-    has a portable and an assembly-backed field arithmetic, and Chapter 5 of
-    its specification fixes the parameters of our dimension-2 baseline.
-
-    \paragraph{sqisign-rs}
-    Our crate implements round-3 {\SQIsign} in Rust with three formats: the
-    specification's, a compressed format of its own that drops one matrix
-    entry and recovers it from two Weil pairings, and, at level I, the
-    dimension-4 compact format of this paper~\cite{Ray26c}.
+    \paragraph{SQIsign}
+    The scheme we compare with is the round-3 submission, a dimension-2 scheme
+    in the SQIsign2D-West design~\cite{BDF+24,AAA+26}, whose reference code,
+    the-sqisign~\cite{SQI26}, has a portable and an assembly-backed field
+    arithmetic; its specification fixes the parameters of our dimension-2
+    baseline.
 
     \paragraph{MIKE}
-    MIKE~\cite{BDD+26}, a non-interactive key exchange built on Robert's
-    module action~\cite{Rob24b}, is the other recent system whose main cost is
-    a chain of dimension-4 2-isogenies in the theta model. Its fourfolds carry
-    an automorphism $[i]$ of order 4 that the chain respects, which it uses to
+    The closest relative of our verifier is MIKE~\cite{BDD+26}, a
+    non-interactive key exchange built on Robert's module
+    action~\cite{Rob24b}, the other recent system whose main cost is a chain
+    of dimension-4 2-isogenies in the theta model. Its fourfolds carry an
+    automorphism $[i]$ of order 4 that the chain respects, which MIKE uses to
     compute each step from two points above the kernel instead of
-    four~\cite[Appendix E.2]{BDD+26}; and because its domain is a Weil
-    restriction, the chain after the gluing is defined over $\mathbb{F}_p$
-    rather than $\mathbb{F}_{p^2}$. At level I it computes a chain of length
-    228, including the kernel computation and the gluing, in 16.0 megacycles
-    in constant-time C with assembly field arithmetic~\cite[Table 1]{BDD+26}.
-    MIKE also argues that the round-3 primes are conservative, since the
-    attack of~\cite{Wes26} finds each candidate as a root of a large
-    polynomial, a cost the specification's model does not count, and proposes
-    $\log_2 p = 317$, 484 and 651 against 325, 504 and 668~\cite[Section
-    4.5]{BDD+26}. We keep the specification's primes, so that our figures
-    compare directly with the round-3 submission.
-
-    \paragraph{Module representations}
-    Page, Robert and Soumier extend the Deuring correspondence to higher
-    dimension~\cite{PRS26}: maximal supersingular principally polarized
-    abelian varieties correspond to unimodular Hermitian modules over a
-    maximal quaternion order, and polarized isogenies to similitudes of such
-    modules. On this basis they solve the principal ideal problem in matrix
-    rings over quaternion orders, give a higher-dimensional Clapotis algorithm
-    that makes the module representation explicit, and improve the bound of
-    the KLPT$^2$ algorithm. We use their dictionary in
-    Appendix~\ref{app:symmetry} to phrase the descent of an automorphism along
-    the verifier's chain.
-
-    \paragraph{What we did not find}
-    To our knowledge the code measured here is the only implementation of a
-    dimension-4 {\SQIsign} signer and verifier in one codebase; the SQIsignHD
-    authors' release is a C signer and a SageMath verifier for their primes. A
-    GitHub search on 2026-09-26 for ``SQIsignHD'', ``SQISignHD'' and ``Theta
-    dim4'' returned their two repositories and nothing else. We did not search
-    further; an implementation we have missed would change this paragraph and
-    nothing else in the paper.
+    four~\cite[Appendix E.2]{BDD+26}; our two-point verifier adapts this idea.
+    MIKE's chain is moreover defined over $\mathbb{F}_p$ rather than
+    $\mathbb{F}_{p^2}$, its domain being a Weil restriction, and at level I it
+    runs 228 steps in 16.0 megacycles of constant-time C~\cite[Table
+    1]{BDD+26}. MIKE also argues that the round-3 primes are conservative and
+    proposes $\log_2 p = 317$, 484 and 651 instead of 325, 504 and
+    668~\cite[Section 4.5]{BDD+26}; we keep the specification's primes, so
+    that our figures compare directly with the round-3 submission.
 
     %% ============================================================
-    \section{Dimension 4}
+    \section{SQIsignHD at the round-3 primes}
     \label{sec:dim4}
     %% ============================================================
 
-    \paragraph{The cost}
-    The compact format's verifier runs a chain of dimension-4 isogeny steps,
-    each on sixteen theta coordinates instead of the four of a dimension-2
-    step, 87 steps from each end at level I. It costs 6.4 times the
-    dimension-2 verifier of the same crate at the same prime (85.4 against
-    13.3 megacycles), or 4.6 times with the two-point verifier of
-    Section~\ref{sec:conc} (60.6 megacycles; Section~\ref{sec:bench}).
+    This section describes what SQIsignHD's dimension-4 signature sends
+    (Section~\ref{sec:format}) and examines its verifier
+    (Section~\ref{sec:verif}), which raises the two issues that
+    Sections~\ref{sec:twopoint} and~\ref{sec:gluing} address: the cost of its
+    chain, and the justification of the structure in which the chain is
+    computed after the gluing. The parameters at the round-3 primes and the
+    wire format, on which our implementation and measurements rest, are given
+    in Section~\ref{sec:engineering}.
 
-    \paragraph{What it buys}
+    \subsection{What is sent}
+    \label{sec:format}
     In dimension 2 the verifier cannot run the response $\sigma$ of degree $q$
     alone: Kani's embedding needs a second isogeny of degree $2^f - q$ from the
     challenge curve, the auxiliary isogeny $\tau$, which the signer computes
@@ -275,22 +324,23 @@
     dimension 4 the second isogeny is replaced by two integers with $a_1^2 +
     a_2^2 = 2^e - q$, which exist when $2^e - q$ is a prime congruent to 1
     modulo 4 and which the verifier finds from $q$ alone by Cornacchia's
-    algorithm. The chain runs on $\Ecom^2 \times \Echl^2$ and involves no other
-    curve (Figure~\ref{fig:kani}, right). Dimension 4 removes the auxiliary
-    curve, not the auxiliary freedom: another pair $(a_1', a_2')$ with the
-    same sum of squares, or another isogeny of degree $q$ from the same curve,
-    still yields a valid signature.
+    algorithm, so that the chain runs on $\Ecom^2 \times \Echl^2$ and involves
+    no other curve (Figure~\ref{fig:kani}, right).
 
-    The signature carries the commitment curve, the degree $q$, and the
-    action of $\sigma$ on a basis of the $2^r$-torsion: a $2 \times 2$ matrix
-    modulo $2^r$, of which three entries are sent and the fourth follows from
-    the Weil pairing, $ad - bc \equiv kq \pmod{2^r}$ with $k$ fixed by the two
-    bases~\cite[Section 6.1]{DLRW24}. At level I that is $2 \cdot 41 = 82$
-    bytes of curve, 22 bytes of $q$, three 12-byte scalars and two one-byte
-    basis hints: 142 bytes, against 200 for the specification's format, which
-    carries the auxiliary curve and a matrix modulo $2^{198}$. The challenge
-    is not sent: as in the round-3 specification, the verifier recomputes it
-    by hashing the public key, the commitment curve and the message.
+    The signature therefore carries only the commitment curve, the degree $q$,
+    and the action of $\sigma$ on a basis of the $2^r$-torsion: a $2 \times 2$
+    matrix modulo $2^r$, of which three entries are sent and the fourth follows
+    from the Weil pairing, $ad - bc \equiv kq \pmod{2^r}$ with $k$ fixed by
+    the two bases~\cite[Section 6.1]{DLRW24}. At level I, with every field rounded up to whole
+    bytes, that is $2 \cdot 41 = 82$ bytes of curve, 22 bytes of $q$, three
+    12-byte scalars and two one-byte basis hints: 142 bytes, against 200 for
+    the specification's format, which carries the auxiliary curve and a matrix
+    modulo $2^{198}$. This is where the saving comes from: the absence of the
+    auxiliary curve and the smaller matrix account for 58 bytes. Packing the
+    fields at bit granularity, as our format does (Section~\ref{sec:wire}),
+    saves only 3 more, for 139 bytes. The challenge is
+    not sent: as in the round-3 specification, the verifier recomputes it by
+    hashing the public key, the commitment curve and the message.
 
     \begin{figure}[t]
         \centering
@@ -345,494 +395,133 @@
         \label{fig:kani}
     \end{figure}
 
-    \paragraph{Which entry is dropped}
-    Write the transmitted action as
-    $M = \left(\begin{smallmatrix} a & b \\ c & d \end{smallmatrix}\right)$,
-    so that $ad - bc \equiv kq \pmod{2^r}$. Both bases pair to roots of unity
-    of exact order $2^r$, so $k$ is odd; $q$ is odd too, so $\det M$ is odd.
-    Recovering the dropped entry means inverting another entry modulo $2^r$,
-    which must therefore be odd, and no single entry is odd on every
-    signature. The rule: if $a$ is odd, the signer drops $d$ and the verifier
-    computes $d \equiv (kq + bc) \, a^{-1} \pmod{2^r}$; if $a$ is even, then
-    $bc \equiv -kq$ is odd, so $b$ and $c$ are both odd, and the signer drops
-    $c$, which the verifier computes as $c \equiv (ad - kq) \, b^{-1}
-    \pmod{2^r}$. The verifier reads the case from the parity of $a$, so the
-    rule costs no bit. The relation fixes $r$ bits of the matrix and the
-    format spends them on one entry; sending all four entries and only the
-    top $e - r$ bits of $q$, whose low $r$ bits the relation would then
-    determine, would cost the same, so the pairings have nothing more to give.
-
-    \paragraph{Packing the signature}
-    The layout above rounds every field up to whole bytes: at level I each
-    scalar takes 12 bytes for 89 bits, and $q$ takes 22 bytes for 174 bits,
-    two of which are known in advance since $q \equiv 3 \pmod 4$. Writing the
-    commitment curve's Montgomery coefficient as two $\lceil \log_2 p
-    \rceil$-bit integers, $(q - 3)/4$ in $e - 2$ bits, the three scalars in $r$
-    bits each and the two hints in 8 bits each, padded once at the end, takes
-    $2 \lceil \log_2 p \rceil + (e - 2) + 3r + 16$ bits: 1107, 1690 and 2223,
-    that is 139, 212 and 278 bytes at levels I, III and V, against 142, 214
-    and 280 (Table~\ref{tab:params}). If each hint is a deterministic function
-    of its curve, as in the round-3 specification, the verifier, which builds
-    both curves, can recompute the hints instead of reading them, for 137, 210
-    and 276 bytes, at the cost of searching for the bases instead of decoding
-    them. The signatures measured in Section~\ref{sec:bench} use the
-    byte-aligned layout; the bit-packed one changes only the encoding.
-
-    \paragraph{Parameters for the round-3 primes}
-    SQIsignHD's exponent $e$ bounds the response degree, $q < 2^e$. Every
-    ideal class contains an ideal of norm at most about
-    $0.90\sqrt{p}$~\cite[Lemma 12]{DLRW24}, so $2^e$ must exceed $\sqrt{p}$,
-    and the paper takes ``a few bits over $\sqrt{p}$'' as sufficient on
-    heuristic grounds (their Section 4.2). The library's rule $e = \lambda +
-    \lceil \log_2 2\lambda \rceil$ is phrased in terms of the security
-    parameter because it was set for primes with $p \approx 2^{2\lambda}$,
-    where it amounts to $\log_2 \sqrt{p}$ plus 10 to 13 bits. The round-3
-    level-I prime has 70 bits more than $2^{2\lambda}$, and there the same
-    formula gives $2^e = 2^{136}$, below $2^{162.6}$, the bound under which
-    Lemma 12 guarantees an ideal in every class: no response would exist. What
-    transfers is the content of the rule, $\sqrt{p}$ plus about ten bits.
-
-    We take $e = \lceil (\log_2 p)/2 \rceil + 11 = 174/264/346$ and, by the
-    library's rule for the torsion the two half-chains need, $r = \lceil e/2
-    \rceil + 2 = 89/134/175$ (Table~\ref{tab:params}). The margin of 11 bits
-    lies within the 10 to 13 bits that the library's rule gives on the primes
-    it was written for; SQIsignHD's own prime uses 15.3. Two checks bound it
-    from below. First, the number of ideal vectors of norm below $2^e$ grows as
-    $2^{2 \cdot \mathrm{margin}}$: about $2^{22}$ candidates, against one good
-    norm in a few hundred, so a good $q$ exists with overwhelming probability.
-    Second, Nakagawa and Onuki's conservative countermeasure for PRISM-id,
-    whose response reveals an isogeny of large prime degree, is a degree of at
-    least $4\lambda/3$ bits~\cite[Section 5.3]{NO25}; transferred to $e$, that
-    is 170.7/256.0/341.3 against 174/264/346, cleared at every level, whereas a
-    margin of 7 bits would fail it at level I.
-
-    \paragraph{The degree}
-    The signer samples vectors of the response ideal below $2^e$ and keeps the
-    first whose norm $q$ is odd, congruent to 3 modulo 4, and has $2^e - q$ a
-    probable prime (40 Miller--Rabin rounds). The verifier repeats the test on
-    $q$ and decomposes $2^e - q$ by Cornacchia's algorithm. The sampled norms
-    are odd, so one candidate in two passes the congruence; if $2^e - q$
-    behaves as a random $e$-bit integer, the density of good $q$ is then $1/(e
-    \ln 2)$: one candidate in 121 at level I, of which 60 reach a primality
-    test. Section~\ref{sec:bench} measures the loop.
-
-    \paragraph{What the verifier checks}
-    The verifier decodes the key and the signature; recomputes the challenge;
-    completes the dropped scalar by the rule above; tests $q$ for goodness and
-    writes $2^e - q = a_1^2 + a_2^2$ by Cornacchia's algorithm; and builds the
-    kernel of the dimension-4 isogeny on $\Ecom^2 \times \Echl^2$ from $a_1$,
-    $a_2$ and the transmitted action~\cite[Lemma 4 and Section 4.4]{DLRW24}. It
-    then computes the two half-chains of $\lceil e/2 \rceil$ steps from both
+    \subsection{The verifier}
+    \label{sec:verif}
+    The verifier decodes the key and the signature, recomputes the challenge,
+    and completes the dropped scalar by the rule of
+    Section~\ref{sec:wire}. It then repeats the goodness test on $q$, writes
+    $2^e - q = a_1^2 + a_2^2$ by Cornacchia's algorithm, and builds the kernel
+    of the dimension-4 isogeny on $\Ecom^2 \times \Echl^2$ from $a_1$, $a_2$
+    and the transmitted action~\cite[Lemma 4 and Section 4.4]{DLRW24}. Finally,
+    it computes the two half-chains of $\lceil e/2 \rceil$ steps from both
     ends, and accepts when the two middle codomains agree and the image of a
     point through the chain is what the transmitted action says, the two
-    conditions of SQIsignHD's Section 4.5. A signature fails on any decoding
-    error, on a degree that is not good, on a chain that lands on a product of
-    curves where it should not, or on either condition.
+    conditions of SQIsignHD's Section 4.5. A signature thus fails on any
+    decoding error, on a degree that is not good, on a chain that lands on a
+    product of curves where it should not, or on either condition.
 
-    \paragraph{Whose choices}
-    SQIsignHD's: the response as an ideal of good norm and the goodness test;
-    the half-chains of $\lceil e/2 \rceil$ steps from both ends, with $r =
-    \lceil e/2 \rceil + 2$; the action modulo $2^r$ with one scalar recovered
-    from the pairing; the two acceptance conditions; and the library's
-    basis-from-hint convention, kept so that its verifier checks our
-    signatures unmodified. Ours: the move to the round-3 primes, $e$ and its
-    margin; the round-3 commitment and $2\lambda$-bit challenge, recomputed
-    rather than sent; the wire format, with two hint bytes in place of the
-    library's packed bits, and its bit-packed variant; and the signer's
-    sampler, which draws lattice vectors of the response ideal and rejects on
-    goodness.
+    \begin{algorithm}[t]
+        \caption{Verification of a dimension-4 signature.}
+        \label{alg:verify}
+        \begin{algorithmic}[1]
+            \Require public key, message $\mu$, signature $(A_{\mathrm{com}}, q, a,
+            b, c \text{ or } d, h_P, h_Q)$
+            \Ensure accept or reject
+            \State decode the key and the signature, rejecting malformed input
+            \State $\Ecom \gets$ the curve with coefficient $A_{\mathrm{com}}$;
+            $\Echl \gets$ the challenge curve, recomputed from the public key,
+            $\Ecom$ and $\mu$
+            \State complete $M = \left(\begin{smallmatrix} a & b \\ c & d
+            \end{smallmatrix}\right)$ by the rule of Section~\ref{sec:wire};
+            reject if $a$ and $b$ are both even
+            \If{$q \ge 2^e$ or $2^e - q$ is not a probable prime congruent to
+            1 modulo 4}
+                \State reject
+            \EndIf
+            \State $(a_1, a_2) \gets$ Cornacchia$(2^e - q)$, $a_1$ odd; $m \gets
+            v_2(a_2)$
+            \State bases of $\Ecom[2^r]$ and $\Echl[2^r]$ from the hints; the
+            starting matrices $M_1, M_2$ and the kernel generators from $a_1$,
+            $a_2$ and $M$ (Lemma~\ref{lem:kanimat})
+            \For{$h \in \{1, 2\}$}
+                \State compute the half-chain $\Phi_h$: $m$ steps in dimension 2,
+                the gluing, and the plain steps up to step $e_h$
+                (Section~\ref{sec:theta})
+            \EndFor
+            \State \Return accept if the two middle codomains are isomorphic and
+            the image of a test point through the chain is the one $M$
+            prescribes, else reject
+        \end{algorithmic}
+    \end{algorithm}
 
-    \begin{table}[t]
-        \centering
-        \begin{threeparttable}
-            \caption{Dimension-4 parameters at the round-3 primes. Level I is built
-                and measured; levels III and V are derived only.}
-            \label{tab:params}
-            \begin{tabular}{l c c c}
-                \toprule
-                & NIST I & NIST III & NIST V \\
-                \midrule
-                $p$\tnote{a} & $3 \cdot 2^{324} - 1$ & $27 \cdot 2^{500} - 1$ & $17 \cdot 2^{664} - 1$ \\
-                $\log_2 p$\tnote{a} & 325.58 & 504.75 & 668.09 \\
-                $\lambda$, challenge bits\tnote{a} & 128 & 192 & 256 \\
-                $e$, response bound $q < 2^e$\tnote{b} & 174 & 264 & 346 \\
-                $r = \lceil e/2 \rceil + 2$, transmitted torsion bits\tnote{c} & 89 & 134 & 175 \\
-                half-chain steps $\lceil e/2 \rceil$\tnote{c} & 87 & 132 & 173 \\
-                \addlinespace
-                public key, bytes, predicted\tnote{d} & 84 & 130 & 170 \\
-                signature, bytes, predicted\tnote{d} & 142 & 214 & 280 \\
-                signature, bytes, bit-packed\tnote{e} & 139 & 212 & 278 \\
-                public key, bytes, measured & 84 & {\color{red}not built} & {\color{red}not built} \\
-                signature, bytes, measured & 142 & {\color{red}not built} & {\color{red}not built} \\
-                round-3 standard signature, bytes\tnote{a} & 200 & 306 & 406 \\
-                \bottomrule
-            \end{tabular}
-            \begin{tablenotes}\footnotesize
-                \item[a] The {\SQIsign} round-3 specification~\cite{AAA+26}.
-                \item[b] Ours: $e = \lceil (\log_2 p)/2 \rceil + 11$ (Section~\ref{sec:dim4}).
-                \item[c] SQIsignHD's rule for the torsion the half-chains need~\cite[Section 4.3]{DLRW24}.
-                \item[d] Field-by-field sums of the byte-aligned wire format (Section~\ref{sec:dim4}).
-                \item[e] $2 \lceil \log_2 p \rceil + (e - 2) + 3r + 16$ bits, padded once (Section~\ref{sec:dim4}); 137 / 210 / 276 without the hints.
-            \end{tablenotes}
-        \end{threeparttable}
-    \end{table}
+    Most of these choices are SQIsignHD's: the response as an ideal of good
+    norm and the goodness test; the half-chains of $\lceil e/2 \rceil$ steps
+    from both ends, with $r = \lceil e/2 \rceil + 2$; the action modulo $2^r$
+    with one scalar recovered from the pairing; the two acceptance conditions;
+    and the library's basis-from-hint convention, which we keep so that its
+    verifier checks our signatures unmodified. Ours are the move to the round-3
+    primes, with $e$ and its margin; the round-3 commitment and $2\lambda$-bit
+    challenge, recomputed rather than sent; the bit-packed wire format, with two hint bytes in place of the library's packed bits;
+    and the signer's sampler, which draws lattice vectors of the response ideal
+    and rejects on goodness.
+
+    \paragraph{Where the verifier's time goes.}
+    The verifier pays for the smaller signature. Its chain of dimension-4
+    isogeny steps, 87 from each end at level I, works on sixteen theta
+    coordinates instead of the four of a dimension-2 step, and costs 6.4 times
+    the dimension-2 verifier of the same crate at the same prime (45.6 against
+    7.1 megacycles), and 6.6 times the reference's assembly build
+    (Section~\ref{sec:bench}). Almost all of this time is spent in the steps
+    after the gluing. A profile of the verifier at level I attributes 59\,\%
+    of it to doubling the four generators of each step's kernel and pushing
+    them, with the other saved points, through the chain, and 16\,\% to
+    computing each step's codomain and its constants from those four points;
+    the dimension-2 steps, the gluing and the final checks take the rest. A
+    substantial saving must therefore reduce the work spent on kernel points,
+    at every step.
+
+    \paragraph{The structure at the gluing.}
+    The step formulas compute in theta coordinates, and each step needs the
+    codomain's theta structure to be the one induced by the images of a
+    particular symplectic basis (Definition~\ref{def:structures}). Before the
+    dimension-4 gluing, the verifier changes coordinates on the product of the
+    two dimension-2 codomains by closed formulas from Dartois's
+    work~\cite[Lemmas 30 and 31]{Dar24}, which he states with a brief
+    justification and, for the second half-chain, from a dimension-2 basis
+    given only modulo~4~\cite[Appendix C.1]{Dar24}. The correctness of every
+    later step rests on these formulas, and so does any argument about the
+    coordinates in which the chain is computed, such as the one
+    Section~\ref{sec:twopoint} needs.
+
 
     %% ============================================================
-    \section{Benchmarks}
-    \label{sec:bench}
+    \section{Two-point verification}
+    \label{sec:twopoint}
     %% ============================================================
 
-    \paragraph{Method}
-    All measurements come from one session on one machine, an AMD EPYC 7B13
-    guest (16 vCPUs, 63~GiB; the cycle counter at 3049.994~MHz), on
-    2026-11-02. One binary measures the Rust code, compiled by \texttt{rustc}
-    1.99.1 in release mode with fat link-time optimization and no target-CPU
-    flag; the code chooses its assembly field kernels at run time from CPUID.
-    Each operation is timed with \texttt{rdtsc} and the wall clock around the
-    call, on one pinned core, in four rounds that visit every block in turn;
-    the tables report medians over 52 runs for key generation and signing in
-    dimension 2, 200 for verification, and, for the compact format, 52 for key
-    generation, 100 for signing and 200 for each verifier. Verification is
-    measured from bytes: decode the key, decode the signature, verify.
+    Section~\ref{sec:verif} identified two issues: most of the verifier's time
+    goes to the four kernel generators that each step doubles and pushes and
+    from which it computes its codomain, and the structure in which the chain
+    is computed after the gluing rests on closed formulas given without a full
+    derivation. This
+    section addresses the first, and Section~\ref{sec:gluing} the second. It
+    shows that half of the work on
+    kernel points can be avoided, by exploiting a symmetry of the chain that
+    MIKE uses in a different setting~\cite[Appendix E.2]{BDD+26}.
 
-    \paragraph{Sizes}
-    Table~\ref{tab:sizes} lists the sizes on the wire. At level I the compact
-    key and signature take 226 bytes and 223 bit-packed, against
-    283 for the specification's format: a saving of 29\,\% on the signature,
-    or 30.5\,\% bit-packed. The compressed dimension-2 format, with a 174-byte
-    signature, sits between them.
+    On $E^2$, the automorphism $J(P, Q) = (Q, -P)$ satisfies $J^2 = -1$, and
+    both the endomorphism $\alpha = a_1 + a_2 J$ of the Kani matrix and
+    $\sigma \oplus \sigma$ commute with it. Hence $D = \operatorname{diag}(J,
+    J)$ on $\Ecom^2 \times \Echl^2$ commutes with the verifier's isogeny,
+    descends to an automorphism $D_{h,k}$ of every fourfold of both
+    half-chains (Proposition~\ref{prop:descent}), and maps the four kernel
+    generators onto one another in pairs, $D g_0 = -g_2$ and $D g_1 = -g_3$
+    (Lemma~\ref{lem:paired}). What remains is to know how $D_{h,k}$ acts on
+    the theta coordinates in which the verifier computes. Theorem~\ref{thm:base}
+    answers this: for every input, honest or not, and at every step from the
+    gluing on, $D_{h,k}$ acts on these coordinates as one fixed permutation
+    $\pi$ of the sixteen coordinates, which exchanges index bits 0 and 2 and
+    bits 1 and 3 (Theorem~\ref{thm:base}). The proof combines the transport of
+    theta structures along isomorphisms (Lemma~\ref{lem:transport}), the
+    explicit starting matrices of the verifier
+    (Lemmas~\ref{lem:basepoints}--\ref{lem:paired}), and the change of basis at
+    the gluing (Proposition~\ref{prop:gluingbasis}). Sections~\ref{sec:sym-notation}
+    to~\ref{app:conjecture} develop this argument,
+    Section~\ref{sec:twopoint-alg} gives the resulting algorithm, and
+    Appendix~\ref{app:symmetry} contains the proofs.
 
-    \begin{table}[t]
-        \centering
-        \begin{threeparttable}
-            \caption{Public key + signature = total, in bytes, at the round-3
-                primes. Compact formats are level I only.}
-            \label{tab:sizes}
-            \footnotesize
-            \setlength{\tabcolsep}{3.5pt}
-            \begin{tabular}{l c c c}
-                \toprule
-                format & NIST I & NIST III & NIST V \\
-                \midrule
-                standard (specification) & $83 + 200 = 283$ & $129 + 306 = 435$ & $169 + 406 = 575$ \\
-                compressed (this crate)\tnote{a} & $83 + 174 = 257$ & $129 + 267 = 396$ & $169 + 352 = 521$ \\
-                compact, dim.\ 4 (this crate) & $84 + 142 = 226$ & {\color{red}not built} & {\color{red}not built} \\
-                compact, dim.\ 4, bit-packed\tnote{b} & $84 + 139 = 223$ & $130 + 212 = 342$ & $170 + 278 = 448$ \\
-                \bottomrule
-            \end{tabular}
-            \begin{tablenotes}\footnotesize
-                \item[a] The compressed format's current layout. The session of Section~\ref{sec:bench} measured the earlier layout of 176 / 269 / 353 bytes.
-                \item[b] Predicted from the layout of Section~\ref{sec:dim4}, not observed in the session; levels III and V use the predicted public keys of Table~\ref{tab:params}.
-            \end{tablenotes}
-        \end{threeparttable}
-    \end{table}
-
-    \paragraph{Cycles}
-    Table~\ref{tab:cycles} gives the session in megacycles. At level I the
-    dimension-4 verifier costs 6.4 times the dimension-2 verifier of the same
-    crate with four kernel points and 4.6 times with two, and dimension-4
-    signing costs 2.9 times dimension-2 signing, because the good degree is
-    found by rejection (Table~\ref{tab:loop}). Key generation is the same in
-    both formats up to the basis convention (40.8 against 38.5 megacycles);
-    the compressed format's recovery adds 16\,\% to a verification.
-
-    \begin{table}[t]
-        \centering
-        \caption{Megacycles at the round-3 primes, medians of the session. The
-            last column is the dimension-4 verifier over the dimension-2 verifier of
-            the same code.}
-        \label{tab:cycles}
-        \begin{tabular}{l c r r r r}
-            \toprule
-            implementation & level & keygen & sign & verify & $\times$ dim.\ 2 \\
-            \midrule
-            Rust, dimension 2 & I   & 38.5  & 112.5 & 13.3 & \\
-            Rust, dimension 2 & III & 142.2 & 392.9 & 33.7 & \\
-            Rust, dimension 2 & V   & 257.0 & 787.5 & 80.7 & \\
-            Rust, dimension 2, compressed verify & I & & & 15.4 & \\
-            Rust, dimension 4 (compact) & I & 40.8 & 329.0 & 85.4 & 6.4 \\
-            Rust, dim.\ 4, two points, checked & I & & & 60.6 & 4.6 \\
-            Rust, dim.\ 4, two points, unchecked & I & & & 59.6 & 4.5 \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-
-    \begin{figure}[t]
-        \centering
-        \begin{tikzpicture}
-            \begin{axis}[
-                width=8cm, height=5.5cm,
-                xmin=120, xmax=240, ymin=0, ymax=135,
-                xlabel={signature bytes},
-                ylabel={verification, megacycles (median)},
-                axis lines=left,
-                xtick={120,140,...,240}, ytick={0,50,100},
-                tick label style={font=\small}, label style={font=\small},
-                every node near coord/.append style={font=\small},
-                ]
-                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(142,85.4)};
-                \addplot[only marks, mark=square*, mark size=2.5pt, color=teal!60] coordinates {(142,60.6)};
-                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(174,15.4) (200,13.3)};
-                \node[teal, anchor=west, font=\small] at (axis cs:145,92) {compact (dimension 4), four points};
-                \node[teal!70!black, anchor=west, font=\small] at (axis cs:145,62) {two points};
-                \node[blue!55, anchor=south, font=\small] at (axis cs:168,20) {compressed};
-                \node[blue!55, anchor=south west, font=\small] at (axis cs:203,16) {standard};
-            \end{axis}
-        \end{tikzpicture}
-        \caption{The trade at level I on the round-3 prime: signature bytes
-            against verification cost for the three formats of one crate, the compact one with four and with two kernel points, from the
-            session of Table~\ref{tab:cycles}. The compressed format is placed at its
-            current size of 174 bytes; its verification cost was measured with the
-            earlier 176-byte layout.}
-        \label{fig:trade}
-    \end{figure}
-
-    \paragraph{Milliseconds}
-    Table~\ref{tab:ms} gives wall-clock times at level I on two machines.
-    Neither is what a deployment runs; the ratio between the rows is the
-    number to carry.
-
-    \begin{table}[t]
-        \centering
-        \caption{Milliseconds at level I on the round-3 prime, medians, on the EPYC 7B13 guest of Section~\ref{sec:bench} (megacycles over its counter rate of 3049.994\,MHz) and on an M4 Pro. The M4 Pro column is
-            pending a run on that machine.}
-        \label{tab:ms}
-        \small
-        \setlength{\tabcolsep}{4pt}
-        \begin{tabular}{l l r r}
-            \toprule
-            format & operation & EPYC (ms) & M4 Pro (ms) \\
-            \midrule
-            dimension 2 (standard) & key generation & 12.6 & {\color{red}pending} \\
-            & signing & 36.9 & {\color{red}pending} \\
-            & verification & 4.4 & {\color{red}pending} \\
-            & verification, compressed & 5.0 & {\color{red}pending} \\
-            \addlinespace
-            dimension 4 (compact) & key generation & 13.4 & {\color{red}pending} \\
-            & signing & 107.9 & {\color{red}pending} \\
-            & verification & 28.0 & {\color{red}pending} \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-
-    \paragraph{The rejection loop}
-    Table~\ref{tab:loop} compares the compact signer's search for a good
-    degree over the session's signatures with the expectation of
-    Section~\ref{sec:dim4}. A candidate costs one norm computation; one in two
-    reaches a Miller--Rabin test on an $e$-bit number, and composites fail at
-    the first round. This loop accounts for the spread of signing times: the
-    median signature needs 79.5 samples, the mean 111.6, and the range is 2 to
-    523.
-
-    \begin{table}[t]
-        \centering
-        \caption{The compact signer's good-degree loop at level I: measured over
-            the session's signatures against the density $1/(e \ln 2)$ for odd $q$
-            (and the figure for a candidate of random parity, which the sampler does
-            not produce).}
-        \label{tab:loop}
-        \begin{tabular}{l r r}
-            \toprule
-            & measured & expected \\
-            \midrule
-            signatures measured & 100 & \\
-            response samples per signature, mean & 111.6 & 121 \\
-            the same if $q$ had random parity & {\color{red}???} & 241 \\
-            response samples per signature, median (min, max) & 79.5 (2, 523) & \\
-            primality tests per signature, mean & 54.8 & 60 \\
-            signing, Mcycles, median (min, max) & 329.0 (48.8, 1900.9) & \\
-            signing, dimension 2, Mcycles, median & 112.5 & \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-
-    \paragraph{Memory}
-    At its peak, one compact verification at level I allocates 1674~KiB
-    (1.64~MiB) of heap, measured with a counting allocator around the call in a session of 2026-09-26;
-    the dimension-2 verifier allocates nothing.
-
-    %% ============================================================
-    \section{Strong unforgeability and ECLIPSE}
-    \label{sec:suf}
-    %% ============================================================
-
-    A signature scheme is strongly unforgeable when no one can produce a
-    second valid signature on a message already signed. The {\SQIsign} family
-    is not: in the dimension-2 format the auxiliary isogeny can be replaced by
-    another of the same degree, giving a second signature valid under the same
-    key, as the round-3 specification states in its Section
-    8.4.2~\cite{AAA+26}; the mechanism is written out in~\cite{Ray26a}.
-    Dimension 4 removes the auxiliary curve from the wire but not the property:
-    another isogeny of the same degree from the same commitment curve, with
-    its own action on the torsion, is still a valid second signature. This is
-    a property of the scheme, not a finding of this paper.
-
-    A construction that is strongly unforgeable by design exists. Next to
-    their salted scheme, the PRISM authors describe a variant whose signature
-    is a single isogeny of prime degree $2^{2e-1} - s^2$ from the public-key
-    curve, and state that the EUF-CMA proof of the salted scheme applies to a
-    salted version of it~\cite[Section 5 and Remark 11]{BBC+26}; we call that
-    variant strong-PRISM. Our instantiation of it on the round-3 primes,
-    ECLIPSE\footnote{ECLIPSE stands for Encoding-Canonical Large-prime Isogeny
-        Signature Extension. The underlying construction, which we call
-        strong-PRISM, is Section 5 of~\cite{BBC+26} with the salt of Section 6 as
-        suggested in Remark 11; the authors did not name it.}, is the subject
-    of a forthcoming paper.
-
-    Dimension 4 buys strong-PRISM nothing. A PRISM signature carries no
-    auxiliary curve in any dimension, so there is nothing to remove; a
-    dimension-4 instantiation would have the same layout within a few bytes,
-    and its hash target, a prime $q$ with $2^a - q$ prime and congruent to 1
-    modulo 4, needs two primality conditions at once, a far sparser target
-    than the single prime of the dimension-2 variant. A feasibility study for
-    prism-rs~\cite{Ray26b} measured both and declined the dimension-4 route.
-
-    %% ============================================================
-    \section{Conclusion}
-    \label{sec:conc}
-    %% ============================================================
-
-    SQIsignHD's dimension-4 response carries over to the round-3 {\SQIsign}
-    primes once its response bound is restated in terms of $\sqrt{p}$ rather
-    than the security parameter, and it keeps its defining advantage there:
-    with no auxiliary curve to send, a level-I signature takes 142 bytes as
-    built and 139 bit-packed, against 200 for the specification's format, and
-    key and signature together take 226 bytes, or 223, the smallest level-I
-    combination we are aware of at parameters that stand after the 2026
-    attack.
-
-    The verifier pays for it. In the same code, a dimension-4 verification
-    costs 6.4 times a dimension-2 one at level I (85.4 against 13.3
-    megacycles), 4.6 times with the two-point verifier below, and needs about
-    1.6~MiB of heap where the dimension-2 verifier needs none; signing costs
-    2.9 times as much, because of the search for a
-    good degree. The compact format therefore suits settings where bandwidth
-    or storage dominates and a verification of a few tens of milliseconds is
-    acceptable; the specification's dimension-2 format remains the better
-    general-purpose choice. Neither format makes {\SQIsign} strongly
-    unforgeable; that requires a different construction, such as the PRISM
-    variant of Section~\ref{sec:suf}.
-
-    \paragraph{Two-point verification}
-    The verifier's chain respects an automorphism of order 4, as MIKE's does.
-    On $E^2$ the automorphism $J = \left(\begin{smallmatrix} 0 & 1 \\ -1 & 0
-    \end{smallmatrix}\right)$ satisfies $J^2 = -1$ and $\alpha = a_1 + a_2 J$,
-    so both $\alpha$ and $\sigma \oplus \sigma$ commute with $J$ acting on
-    $\Echl^2$ and $\Ecom^2$ alike (Appendix~\ref{app:symmetry}). In every test
-    we ran, the resulting automorphism of the fourfold acts on the theta
-    coordinates our verifier uses as one fixed permutation of the sixteen
-    coordinates, at every step of both half-chains, and maps two of the four
-    kernel generators onto the other two. We prove that both facts hold at
-    every step from the gluing on, for every input, honest or not, for the
-    algorithm the verifier implements (Theorem~\ref{thm:base}); {\color{red}that
-        our implementation computes that algorithm's theta structures is checked
-        only in part (Remark~\ref{rem:conformance})}. A verifier can therefore
-    double and push only two kernel points along each half-chain and obtain
-    the other two by permuting coordinates. We have implemented this variant
-    as an option of our Rust port; it checks the condition at the gluing on
-    each signature and falls back to four points otherwise. In the session of
-    Section~\ref{sec:bench}, two-point verification with the check costs 60.6
-    megacycles at level I against 85.4 for the four-point verifier, 0.71 of
-    it, and 59.6 without the check, 0.70. In the port's tests, the two-point
-    and the four-point verifier return the same verdict and the same
-    rejection reason on the five level-I vectors and on 70 distinct tampered
-    inputs, and the same codomain null point at each of the 844 plain steps
-    of both half-chains over the five vectors, in both two-point modes.
-
-    \paragraph{Limitations}
-    There is only one implementation, and no independent round-3 dimension-4
-    signer to compare against. The SQIsignHD authors' verifier,
-    re-parameterized to our prime and otherwise unmodified, accepts our
-    signatures and rejects tampered ones~\cite{DLRW25}, which shows that it
-    agrees with our verifier on our signer's output and nothing more. Levels
-    III and V are derived in Table~\ref{tab:params} but not built, and the
-    bit-packed layout of Section~\ref{sec:dim4} is specified and sized but not
-    implemented. Constant-time execution was not attempted for the
-    dimension-4 signer or verifier: the verifier's integer arithmetic on the
-    degree is variable-time on public data, and {\SQIsign} signing is
-    variable-time by design in the reference as well. The security argument is
-    SQIsignHD's with our parameters substituted and has not been re-examined;
-    the existence of a good degree in every class is a heuristic in their
-    paper and remains one here. The two-point verifier is tested at level I
-    only, on five vectors and their tampered variants, and is not the
-    default; {\color{red}its
-        correctness for every input rests on the conformance of the implementation
-        to the algorithm of Theorem~\ref{thm:base}, which is checked only in part
-        (Remark~\ref{rem:conformance})}. The format is experimental and not for
-    production.
-
-    \paragraph{Outlook}
-    Each limitation above is also a next step. Beyond them, faster dimension-4
-    arithmetic would narrow the gap in verification cost, which decides
-    whether the 58 bytes saved at level I are worth having, and there is
-    reason to expect room. MIKE's chain costs about 0.07 megacycles per step
-    at level I, against about 0.49 for our four-point verifier and 0.35 for
-    the two-point one (85.4 and 60.6 megacycles over $2 \cdot 87$ steps). The
-    comparison is loose, since MIKE works over $\mathbb{F}_p$ on a different
-    processor and our verifier also evaluates a point for its image check,
-    but it suggests that much of our 6.4-fold penalty lies in the
-    implementation rather than in the dimension (measured below: 1.18 of the
-    counted floor at our own operation count). MIKE's computation of each
-    codomain from two points and its faster doubling on the quotient by the
-    automorphism~\cite[Appendix E.2]{BDD+26} would save more than our
-    two-point verifier, and its observation that additions, not
-    multiplications, are a significant share of the cost of dimension-4 theta
-    arithmetic~\cite[Section 6]{BDD+26} points toward field representations
-    and vectorization tuned to the Hadamard transform.
-
-    In our two-point verifier the plain dimension-4 steps are 67.1 percent of
-    the cost (point pushes 44.9 percent, codomain computations 22.2 percent),
-    the setup before the chain 19.6 percent, the dimension-2 gluing chain 0.9
-    percent, the image check 6.5 percent and the gluing 6.0 percent, measured
-    in the session of Section~\ref{sec:bench} (basis generation 7.48
-    megacycles, Cornacchia and kernel setup 4.23, dimension-2 steps 0.52,
-    gluing 3.60, point pushes 26.88, codomain computations 13.28, image check
-    3.87; the whole call 60.37); the codomain computations, 33.1 percent of
-    the plain steps, are the part a codomain-from-two-points step would
-    address.
-
-    The two-point verifier's operation count, taken with counters in the
-    field arithmetic at the session's commit, is 132\,921 multiplications,
-    91\,426 squarings, 435\,363 additions, 54 inversions and 11 square roots
-    in $\mathbb{F}_{p^2}$ per verification, 51.0 megacycles at the session's
-    per-operation costs; at the reference count of our floor table, which
-    takes a hand count of the SQIsignHD library's code where that count is
-    below ours and our own count elsewhere, the same costs give 50.8.
-    Measured in the same session, the verifier runs at 1.18 of the former
-    floor and 1.19 of the latter, 9.6 megacycles above the latter, 5.8 of
-    them in the two plain-step phases (1.15 for the point pushes, 1.21 for
-    the codomains; 1.12 for the basis, 1.16 for the setup, 1.35 for the
-    gluing, 1.16 for the image check). What remains is the sixteen-coordinate
-    arithmetic of the plain steps on general points: their operation count
-    is the library's, and the gap sits inside the Hadamard transform and the
-    squaring kernels.
-
-    Three years separate the break of SIDH from a two-dimensional {\SQIsign} in
-    a NIST round, and one more separates that from primes moved by a new
-    attack on the isogeny-path problem. Every construction in this paper is
-    young, ours included, and the numbers describe code as it stood in
-    November 2026, not a settled design; that is the reason for caution in
-    using any of it.
-
-
-    \bibliographystyle{alpha}
-    \bibliography{Dim4SQI}
-
-    \appendix
-
-    \section{The order-4 symmetry of the verifier's chain}
-    \label{app:symmetry}
-
-    This appendix proves that the verifier's chain respects an automorphism of
-    order 4 and that, for the algorithm the verifier implements, the
-    automorphism acts on the theta coordinates of every fourfold from the
-    gluing on as one fixed permutation (Theorem~\ref{thm:base}). This is what
-    lets the two-point verifier of Section~\ref{sec:conc} apply MIKE's saving
-    of two kernel points out of four~\cite[Appendix E.2]{BDD+26} to the
-    verifier of Section~\ref{sec:dim4}. Section~\ref{app:remains} separates
-    what is established about our implementation from what remains unproven.
-
-    \paragraph{Notation}
+    \subsection{Notation}
+    \label{sec:sym-notation}
     Throughout, $E$ denotes a supersingular elliptic curve over
     $\mathbb{F}_{p^2}$ and $E^2 = E \times E$. Homomorphisms between squares of
     curves are written as $2 \times 2$ matrices whose entries are homomorphisms
@@ -848,15 +537,20 @@
     polarizations, the dual of a matrix is the transpose of the matrix of
     duals; in particular the dual of an integer matrix is its transpose. We
     write $\Echl$ for the challenge curve, $\Ecom$ for the commitment curve,
-    $\sigma \colon \Echl \to \Ecom$ for the response, of odd degree $q$, and
-    $a_1, a_2$ for integers with $a_1^2 + a_2^2 = 2^e - q$, as in
-    Section~\ref{sec:dim4}. Finally
+    $\sigma \colon \Echl \to \Ecom$ for the response, of odd degree $q$, and $a_1, a_2$ for integers with $a_1^2 +
+    a_2^2 = 2^e - q$, as in Section~\ref{sec:dim4}. We orient $\sigma$ from
+    $\Echl$ to $\Ecom$, the reverse of the usual presentation of the response
+    as a map from the commitment curve to the challenge curve; the transmitted
+    action is then that of its dual $\widehat\sigma$, and nothing below depends
+    on this choice. Finally
     \[
     A_1 = \Echl^2, \qquad A_2 = \Ecom^2, \qquad A = A_1 \times A_2,
     \]
     so that $A$ is the abelian fourfold on which the verifier's chain starts.
 
     \subsection{The automorphism \texorpdfstring{$J$}{J} of \texorpdfstring{$E^2$}{E\^{}2}}
+    \label{app:J}
+    We begin on a single square $E^2$.
 
     \begin{definition}
         On any square $E^2$, let
@@ -887,23 +581,12 @@
         \end{enumerate}
     \end{lemma}
 
-    \begin{proof}
-        (i) $J^2(P, Q) = J(Q, -P) = (-P, -Q)$. (ii) We have
-        \[
-        (a_1 + a_2 J)(P, Q) = \bigl([a_1]P + [a_2]Q, \; -[a_2]P + [a_1]Q\bigr),
-        \]
-        which is $\alpha(P, Q)$; the dual
-        of an integer matrix is its transpose, and $J^{\mathsf{T}} = -J$. (iii)
-        $(a_1 + a_2 J)(a_1 - a_2 J) = a_1^2 - a_2^2 J^2 = a_1^2 + a_2^2$, since
-        $J$ commutes with integers. (iv) $J^{\mathsf{T}} J = 1$ by direct
-        computation, and an automorphism $\gamma$ preserves the polarization
-        exactly when $\widehat{\gamma}\gamma = 1$.
-    \end{proof}
 
     \subsection{The verifier's isogeny commutes with \texorpdfstring{$D$}{D}}
     \label{app:kani}
 
-    Write $\Sigma = \operatorname{diag}(\sigma, \sigma) \colon A_1 \to A_2$, the
+    We now show that the verifier's isogeny commutes with $D =
+    \operatorname{diag}(J, J)$. Write $\Sigma = \operatorname{diag}(\sigma, \sigma) \colon A_1 \to A_2$, the
     map $\sigma \oplus \sigma$ of Figure~\ref{fig:kani}, so that
     $\widehat{\Sigma} = \operatorname{diag}(\widehat{\sigma},
     \widehat{\sigma})$. Consider the Kani endomorphism~\cite[Section 4]{DLRW24}
@@ -934,43 +617,15 @@
         $2^{4e}$, and $\ker F = \widehat{F}\bigl(A[2^e]\bigr)$.
     \end{lemma}
 
-    \begin{proof}
-        Every entry of $F$ and $\widehat{F}$ is an integer matrix or a
-        componentwise map $\operatorname{diag}(\psi, \psi)$, and these commute with
-        each other: for an integer matrix $M$ and any homomorphism $\psi$ of
-        curves, $\operatorname{diag}(\psi, \psi) M = M \operatorname{diag}(\psi,
-        \psi)$, because $\psi$ is a group homomorphism. The diagonal blocks of
-        $\widehat{F} F$ are $\widehat{\alpha}\alpha + \widehat{\Sigma}\Sigma =
-        (2^e - q) + q = 2^e$ and $\Sigma\widehat{\Sigma} + \alpha\widehat{\alpha}
-        = 2^e$, by Lemma~\ref{lem:J}(iii) and $\widehat{\sigma}\sigma =
-        \sigma\widehat{\sigma} = q$; the off-diagonal blocks are
-        $\widehat{\alpha}\widehat{\Sigma} - \widehat{\Sigma}\widehat{\alpha} = 0$
-        and $\Sigma\alpha - \alpha\Sigma = 0$. The same holds for
-        $F\widehat{F}$. Then $(\deg F)^2 = \deg [2^e] = 2^{8e}$ on a fourfold, so
-        $\deg F = 2^{4e}$. Finally $\widehat{F}(A[2^e]) \subseteq \ker F$ because
-        $F\widehat{F} = 2^e$, and both groups have $2^{4e}$ elements, since
-        $\ker \widehat{F} \subseteq A[2^e]$ has $2^{4e}$ elements and
-        $|A[2^e]| = 2^{8e}$.
-    \end{proof}
 
     \begin{proposition}
         \label{prop:commute}
         $F \circ D = D \circ F$. In particular $\ker F$ is stable under $D$.
     \end{proposition}
 
-    \begin{proof}
-        Since $D = \operatorname{diag}(J, J)$, the identity $FD = DF$ holds block
-        by block exactly when each block of $F$ commutes with $J$. The blocks
-        $\alpha$ and $\widehat{\alpha}$ are polynomials in $J$
-        (Lemma~\ref{lem:J}(ii)), and $\Sigma$, $\widehat{\Sigma}$ are componentwise
-        maps, which commute with every integer matrix (proof of
-        Lemma~\ref{lem:kani}). Explicitly, $J\Sigma(P, Q) = J(\sigma P, \sigma Q)
-        = (\sigma Q, -\sigma P) = \Sigma(Q, -P) = \Sigma J(P, Q)$. If $F(x) = 0$
-        then $F(D x) = D F(x) = 0$. The blocks of $\widehat F$ are of the same
-        kinds, so $\widehat F D = D \widehat F$ as well.
-    \end{proof}
 
     \subsection{Consequences along the chain}
+    \label{app:chain}
 
     The verifier computes $F$ as a chain of $e$ isogenies of degree 2. Write
     $K = \ker F$ and, for $0 \le k \le e$, let $F_k \colon A \to A_k =
@@ -986,129 +641,28 @@
         $A_k$.
     \end{proposition}
 
-    \begin{proof}
-        $D$ is a group automorphism with $D(K) = K$
-        (Proposition~\ref{prop:commute}), hence $D([2^{e-k}]K) = [2^{e-k}]K$, so
-        $F_k \circ D$ vanishes on $\ker F_k$ and factors as $D_k \circ F_k$; $D_k$
-        is an automorphism because $D$ is. The identities $D_k^2 = -1$ and
-        $\widehat{D_k} = -D_k$ follow from $D^2 = -1$ and $\widehat{D} = -D$
-        (Lemma~\ref{lem:J}) by uniqueness of the factorization. The principal
-        polarization of $A_k$ is the one induced from $2^k$ times that of $A$
-        through the isotropic kernel $\ker F_k$; $D$ preserves both, so $D_k$
-        preserves the induced one.
-    \end{proof}
-
-    \begin{remark}[The module viewpoint]
-        \label{rem:module}
-        The varieties here are maximal: each curve has $(p+1)^2$ points over
-        $\mathbb{F}_{p^2}$. By the anti-equivalence $A \mapsto M_A =
-        \operatorname{Hom}(A, E_0)$ of~\cite[Theorem 2.5]{PRS26}, under which
-        principal polarizations correspond to unimodular Hermitian forms $H_A$ and
-        isogenies to module monomorphisms~\cite[Table 1]{PRS26}, the automorphism
-        $D$ corresponds to $f \mapsto f \circ D$ on $M_A$, which preserves $H_A$
-        by Lemma~\ref{lem:J}(iv) and squares to $-1$. The partial chain $F_k$
-        corresponds to the inclusion $\psi_k \colon M_{A_k} \hookrightarrow M_A$,
-        $f \mapsto f \circ F_k$, whose image consists of the morphisms vanishing on
-        $\ker F_k$. Since $D(\ker F_k) = \ker F_k$, that image is stable under
-        $f \mapsto f \circ D$, and $f \circ D_k \circ F_k = f \circ F_k \circ D$
-        shows that $D_k$ corresponds to the restriction of $f \mapsto f \circ D$
-        to it. This is Proposition~\ref{prop:descent} in module form: $D$
-        descends along the chain exactly because each partial kernel, equivalently
-        each image submodule, is $D$-stable.
-    \end{remark}
-
-    \begin{proposition}
-        \label{prop:weil}
-        Every $A_k$ is of Weil type in the sense of~\cite[Definition 4.1]{BDD+26}:
-        $D_k$ embeds $\mathbb{Z}[i]$ in $\operatorname{End}(A_k)$, with
-        $i \mapsto D_k$, and acts on the tangent space at the origin with
-        eigenvalues $i, i, -i, -i$.
-    \end{proposition}
-
-    \begin{proof}
-        On the tangent space of $E^2$ the differential of $J$ is the matrix
-        $\left(\begin{smallmatrix} 0 & 1 \\ -1 & 0 \end{smallmatrix}\right)$,
-        whose eigenvalues are $i$ and $-i$; these lie in $\mathbb{F}_{p^2}$ because
-        $p \equiv 3 \pmod 4$. Hence $D = \operatorname{diag}(J, J)$ has eigenvalues
-        $i, i, -i, -i$ on the tangent space of $A$. Isogenies of degree a power of
-        2 are separable in odd characteristic, so the differential of $F_k$ is an
-        isomorphism, and it intertwines $D$ with $D_k$
-        (Proposition~\ref{prop:descent}); the eigenvalues are therefore the same.
-        This is the argument of~\cite[proof of Proposition G.1]{BDD+26}.
-    \end{proof}
 
     \begin{proposition}
         \label{prop:forged}
         For any matrix the verifier receives, honest or not, the kernel it builds
         is stable under $D$. Whenever that kernel defines a chain, that is, when it
-        is maximal isotropic and the computation succeeds, the conclusions of
-        Propositions~\ref{prop:descent} and~\ref{prop:weil} hold for that chain.
+        is maximal isotropic and the computation succeeds, the conclusion of
+        Proposition~\ref{prop:descent} holds for that chain.
     \end{proposition}
 
-    \begin{proof}
-        The verifier builds its kernel from the transmitted action rather than
-        from $\sigma$: the transmitted matrix defines a map $\sigma'$ on the
-        $2^r$-torsion (the map $\tau$ of Section~\ref{app:conjecture}, with the
-        curves exchanged as in Section~\ref{app:kani}), and the verifier uses $\Sigma' = \operatorname{diag}(\sigma',
-        \sigma')$ in place of $\Sigma$. Like $\Sigma$, the map $\Sigma'$ acts
-        componentwise, so it commutes with $J$, and the kernel generators
-        $(\widehat{\alpha}(x), \Sigma'(x))$ satisfy $D(\widehat{\alpha}(x),
-        \Sigma'(x)) = (\widehat{\alpha}(Jx), \Sigma'(Jx))$, which is again of that
-        form. The proofs of Propositions~\ref{prop:descent} and~\ref{prop:weil} use
-        only that the kernel is $D$-stable and that the chain has 2-power degree.
-    \end{proof}
-
-    \subsection{The kernel as a module over \texorpdfstring{$\mathbb{Z}[i]$}{Z[i]}}
-
-    Let $R_e = (\mathbb{Z}/2^e)[i]$, acting on $2^e$-torsion with $i$ acting as
-    $J$ (or $D$).
-
-    \begin{lemma}
-        \label{lem:free}
-        $E^2[2^e]$ is a free $R_e$-module of rank 2, and so is $\ker F$.
-    \end{lemma}
-
-    \begin{proof}
-        Let $(S, T)$ be a basis of $E[2^e]$. Since $J(S, 0) = (0, -S)$ and
-        $J(T, 0) = (0, -T)$, the four points
-        $(S, 0), (T, 0), (0, S), (0, T)$, which form a $\mathbb{Z}/2^e$-basis of
-        $E^2[2^e]$, are $(S, 0)$, $(T, 0)$, $-J(S, 0)$ and $-J(T, 0)$; so $(S, 0)$ and $(T, 0)$ form an $R_e$-basis. For the kernel,
-        consider
-        \[
-        \iota \colon A_1[2^e] \to A, \qquad
-        \iota(x) = \widehat{F}(x, 0) = \bigl(\widehat{\alpha}(x), \Sigma(x)\bigr).
-        \]
-        Its image lies in $\ker F$ by
-        Lemma~\ref{lem:kani}. It is injective, because $\widehat{\alpha}$ has odd
-        degree $(2^e - q)^2$ and is therefore injective on 2-power torsion. Its
-        domain has $2^{4e}$ elements, as does $\ker F$, so $\iota$ is a bijection
-        onto $\ker F$. Finally $\iota$ commutes with $J$, so it is $R_e$-linear, and
-        $\ker F \cong A_1[2^e] = \Echl^2[2^e]$ is free of rank 2.
-    \end{proof}
-
-    MIKE uses the corresponding statement about its own kernel~\cite[proof of
-    Corollary G.1]{BDD+26} to show that the pairing $e_{1+i}$ is alternate on
-    its fourfolds, which in turn is what makes its adapted theta coordinates
-    exist. On the starting fourfold $A$ the analogous pairing is alternate.
-
-    \begin{lemma}
-        \label{lem:alternate}
-        The Weil--Cartier pairing $e_{1+D}$ on $A[1 + D]$ is alternate.
-    \end{lemma}
-
-    \begin{proof}
-        It suffices to treat one square $E^2$, since $A$ is a product of two
-        and the pairings multiply. If $(1 + J)(P, Q) = (P + Q, Q - P) = 0$, then
-        $P = -Q$ and $2P = 0$, so $\ker(1 + J) = \{(u, u) : u \in E[2]\}$. With
-        the formula of~\cite[proof of Corollary G.1]{BDD+26},
-        $e_{1+J}(x, x) = e_2(J x_0, x_0)$ for any $x_0$ with $(1 + J) x_0 = x$.
-        For $x = (u, u)$ take $x_0 = (0, u)$, since $(1 + J)(0, u) = (0, u) +
-        (u, 0) = (u, u)$. Then $e_2(J x_0, x_0) = e_2\bigl((u, 0), (0, u)\bigr) =
-        e_2(u, 0)\, e_2(0, u) = 1$.
-    \end{proof}
 
     \subsection{The verifier's theta coordinates}
     \label{app:coords}
+
+    Informally, a level-2 theta structure on a fourfold is a choice of
+    coordinates: the sixteen functions $\theta_a$, determined up to a common
+    scalar by a basis of the 4-torsion that is compatible with the Weil pairing.
+    Changing the basis changes the coordinates by an explicit linear map
+    (Lemma~\ref{lem:indexperm}), and an automorphism that permutes the basis
+    permutes the coordinates (Lemma~\ref{lem:transport}). The verifier never
+    chooses these bases freely: each step of its chain hands a basis to the
+    next (the index convention below), and this is what lets us follow $D$
+    from one fourfold to the next.
 
     This subsection proves how $D$ acts in level-2 theta coordinates once it
     acts correctly on the basis inducing them; Section~\ref{app:conjecture}
@@ -1163,10 +717,6 @@
         index bits of the square, with no scalars.
     \end{lemma}
 
-    \begin{proof}
-        $\theta_{(i,j)}(Q, -P) = \theta_i(Q)\,\theta_j(-P) = \theta_j(P)\,
-        \theta_i(Q)$, because level-2 theta functions are even.
-    \end{proof}
 
     \begin{lemma}[Change of structure]
         \label{lem:indexperm}
@@ -1198,45 +748,6 @@
         \end{enumerate}
     \end{lemma}
 
-    \begin{proof}
-        The hypotheses of~\cite[Theorem 12]{Dar24} are: $\mathcal L$ totally
-        symmetric, here of type $\delta = (2, 2, 2, 2)$; a symmetric pair of theta
-        structures for $(\mathcal L, \mathcal L^2)$, which $B$ provides
-        by~\cite[Theorem 5]{Dar24}; $\zeta$ a primitive $2 d_g$-th root of unity,
-        here $d_g = 2$; and a symmetric automorphism $\psi$ of the Heisenberg
-        group whose matrix in the $\zeta$-canonical basis is $M$, which exists
-        because symmetric automorphisms surject onto
-        $\mathrm{Sp}_8(\mathbb Z/4)$~\cite[Section 2.11]{Dar24}. Composing with
-        $\psi$ maps the $\zeta$-canonical basis to $BM$, so the new structure is
-        the one induced by $BM$, and it depends on $M$ only~\cite[Theorem
-        5(ii)]{Dar24}. With these identifications, and with Dartois's blocks
-        $\left(\begin{smallmatrix} A & C \\ B & D \end{smallmatrix}\right)$
-        written $\left(\begin{smallmatrix} U & V \\ W & U' \end{smallmatrix}\right)$,
-        Theorem~12 of~\cite{Dar24} is the displayed formula, with
-        $\langle \cdot | \cdot \rangle$ the standard product since all $d_l = 2$.
-        Its condition on $\mathbf i_0$ is a condition on sections: the proof
-        obtains $\theta'_0 = \lambda T_{\mathbf i_0}$ from~\cite[Proposition
-        8]{Dar24}, for any $\mathbf i_0$ with $T_{\mathbf i_0} \neq 0$. Since
-        $\theta'$ is determined by the new structure up to a scalar, the choice
-        of admissible $\mathbf i_0$ does not matter.
-
-        (i) This is~\cite[Lemma 11]{Dar24} with $\Delta = 1$: $U^{\mathsf T} U' -
-        W^{\mathsf T} V \equiv 1 \pmod 4$. (ii) With $V = 0$ we have
-        $\zeta^{-2\langle \mathbf i_0 | U'\mathbf j\rangle} = (-1)^{\langle
-            U'^{\mathsf T} \mathbf i_0 | \mathbf j \rangle}$, so $T_{\mathbf i_0} =
-        \theta^B_{\mathbf i_0} \sum_{\mathbf j} (-1)^{\langle U'^{\mathsf T}
-            \mathbf i_0 | \mathbf j\rangle}$. By (i), $U'$ is invertible modulo 2,
-        so the sum is 16 for $\mathbf i_0 = 0$ and 0 otherwise. The sixteen
-        $\theta^B_a$ form a basis of the sections of $\mathcal L$~\cite[Section
-        2.4]{Dar24} and $16 \neq 0$ in odd characteristic, so $T_0 = 16
-        \theta^B_0 \neq 0$. The condition concerns the section $\theta^B_0$, not
-        its value at the origin, so it holds even where the theta null point has
-        $\theta^B_0(0) = 0$. (iii) With $V = 0$ and $\mathbf i_0 = 0$ the exponent
-        is $\mathbf i^{\mathsf T}(1 - U^{\mathsf T} U')\mathbf j - \langle
-        U\mathbf i | W\mathbf i\rangle$ for any integer lifts of $\mathbf i,
-        \mathbf j$, and the first term vanishes modulo 4 by (i). The summand no
-        longer depends on $\mathbf j$, and the factor 16 goes into $\lambda$.
-    \end{proof}
 
     \begin{lemma}[Transport]
         \label{lem:transport}
@@ -1255,68 +766,7 @@
         through the inverse of the matrix by which it acts on $B$.
     \end{lemma}
 
-    \begin{proof}
-        Since $\varphi$ preserves the polarization, it preserves the Weil pairing
-        $e_4$, so $\varphi(B)$ is $\zeta$-symplectic. Next, $\varphi^*\mathcal L
-        \cong \mathcal L$. Indeed $\varphi^*\mathcal L_0$ is symmetric, because
-        $\varphi$ commutes with $[-1]$, and algebraically equivalent to $\mathcal
-        L_0$, because $\varphi$ preserves the polarization; so $\varphi^*\mathcal
-        L_0 \cong t_x^*\mathcal L_0$ for some $x$ with $2x = 0$, and then
-        $\varphi^*\mathcal L \cong t_x^*(\mathcal L_0^2) \cong \mathcal L$,
-        since $A'[2]$ is the kernel of the polarization of $\mathcal L_0^2$.
 
-        Fix an isomorphism $\beta \colon \varphi^*\mathcal L \to \mathcal L$.
-        The pair $(\varphi, \beta)$ is an instance of the situation $(*)$
-        of~\cite[p.~290]{Mum66}, with $\pi = \varphi$ an isomorphism, so that its
-        kernel and the corresponding level subgroup are trivial.
-        By~\cite[Proposition 2, p.~291]{Mum66} it induces an isomorphism $\tau$
-        of the theta group of $\mathcal L$ lying over $\varphi$ (Mumford's map
-        (2) on p.~302, the map $\alpha_f$ of~\cite[proof of Theorem 56]{DLRW24}),
-        and $(\varphi, \beta^{\otimes 2})$ likewise induces $\tau_2$ on the theta
-        group of $\mathcal L^2$. Mumford states~\cite[p.~312, diagram (s), with
-        $n = 2$]{Mum66}, for every separable isogeny, that these maps commute
-        with his maps $\varepsilon_2$ and $\eta_2$~\cite[pp.~309--311]{Mum66}.
-        They therefore commute with $\delta_2 = \eta_2 \circ
-        \varepsilon_2$~\cite[Proposition 5(iii), p.~311]{Mum66} on both theta
-        groups, and hence with $\delta_{-1}$, since $\delta_2(z) = z^3
-        \delta_{-1}(z)$~\cite[p.~312]{Mum66}. Write the compatible pair of
-        symmetric theta structures induced by $B$ as Mumford's isomorphisms $j_1$
-        and $j_2$ from the theta groups of $\mathcal L$ and $\mathcal L^2$ onto
-        his standard groups of types $(2, 2, 2, 2)$ and $(4, 4, 4,
-        4)$~\cite[p.~317]{Mum66}. By these commutations, $(j_1 \circ \tau^{-1},
-        j_2 \circ \tau_2^{-1})$ is again a compatible pair of symmetric theta
-        structures in the sense of~\cite[p.~317]{Mum66}. Since $\tau_2$ lies over
-        $\varphi$, its symplectic isomorphism onto $A'[4]$ maps the
-        $\zeta$-canonical basis to $\varphi(B)$, so by~\cite[Theorem
-        5(ii)]{Dar24} $j_1 \circ \tau^{-1}$ is the structure induced by
-        $\varphi(B)$. Finally, Mumford's isogeny theorem~\cite[Theorem 4,
-        pp.~302--303]{Mum66}, applied to $(\varphi, \beta)$ with trivial kernel
-        and with the structure $j_1 \circ \tau^{-1}$ on the target, so that the
-        map $\sigma$ there is the identity, shows that $\varphi^*$ maps the
-        section with coordinates $f$ for the structure induced by $\varphi(B)$ to
-        $c$ times the section with coordinates $f$ for the structure induced by
-        $B$, for a constant $c \in \Bbbk^*$. In the form of~\cite[Theorem
-        3]{Dar24}, this is $\theta^{\varphi(B)}_a \circ \varphi = c\,
-        \theta^B_a$ for all $a$, that is, $\theta^{\varphi(B)}_a(\varphi(z)) = c\,
-        \theta^B_a(z)$, which is the first assertion.
-
-        For the second, Lemma~\ref{lem:indexperm} with $V = W = 0$ gives
-        $\theta^{BM}_a = \lambda\, \theta^B_{Ua}$. Hence $\theta^B_a(z) = c^{-1}
-        \theta^{\varphi(B)}_a(\varphi(z)) = c^{-1}\lambda\, \theta^B_{Ua}
-        (\varphi(z))$, and putting $b = Ua$, which runs over all indices because
-        $U$ is invertible modulo 2, $\theta^B_b(\varphi(z)) = c \lambda^{-1}
-        \theta^B_{U^{-1} b}(z)$.
-    \end{proof}
-
-    As a check on the direction, consider $E^2$ with the product structure of
-    Lemma~\ref{lem:product}, induced by $s = ((T_1, 0), (0, T_1))$ and $t =
-    ((T_2, 0), (0, T_2))$ for a basis $(T_1, T_2)$ of $E[4]$. Then $J s = s U$
-    and $J t = t U$ with $U = \left(\begin{smallmatrix} 0 & 1 \\ -1 & 0
-    \end{smallmatrix}\right)$, and $U^{-1}$ exchanges the two index bits, as
-    Lemma~\ref{lem:product} says. There $U^{-1}$ and $U$ induce the same
-    permutation, as they will for the matrix $U$ of
-    Lemma~\ref{lem:paired} below, whose reduction modulo 2 is an involution; the
-    inverse matters only for permutations of larger order.
 
     \begin{lemma}[One step]
         \label{lem:onestep}
@@ -1329,12 +779,6 @@
         the structure of $A_{k+1}$, by the same block matrix modulo 4.
     \end{lemma}
 
-    \begin{proof}
-        By Proposition~\ref{prop:descent}, $D_{k+1} \circ f = f \circ D_k$. The
-        hypothesis on $s$ is an identity between points of $A_k[4]$, so
-        $D_{k+1} f(s) = f(D_k s) = f(s)\, U$; and $D_{k+1} f(T'') = f(D_k T'') =
-        f(T'')\, U$ exactly.
-    \end{proof}
 
     The 8-torsion points $T''$ of the hypothesis are the chain's kernel
     generators, doubled and pushed to step $k$. Since every step commutes with
@@ -1351,26 +795,10 @@
         Then on every fourfold of that half-chain from the gluing codomain on,
         $D_k$ acts on the level-2 theta coordinates as $\pi$, that is,
         $\theta_a(D_k z) = \mu_k\, \theta_{\pi(a)}(z)$ for all $z$ and $a$, and the
-        two-point chain of Section~\ref{sec:conc} computes the same kernels,
+        two-point chain of Section~\ref{sec:twopoint-alg} computes the same kernels,
         isogenies and codomains as the four-point chain.
     \end{theorem}
 
-    \begin{proof}
-        Lemma~\ref{lem:onestep}, with the pairing of the pushed generators noted
-        above, carries the block action from the gluing codomain to every later
-        fourfold of the half-chain. On each of them, Lemma~\ref{lem:transport}
-        turns it into $\theta_a(D_k z) = \mu_k\, \theta_{U^{-1} a}(z)$. Modulo 2,
-        $U^{-1} = U^{\mathsf T}$ is the permutation matrix of $(0\;2)(1\;3)$, so
-        by the index convention $U^{-1} a = \pi(a)$. The step from $A_k$ uses the
-        8-torsion points $T''_0, \ldots, T''_3$ above the kernel, and $T''_2 = \pm
-        D_k T''_0$, $T''_3 = \pm D_k T''_1$. Since level-2 theta functions are
-        even, $\theta(T''_2) = \theta(D_k T''_0) = \mu_k\, \pi(\theta(T''_0))$,
-        and likewise for $T''_3$. The two-point chain uses
-        $\pi(\theta(T''_0))$ and $\pi(\theta(T''_1))$ in place of the theta
-        coordinates of $T''_2$ and $T''_3$: the same projective points, hence the
-        same kernel, isogeny and codomain, and the doublings and images it
-        computes for $T''_0$, $T''_1$ are those of the four-point chain.
-    \end{proof}
 
     \begin{lemma}[The structured kernel block]
         \label{lem:block}
@@ -1378,16 +806,18 @@
         matrix is the coefficient of the base point $\lfloor r/4 \rfloor$ on copy
         $r \bmod 4$, with copies $0, 1$ on $\Ecom$ and $2, 3$ on $\Echl$, $D$ acts
         on coefficient vectors by $(v_0, v_1, v_2, v_3) \mapsto (v_1, -v_0, v_3,
-        -v_2)$ on each half. On the kernel block of the starting matrix (the
-        columns $(a_1, a_2, 1, 0)$, $(-a_2, a_1, 0, 1)$ in the first half and
-        their analogs with $q$ in the second), this maps the first column to
-        minus the third and the second to minus the fourth.
+        -v_2)$ on each half. The kernel block of the starting matrix has the
+        columns, in this order,
+        \begin{gather*}
+        g_0 = (a_1, a_2, 1, 0 \mid 0, 0, 0, 0), \qquad
+        g_1 = (0, 0, 0, 0 \mid a_1, a_2, q, 0), \\
+        g_2 = (-a_2, a_1, 0, 1 \mid 0, 0, 0, 0), \qquad
+        g_3 = (0, 0, 0, 0 \mid -a_2, a_1, 0, q),
+        \end{gather*}
+        where the bar separates the two halves, and $D$ maps $g_0$ to $-g_2$ and
+        $g_1$ to $-g_3$.
     \end{lemma}
 
-    \begin{proof}
-        $(a_1, a_2, 1, 0) \mapsto (a_2, -a_1, 0, -1) = -(-a_2, a_1, 0, 1)$, and
-        likewise for the columns supported on the second half.
-    \end{proof}
 
     The verifier's generators are not this block, however: they are columns
     of matrices obtained from it through generic symplectic completions, as
@@ -1402,16 +832,16 @@
     matrices, whatever symplectic completion it uses, and for every input for
     which its half-chains are defined. Whether our implementation computes
     those structures is a separate question, taken up in
-    Section~\ref{app:remains}.
+    Appendix~\ref{app:remains}.
 
     \paragraph{Base points}
     Let $(P, Q)$ be the basis of $\Echl[2^r]$ and $(R, S)$ the basis of
     $\Ecom[2^r]$ that the verifier uses, and $k$ the integer with $e(R, S) =
     e(P, Q)^k$, where $e$ is the Weil pairing on $2^r$-torsion; $k$ is odd
-    because both pairings have exact order $2^r$ (Section~\ref{sec:dim4}). The
+    because both pairings have exact order $2^r$ (Section~\ref{sec:wire}). The
     verifier reads the transmitted matrix $\left(\begin{smallmatrix} a & b \\ c &
         d \end{smallmatrix}\right)$, completed by the rule of
-    Section~\ref{sec:dim4}, as the homomorphism $\tau \colon \Ecom[2^r] \to
+    Section~\ref{sec:wire}, as the homomorphism $\tau \colon \Ecom[2^r] \to
     \Echl[2^r]$ with $\tau(R) = aP + bQ$ and $\tau(S) = cP + dQ$; for an honest
     signature, $\tau$ is the restriction of the dual $\widehat\sigma$ of the
     response. Let $\lambda \equiv q^{-1} \pmod{2^r}$. The base points are $R$
@@ -1426,7 +856,7 @@
 
     \begin{lemma}[Base points]
         \label{lem:basepoints}
-        Suppose that $q$ is odd and that the rule of Section~\ref{sec:dim4} is
+        Suppose that $q$ is odd and that the rule of Section~\ref{sec:wire} is
         defined, that is, the entry it inverts is odd. Then $e(\tau R, \tau S) =
         e(R, S)^q$, the points $b_0, \ldots, b_7$ form a basis of $A[2^r]$, and,
         for the pairing $e_A$ of the product polarization and $\zeta = e(R, S)$,
@@ -1438,15 +868,6 @@
         $\zeta$-symplectic basis of $A[2^r]$.
     \end{lemma}
 
-    \begin{proof}
-        The rule enforces $ad - bc \equiv kq \pmod{2^r}$, so by bilinearity
-        $e(\tau R, \tau S) = e(P, Q)^{ad - bc} = e(P, Q)^{kq} = e(R, S)^q$. Hence
-        $e(\tau R, \lambda \tau S) = \zeta^{q\lambda} = \zeta$, which has order
-        $2^r$, so $\tau R$ and $\lambda \tau S$ form a basis of $\Echl[2^r]$. The
-        pairing $e_A$ is the product of the pairings on the four copies, so
-        $e_A(b_n, b_{n+4}) = \zeta$ for $0 \le n \le 3$, while two base points on
-        different copies, or equal ones, pair to 1. Bilinearity gives the formula.
-    \end{proof}
 
     When $q$ is even, or the entry the rule inverts is even, the rule is not
     defined and the verifier rejects; such inputs are not among those for which
@@ -1505,25 +926,6 @@
         \end{equation}
     \end{lemma}
 
-    \begin{proof}
-        On the first coefficients of each copy, $\tau$ acts as 1 and
-        $\widehat\tau$ as $q$; on the second coefficients, $\tau$ acts as $q$ and
-        $\widehat\tau$ as 1. Substituting these into $F$ and $\widehat F$ gives the
-        blocks. Since $\alpha\widehat\alpha = \widehat\alpha\alpha = a_1^2 + a_2^2$
-        (Lemma~\ref{lem:J}(iii)) and integers commute with everything,
-        multiplying the $2 \times 2$ blocks gives $F_i \widehat F_i = \widehat F_i
-        F_i = (a_1^2 + a_2^2 + q) I$ for $i = 1, 2$. The blocks satisfy $\widehat
-        F_2 = F_1^{\mathsf T}$ and $\widehat F_1 = F_2^{\mathsf T}$, because
-        $\widehat\alpha = \alpha^{\mathsf T}$; this says $F^{\mathsf T} \Omega =
-        \Omega \widehat F$, that is, $\omega(F u, v) = \omega(u, \widehat F v)$. On
-        coefficient vectors $\tilde D = \operatorname{diag}(K, K)$ with $K =
-        \operatorname{diag}(J, J)$ and $J = \left(\begin{smallmatrix} 0 & 1 \\ -1 &
-            0 \end{smallmatrix}\right)$ (Lemma~\ref{lem:block}). The blocks $\alpha =
-        a_1 + a_2 J$ and $\widehat\alpha = a_1 - a_2 J$ commute with $J$, and so
-        do integers, so $K$ commutes with $F_1$, $F_2$, $\widehat F_1$ and $\widehat
-        F_2$. Finally $K^{\mathsf T} K = I$, so $\tilde D^{\mathsf T} \Omega \tilde
-        D = \Omega$.
-    \end{proof}
 
     In particular the first kernel block of Lemma~\ref{lem:block} is $X^{(1)}
     = \widehat F E$, where $E$ is the matrix with columns the standard basis
@@ -1547,22 +949,6 @@
         YU)$, a $4 \times 4$ matrix over $\mathbb Z/2^r$.
     \end{lemma}
 
-    \begin{proof}
-        A symplectic matrix is invertible, so its columns form a basis, and the
-        span of $X$ is a free direct summand with complement the span of $Y$. It
-        is isotropic, since $\omega(X, X) = 0$. If $v = Y\mathbf a + X\mathbf b$ is
-        orthogonal to every column of $X$, then $0 = \omega(v, X) = \mathbf
-        a^{\mathsf T}$, so $v$ lies in the span of $X$: the summand is its own
-        orthogonal, that is, Lagrangian. Let $\Delta = \tilde D Y - YU$. Since
-        $\tilde D$ preserves $\omega$ and $U^{\mathsf T} U = I$,
-        \[
-        \omega(\Delta, XU) = \omega(\tilde D Y, \tilde D X) - U^{\mathsf T}
-        \omega(Y, X)\, U = I - U^{\mathsf T} U = 0,
-        \]
-        and $U$ is invertible, so every column of $\Delta$ is orthogonal to the
-        span of $X$ and lies in it: $\Delta = XS$, and $\omega(Y, \Delta) =
-        \omega(Y, X) S = S$.
-    \end{proof}
 
     \begin{lemma}[The generators are paired]
         \label{lem:paired}
@@ -1579,31 +965,6 @@
         Lemma~\ref{lem:anycompletion}.
     \end{lemma}
 
-    \begin{proof}
-        The verifier builds its matrices in four steps; we follow them.
-        (1) The first kernel block $X^{(1)}$ is that of Lemma~\ref{lem:block},
-        paired by $U$; its columns are columns of $\widehat F$, so $F X^{(1)} =
-        F \widehat F E = 2^e E = 0$, with $E$ as after Lemma~\ref{lem:kanimat}.
-        (2) Its completion $Y^{(1)}$ satisfies $\tilde D Y^{(1)} = Y^{(1)} U +
-        X^{(1)} S_1$ by Lemma~\ref{lem:anycompletion}.
-        (3) The second kernel block is $X^{(2)} = F Y^{(1)}$, and
-        $\tilde D X^{(2)} = F \tilde D Y^{(1)} = X^{(2)} U + F X^{(1)} S_1 =
-        X^{(2)} U$. It is isotropic, since $\omega(F Y^{(1)}, F Y^{(1)}) =
-        \omega(Y^{(1)}, \widehat F F Y^{(1)}) = 0$, and its completion $Y^{(2)}$
-        satisfies $\tilde D Y^{(2)} = Y^{(2)} U + X^{(2)} S_2$, again by
-        Lemma~\ref{lem:anycompletion}.
-        (4) The first half-chain's kernel columns are $X_1 = -\widehat F
-        Y^{(2)}$, and $\tilde D X_1 = -\widehat F Y^{(2)} U - \widehat F F
-        Y^{(1)} S_2 = X_1 U$, since $\widehat F F = 2^e = 0$. The matrix $M_1$ is
-        symplectic: $\omega(Y^{(1)}, X_1) = -\omega(F Y^{(1)}, Y^{(2)}) =
-        -\omega(X^{(2)}, Y^{(2)}) = \omega(Y^{(2)}, X^{(2)})^{\mathsf T} = I$ and
-        $\omega(X_1, X_1) = \omega(Y^{(2)}, F \widehat F Y^{(2)}) = 0$ by
-        \eqref{eq:kani-matrices}, while $\omega(Y^{(1)}, Y^{(1)}) = 0$ from step
-        (2). Lemma~\ref{lem:anycompletion} applied to $M_1$ and $M_2$ gives the
-        last assertion. Applying the columns to the base points, which are the
-        same on both copies of each curve, turns these identities into identities
-        between points.
-    \end{proof}
 
     \begin{definition}[The algorithm's theta structures]
         \label{def:structures}
@@ -1634,7 +995,9 @@
     and the kernel lifts second, the kernel of $\Phi_h$ is $2^{r - e_h}$ times
     the span of the kernel lifts, and the gluing uses the basis formed by
     $2^{r-2}\Phi_{h,m}$ of the completion and $2^{r-2-m}\Phi_{h,m}$ of the
-    kernel lifts, which is $B_{h,m}$. A step $f$ from $A_{h,k}$
+    kernel lifts, which is $B_{h,m}$; Proposition~\ref{prop:gluingbasis}
+    proves that the change of basis the algorithm applies at the gluing
+    expresses exactly this basis. A step $f$ from $A_{h,k}$
     uses 8-torsion points $T''$ with $4T''$ spanning its kernel; completed to a
     symplectic basis $(S''; T'')$ of $A_{h,k}[8]$ above the basis inducing the
     structure of $A_{h,k}$, it gives the codomain the structure induced by the
@@ -1653,16 +1016,8 @@
         is $A_{h, m+1}$, with $m + 1 \ge 2$.
     \end{lemma}
 
-    \begin{proof}
-        The algorithm takes $q$ odd and names the odd one of $a_1, a_2$ as $a_1$,
-        which is possible because $a_1^2 + a_2^2 = 2^e - q$ is odd~\cite[Section
-        5.1 and Algorithm 6]{Dar24}. It computes the first $m = v_2(a_2)$ steps
-        of each half-chain in dimension 2 and step $m + 1$ as the dimension-4
-        gluing~\cite[Lemmas 23 and 28]{Dar24}. This needs $m$ finite, that is,
-        $a_2 \neq 0$, and then $m \ge 1$ because $a_2$ is even. For a good degree
-        nothing is excluded: $2^e - q$ is then a prime, which is not a square, so
-        $a_2 \neq 0$.
-    \end{proof}
+
+
 
     \begin{theorem}[The base case]
         \label{thm:base}
@@ -1678,8 +1033,955 @@
         isogenies and codomains as the four-point algorithm.
     \end{theorem}
 
-    \begin{proof}
-        Fix $h$ and let $U$ be the signed permutation of Lemma~\ref{lem:paired}.
+
+    \begin{proposition}[Symmetric null points]
+        \label{prop:symnull}
+        For $h \in \{1, 2\}$ and $\max(2, m) \le k \le e_h$, the theta null point
+        of $A_{h,k}$ in the algorithm's theta structure satisfies $\theta_{\pi(a)}(0)
+        = \theta_a(0)$ for every index $a$, and so does its Hadamard transform.
+        Both lie in the 10-dimensional space of vectors fixed by $\pi$.
+    \end{proposition}
+
+
+    The per-step constants derived from the null point, the dual null point
+    and its inverse, are therefore determined by their values on the ten
+    orbits of $\pi$. Points pushed along the chain enjoy no such symmetry: no
+    relation $\theta_a = \pm \theta_{\pi(a)}$ holds identically on $A_{h,k}$,
+    since the $\theta_a$ are linearly independent.
+
+    The bound $k \ge 2$ matters only when $m = 1$: on $A_{h,1}$ the action is
+    the permutation twisted by signs, which does not affect the verifier,
+    whose two-point chain starts at the gluing codomain $A_{h, m+1}$.
+
+    \subsection{The two-point verifier}
+    \label{sec:twopoint-alg}
+    Algorithm~\ref{alg:twopoint} gives the plain steps of a half-chain with
+    two kernel points. For a vector $x$ of sixteen coordinates, $\pi(x)$
+    denotes the vector with coordinates $\pi(x)_i = x_{\pi(i)}$.
+
+    \begin{algorithm}[t]
+        \caption{The plain steps of a half-chain with two kernel points.}
+        \label{alg:twopoint}
+        \begin{algorithmic}[1]
+            \Require the gluing codomain $A_{h,m+1}$ and its theta null point
+            $\theta(0)$; the gluing images $\theta(g_0), \ldots, \theta(g_3)$ of
+            the kernel generators; the points to evaluate; a strategy
+            \Ensure the codomains $A_{h,k}$, $m + 1 < k \le e_h$, and the images
+            of the points to evaluate
+            \If{$\theta(g_2) \ne \pi(\theta(g_0))$ or $\theta(g_3) \ne
+            \pi(\theta(g_1))$ projectively, or $\pi(\theta(0)) \ne \theta(0)$}
+                \State \Return the four-point chain from the same inputs
+            \EndIf
+            \For{each plain step}
+                \State $T_0, T_1 \gets$ the 8-torsion multiples of $g_0, g_1$
+                above the step's kernel, by doubling~\eqref{eq:double} as the
+                strategy prescribes
+                \State $T_2 \gets \pi(T_0)$, $T_3 \gets \pi(T_1)$
+                (Theorem~\ref{thm:conditional})
+                \State compute the codomain from $T_0, \ldots, T_3$
+                by~\eqref{eq:codomain}, on the ten orbits of $\pi$
+                (Proposition~\ref{prop:symnull})
+                \State push the kept multiples of $g_0, g_1$ and the points to
+                evaluate through the step by~\eqref{eq:image}
+            \EndFor
+        \end{algorithmic}
+    \end{algorithm}
+
+    Since theta coordinates are even functions, it follows that $\theta(g_2)
+    = \pi(\theta(g_0))$ and $\theta(g_3) = \pi(\theta(g_1))$ up to scalars at
+    every step, and the step formulas use each kernel point only up to a
+    scalar. A verifier can therefore double and push only $g_0$ and $g_1$
+    along each half-chain and obtain the other two generators by permuting
+    coordinates; it then computes exactly the isogenies and codomains of the
+    four-point verifier (Theorem~\ref{thm:conditional}). This removes half of
+    the doublings and evaluations of kernel points, and in our measurements
+    the two-point verifier took 0.63, 0.61 and 0.60 times the cycles of the four-point one at levels I, III and V, on
+    the same signature (Section~\ref{sec:scope}).
+
+    The symmetry also shortens the computation of each step's codomain. Since
+    squaring and the Hadamard transform commute with the permutation of
+    coordinates by $\pi$, two of the four squared kernel vectors from which the
+    codomain is computed are permutations of the other two. Moreover, by
+    Proposition~\ref{prop:symnull}, the codomain's null point and its dual are
+    fixed by $\pi$, so the vectors that the step computes from them, the dual
+    null point, its inverse and the next step's doubling constants, are
+    determined by their values on the ten orbits of $\pi$. MIKE's reference
+    implementation exploits the same structure~\cite{BDD+26}, and we adopt two
+    of its techniques: the inverse of the dual null point is read off the two
+    pushed kernel points as products along a fixed path through the ten orbits,
+    in about 26 multiplications, and the Hadamard transform of a vector fixed by
+    $\pi$ takes 34 additions instead of 64. Like MIKE's, this computation uses
+    the symmetry without checking it: it rests on Theorem~\ref{thm:base}, which
+    applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero, since a vanishing
+    coordinate sends the verifier back to the full computation. Finally, as in
+    MIKE's implementation, a codomain's doubling constants are computed only
+    when a doubling follows, which happens after about 42\,\% of the steps of an
+    optimal strategy at level I. All of them are included in the measurements of
+    Table~\ref{tab:cycles}.
+
+    %% ============================================================
+    \section{The change of basis at the gluing}
+    \label{sec:gluing}
+    %% ============================================================
+
+    Each half-chain of the verifier starts in dimension 2. Its first $m$
+    steps, where $m = v_2(a_2)$, are a chain $\varphi$ of 2-isogenies of abelian
+    surfaces from $\Ecom \times \Echl$, applied to the pairs of copies $(0, 2)$
+    and $(1, 3)$~\cite[Lemmas 23 and 28]{Dar24}; step $m + 1$, the gluing, then
+    joins the two resulting surfaces into a fourfold. The dimension-2 steps
+    compute in the product of the theta structures that $\varphi$ induces on
+    its codomain, whereas the dimension-4 steps that follow need the structure
+    induced by the basis $B_{h,m}$ of Definition~\ref{def:structures}, made of
+    the images of the columns of the verifier's starting matrix. Before the
+    gluing, the verifier therefore changes coordinates by Dartois's
+    change-of-coordinates theorem~\cite[Theorem 12]{Dar24}, applied to the matrix
+    $N$ that expresses $B_{h,m}$ in the product basis. Dartois gives $N$ in
+    closed form for the first half-chain, computed via Weil
+    pairings~\cite[Lemma 30]{Dar24}, and its analog for the second, from a
+    dimension-2 basis given only modulo~4~\cite[Lemma 31 and Appendix
+    C.1]{Dar24}.
+
+    \begin{proposition}[The change of basis at the gluing]
+        \label{prop:gluingbasis}
+        Fix $h \in \{1, 2\}$, put $\epsilon = 1$ if $h = 1$ and $\epsilon = -1$ if
+        $h = 2$, let $m$ be as in Lemma~\ref{lem:gluing}, and write $c = 2^{m+1}$.
+        By~\cite[Lemmas 23 and 28]{Dar24}, $\Phi_{h,m}(x_0, x_1, x_2, x_3) =
+        (\varphi(x_0, x_2), \varphi(x_1, x_3))$ for a chain $\varphi$ of $m$
+        2-isogenies of abelian surfaces from $\Ecom \times \Echl$, with kernel
+        $\{(a_1 x, \epsilon\tau(x)) : x \in \Ecom[2^m]\}$. Let $P' = 2^{r-m-2} R$,
+        $Q' = 2^{r-m-2} S$, $\tilde B_0 = ((P', 0), (0, \tau P'), (Q', 0), (0,
+        \lambda\tau Q'))$, and $\tilde B = (s_1, s_2; t_1, t_2) = \tilde B_0 \tilde
+        M$, where the columns of $\tilde M$ are, modulo $2^{m+2}$,
+        \[
+        (0, a, c, b), \quad (\mu, c, 0, -\mu a_2), \quad (a_1, \epsilon,
+        -\epsilon a_2, 0), \quad (\epsilon a_2, 0, a_1, \epsilon q),
+        \]
+        with $a = c a_2 q^{-1}$, $b = -\epsilon(1 + c a_1)$ and $\mu = (1 -
+        \epsilon c q) a_1^{-1}$.
+        \begin{enumerate}[label=(\roman*)]
+            \item $\tilde B$ is a symplectic basis of $(\Ecom \times
+            \Echl)[2^{m+2}]$, $\ker \varphi = \langle 4 t_1, 4 t_2 \rangle$, and $2^m
+            \tilde B$ is the basis of $(\Ecom \times \Echl)[4]$ in which the
+            algorithm starts the dimension-2 chain~\cite[Lemmas 24 and 25, Appendix
+            C.1]{Dar24}. After the dimension-2 steps, the structure on $A_{h,m}$ is
+            therefore the product structure induced by $C \times C$, where
+            \[
+            C = \bigl(2^m \varphi(s_1), 2^m \varphi(s_2); \varphi(t_1), \varphi(t_2)\bigr),
+            \]
+            in the order of~\cite[Appendix C.2.2]{Dar24}.
+            \item The change of basis from $C \times C$ to $B_{h,m}$ is the matrix
+            whose column $j$ is obtained from column $v$ of $M_h$ as follows. Let $z
+            = (v_0, v_2, v_4, v_6)$, $z' = (v_1, v_3, v_5, v_7)$, and $u = \tilde
+            M^{-1} z$, $u' = \tilde M^{-1} z'$ modulo $2^{m+2}$, that is,
+            \begin{gather*}
+                u_1 = -\epsilon a_2 z_0 - a_1 z_2 - \epsilon z_3, \qquad u_2 = a_1 z_0
+                + \epsilon q z_1 - \epsilon a_2 z_2, \\
+                u_3 = -c z_0 - b z_1 + a z_3, \qquad u_4 = \mu a_2 z_1 + \mu z_2 + c
+                z_3,
+            \end{gather*}
+            and likewise $u'$ from $z'$. A completion column ($j < 4$) and a
+            kernel-lift column ($j \ge 4$) are, respectively,
+            \begin{gather*}
+            (u_1, u_2, u'_1, u'_2, 2^m u_3, 2^m u_4, 2^m u'_3, 2^m u'_4) \bmod 4, \\
+            (u_1/2^m, u_2/2^m, u'_1/2^m, u'_2/2^m, u_3, u_4, u'_3, u'_4) \bmod 4,
+            \end{gather*}
+            the divisions being exact. For $h = 1$ this is~\cite[Lemma 30]{Dar24}.
+        \end{enumerate}
+    \end{proposition}
+
+    Proposition~\ref{prop:gluingbasis} makes this precise. Part (i) checks
+    that $\tilde B$ is symplectic, adapted to the kernel and congruent
+    modulo~4 to Dartois's bases, so that it is the basis in which the
+    dimension-2 steps compute; of the six pairings of its vectors, four are
+    units or zero by inspection, and the other two reduce to the norm equation
+    $a_1^2 + a_2^2 + q = 2^e$. Part (ii) expresses each column of the starting
+    matrix in $\tilde B$: since $\tilde M$ is symplectic, its inverse is
+    obtained by transposing and swapping its $2 \times 2$ blocks, which gives
+    the linear forms $u_1, \ldots, u_4$, and the division by $2^m$ in the
+    kernel-lift columns is exact because four times a kernel lift lies in
+    $\ker\varphi$.
+
+    For the first half-chain, reducing these formulas modulo~4 gives Dartois's
+    Lemma 30, which the proposition thus derives; for the second, it supplies
+    the derivation of the analog. Two consequences matter here. The structure
+    of Definition~\ref{def:structures} is justified on every fourfold from the
+    gluing on, which Theorem~\ref{thm:base} needs in order to show that $D$
+    acts there as the permutation $\pi$. And the formulas that a verifier
+    applies can be compared, term by term, with the closed form of the
+    proposition, which Appendix~\ref{app:remains} does for our implementation.
+    The proof is in Appendix~\ref{app:symmetry}.
+
+    %% ============================================================
+    \section{Parameters and wire format}
+    \label{sec:engineering}
+    %% ============================================================
+
+    This section gives the engineering choices on which our implementation
+    and the measurements of Section~\ref{sec:bench} rest: the parameters at the
+    round-3 primes (Section~\ref{sec:params}) and the wire format
+    (Section~\ref{sec:wire}).
+
+    \subsection{Parameters for the round-3 primes}
+    \label{sec:params}
+    SQIsignHD's exponent $e$ bounds the response degree, $q < 2^e$. Every
+    ideal class contains an ideal of norm at most about
+    $0.90\sqrt{p}$~\cite[Lemma 12]{DLRW24}, so $2^e$ must exceed $\sqrt{p}$,
+    and the paper takes ``a few bits over $\sqrt{p}$'' as sufficient on
+    heuristic grounds (their Section 4.2). The library's rule $e = \lambda +
+    \lceil \log_2 2\lambda \rceil$ is phrased in terms of the security
+    parameter because it was set for primes with $p \approx 2^{2\lambda}$,
+    where it amounts to $\log_2 \sqrt{p}$ plus 10 to 13 bits. The round-3
+    level-I prime, however, has 70 bits more than $2^{2\lambda}$, and there the
+    same formula gives $2^e = 2^{136}$, below $2^{162.6}$, the bound under
+    which Lemma 12 guarantees an ideal in every class: no response would exist.
+    What transfers is the content of the rule, $\sqrt{p}$ plus about ten bits.
+
+    We therefore take $e = \lceil (\log_2 p)/2 \rceil + 11 = 174/264/346$ and,
+    by the library's rule for the torsion the two half-chains need, $r = \lceil
+    e/2 \rceil + 2 = 89/134/175$ (Table~\ref{tab:params}). The margin of 11
+    bits lies within the 10 to 13 bits that the library's rule gives on the
+    primes it was written for, while SQIsignHD's own prime uses 15.3. Two
+    checks bound it from below. First, the number of ideal vectors of norm
+    below $2^e$ grows as $2^{2 \cdot \mathrm{margin}}$: about $2^{22}$
+    candidates, against one good norm in a few hundred, so a good $q$ exists
+    with overwhelming probability. Second, Nakagawa and Onuki's conservative
+    countermeasure for PRISM-id, whose response reveals an isogeny of large
+    prime degree, is a degree of at least $4\lambda/3$ bits~\cite[Section
+    5.3]{NO25}; transferred to $e$, that is 170.7/256.0/341.3 against
+    174/264/346, cleared at every level, whereas a margin of 7 bits would fail
+    it at level I.
+
+    The exponent $e$ also governs the signer's search for a good degree. The
+    signer samples vectors of the response ideal below $2^e$ and keeps the
+    first whose norm $q$ is odd, congruent to 3 modulo 4, and has $2^e - q$ a
+    probable prime (40 Miller--Rabin rounds). The sampled norms are odd, so one
+    candidate in two passes the congruence; if $2^e - q$ behaves as a random
+    $e$-bit integer, the density of good $q$ is then $1/(e \ln 2)$: one
+    candidate in 121 at level I, of which 60 reach a primality test.
+    Section~\ref{sec:bench} measures the loop.
+
+    \begin{table}[t]
+        \centering
+        \begin{threeparttable}
+            \caption{Dimension-4 parameters at the round-3 primes. All three levels
+                are built and measured.}
+            \label{tab:params}
+            \begin{tabular}{l c c c}
+                \toprule
+                & NIST I & NIST III & NIST V \\
+                \midrule
+                $p$\tnote{a} & $3 \cdot 2^{324} - 1$ & $27 \cdot 2^{500} - 1$ & $17 \cdot 2^{664} - 1$ \\
+                $\log_2 p$\tnote{a} & 325.58 & 504.75 & 668.09 \\
+                $\lambda$, challenge bits\tnote{a} & 128 & 192 & 256 \\
+                $e$, response bound $q < 2^e$\tnote{b} & 174 & 264 & 346 \\
+                $r = \lceil e/2 \rceil + 2$, transmitted torsion bits\tnote{c} & 89 & 134 & 175 \\
+                half-chain steps $\lceil e/2 \rceil$\tnote{c} & 87 & 132 & 173 \\
+                \addlinespace
+                public key, bytes, predicted\tnote{d} & 84 & 130 & 170 \\
+                signature, bytes, predicted\tnote{d} & 139 & 212 & 278 \\
+                
+                public key, bytes, measured & 84 & 130 & 170 \\
+                signature, bytes, measured & 139 & 212 & 278 \\
+                round-3 standard signature, bytes\tnote{a} & 200 & 306 & 406 \\
+                \bottomrule
+            \end{tabular}
+            \begin{tablenotes}\footnotesize
+                \item[a] The {\SQIsign} round-3 specification~\cite{AAA+26}.
+                \item[b] Ours: $e = \lceil (\log_2 p)/2 \rceil + 11$ (Section~\ref{sec:params}).
+                \item[c] SQIsignHD's rule for the torsion the half-chains need~\cite[Section 4.3]{DLRW24}.
+                \item[d] Signature: $2 \lceil \log_2 p \rceil + (e - 2) + 3r + 16$ bits, padded once (Section~\ref{sec:wire}); 137 / 210 / 276 without the hints. Public key: the curve's two coordinates in whole bytes and two hint bytes.
+            \end{tablenotes}
+        \end{threeparttable}
+    \end{table}
+
+    \subsection{The wire format}
+    \label{sec:wire}
+    A dimension-4 signature carries the commitment curve, the degree $q$ and
+    three of the four entries of the transmitted action, with two hint bytes
+    (Section~\ref{sec:format}). Which entry is dropped is less obvious than it seems. Write the
+    transmitted action as $M = \left(\begin{smallmatrix} a & b \\ c & d
+    \end{smallmatrix}\right)$, so that $ad - bc \equiv kq \pmod{2^r}$. Both
+    bases pair to roots of unity of exact order $2^r$, so $k$ is odd; $q$ is
+    odd too, so $\det M$ is odd. Recovering the dropped entry means inverting
+    another entry modulo $2^r$, which must therefore be odd, and no single
+    entry is odd on every signature. We therefore use the following rule. If
+    $a$ is odd, the signer drops $d$ and the verifier computes $d \equiv (kq +
+    bc) \, a^{-1} \pmod{2^r}$; if $a$ is even, then $bc \equiv -kq$ is odd, so
+    $b$ and $c$ are both odd, and the signer drops $c$, which the verifier
+    computes as $c \equiv (ad - kq) \, b^{-1} \pmod{2^r}$. The verifier reads
+    the case from the parity of $a$, so the rule costs no bit. The relation
+    fixes $r$ bits of the matrix and the format spends them on one entry;
+    sending all four entries and only the top $e - r$ bits of $q$, whose low
+    $r$ bits the relation would then determine, would cost the same, so the
+    pairings have nothing more to give.
+
+    The format packs its fields at bit granularity, which saves a few bytes
+    over rounding each field up to whole bytes: at level I each scalar needs
+    89 bits, not 12 bytes, and $q$ needs 172 bits, since $q \equiv 3 \pmod 4$
+    makes its two low bits known in advance. A signature is the commitment
+    curve's Montgomery coefficient as two $\lceil \log_2 p \rceil$-bit integers,
+    $(q - 3)/4$ in $e - 2$ bits, the three scalars in $r$ bits each and the two
+    hints in 8 bits each, least significant bit first, padded with zeros to a
+    whole byte: $2 \lceil \log_2 p \rceil + (e - 2) + 3r + 16$ bits, that is,
+    1107, 1690 and 2223 bits, or 139, 212 and 278 bytes at levels I, III and V
+    (Table~\ref{tab:params}), against 142, 214 and 280 with whole bytes. The
+    decoder rejects a coordinate not below $p$ and a nonzero padding bit, so
+    each signature has a single encoding, and unpacking costs a few hundred
+    cycles, which is negligible compared to a verification. If each hint is a deterministic function of its
+    curve, as in the round-3 specification, the verifier, which builds both
+    curves, can recompute the hints instead of reading them, for 137, 210 and
+    276 bytes, at the cost of searching for the bases instead of decoding them.
+
+    Removing the auxiliary isogeny does not, however, make the scheme strongly
+    unforgeable (SUF-CMA). The verifier accepts any isogeny of degree $q$ from
+    the commitment curve to the challenge curve, given by its action on the
+    torsion. For instance, if $\sigma$ verifies, so does $-\sigma$, whose
+    action is $-M$, and nothing in the format excludes it, so anyone can turn a
+    signature into a second valid one on the same message. The round-3
+    specification discusses strong unforgeability only for its dimension-2
+    format, where the auxiliary isogeny can be replaced by another of the same
+    degree~\cite[Section 8.4.2]{AAA+26}; it says nothing about dimension 4, and the compact format is not strongly unforgeable either.
+    A second, weaker malleability concerns the top bit of each transmitted
+    scalar. Changing it changes the transmitted action only by a map into
+    2-torsion, which moves only the last kernel point of each half-chain, and
+    verification does not always detect it: at level I, flipping that bit of
+    $a$ or $b$ gave a valid signature in 2 of 12 trials, while no other bit ever
+    did. In such a case the verified isogeny is still $\sigma$.
+
+
+    %% ============================================================
+    \section{Experimental results}
+    \label{sec:bench}
+    %% ============================================================
+
+    This section measures what the compact format saves and what it costs. We
+    describe the setup (Section~\ref{sec:setup}), report sizes, running times,
+    the signer's search for a good degree and memory use
+    (Section~\ref{sec:results}), and state the scope of these measurements
+    (Section~\ref{sec:scope}).
+
+    \subsection{Setup}
+    \label{sec:setup}
+    All measurements come from one session on one machine, a virtual machine
+    with one vCPU of an Intel Xeon at 2.30~GHz and 3~GiB of memory, on
+    2026-11-04. One binary measures the Rust code, compiled by \texttt{rustc}
+    1.89 in release mode with fat link-time optimization and no target-CPU
+    flag; the code chooses its assembly field kernels at run time from CPUID.
+    Each operation is timed with \texttt{rdtsc} and the wall clock around the
+    call. The tables report medians: for dimension 2, over 52 key generations,
+    52 signatures and 200 verifications at each level; for the compact format
+    at level I, over 52 key generations, 100 signatures and 200 verifications
+    of five signatures in each mode; at levels III and V, over 20 key
+    generations and 52 signatures, with verification as the mean over six
+    signatures of the median of 15 runs. The C reference is the-sqisign at tag
+    \texttt{nist-v3}, built with CMake in \texttt{Release} mode and
+    \texttt{-DSQISIGN\_BUILD\_TYPE=broadwell}, the assembly-backed field
+    arithmetic, and measured by its own benchmark
+    (\texttt{-{}-iterations=300} at level I, 100 at III and V), medians.
+    Verification is measured from bytes: decode the key, decode the signature,
+    verify. The timings were taken with the byte-aligned layout that preceded
+    the bit-packed one; decoding the packed layout costs a few hundred cycles
+    more, far below the precision of the tables.
+
+    \subsection{Results}
+    \label{sec:results}
+    We begin with the sizes on the wire (Table~\ref{tab:sizes}). At level I
+    the compact key and signature take 223 bytes, against 283 for the
+    specification's format: a saving of 30.5\,\% on the signature, of which
+    bit packing accounts for 1.5 points. The compressed
+    dimension-2 format, with a 176-byte signature, sits between them.
+
+    \begin{table}[t]
+        \centering
+        \begin{threeparttable}
+            \caption{Public key + signature = total, in bytes, at the round-3
+                primes.}
+            \label{tab:sizes}
+            \footnotesize
+            \setlength{\tabcolsep}{3.5pt}
+            \begin{tabular}{l c c c}
+                \toprule
+                format & NIST I & NIST III & NIST V \\
+                \midrule
+                standard (specification) & $83 + 200 = 283$ & $129 + 306 = 435$ & $169 + 406 = 575$ \\
+                compressed (this crate) & $83 + 176 = 259$ & $129 + 269 = 398$ & $169 + 353 = 522$ \\
+                compact, dim.\ 4 (this crate) & $84 + 139 = 223$ & $130 + 212 = 342$ & $170 + 278 = 448$ \\
+                
+                \bottomrule
+            \end{tabular}
+        \end{threeparttable}
+    \end{table}
+
+    These savings come at a cost in time, which Table~\ref{tab:cycles} gives in
+    megacycles. At level I the dimension-4 verifier costs 6.4 times the
+    dimension-2 verifier of the same crate, and dimension-4 signing costs 3.3
+    times dimension-2 signing, because the good degree is found by rejection. At levels III and V the dimension-4 verifier costs 6.4 and 5.8
+    times the dimension-2 one, the two-point verifier 3.9 and 3.5 times, and
+    signing 2.8 and 2.0 times as much in median. Signing times vary widely at
+    these levels, because of the search for a good degree: the middle half of
+    the signatures took 300 to 1289 megacycles at level III and 567 to 1596 at
+    level V.
+    Key generation is the same in both formats up to the basis convention
+    (22.6 against 23.7 megacycles). As a check on the implementation, the
+    crate's dimension-2 code runs at 1.03 times the reference's assembly build
+    for verification, 1.23 times for key generation and 1.20 times for
+    signing, and the compressed format's recovery adds 18\,\% to a
+    verification. Figure~\ref{fig:trade} sets these costs against signature
+    size at level I: the compact format has the smallest signature and the
+    costliest verification, and the compressed format lies between the other
+    two on both counts.
+
+    \begin{table}[t]
+        \centering
+        \caption{Megacycles at the round-3 primes, medians of the session. The
+            last column is the dimension-4 verifier over the dimension-2 verifier of
+            the same code. The C reference is the \texttt{broadwell} build.
+            Run counts as in Section~\ref{sec:setup}.}
+        \label{tab:cycles}
+        \begin{tabular}{l c r r r r}
+            \toprule
+            implementation & level & keygen & sign & verify & $\times$ dim.\ 2 \\
+            \midrule
+            C reference, dimension 2 & I   & 19.2 & 56.2 & 6.9 & \\
+            C reference, dimension 2 & III & 62.1 & 181.6 & 18.0 & \\
+            C reference, dimension 2 & V   & 133.0 & 384.2 & 44.4 & \\
+            Rust, dimension 2 & I   & 23.7 & 67.2 & 7.1 & \\
+            Rust, dimension 2 & III & 72.6 & 219.2 & 18.6 & \\
+            Rust, dimension 2 & V   & 143.6 & 453.6 & 50.0 & \\
+            Rust, dimension 2, compressed verify & I & & & 8.4 & \\
+            Rust, dimension 4 (compact) & I & 22.6 & 219.5 & 45.6 & 6.4 \\
+            \quad two points & I & & & 28.5 & 4.0 \\
+            Rust, dimension 4 (compact) & III & 75.1 & 610.7 & 118.9 & 6.4 \\
+            \quad two points & III & & & 72.8 & 3.9 \\
+            Rust, dimension 4 (compact) & V & 163.3 & 921.7 & 288.1 & 5.8 \\
+            \quad two points & V & & & 174.1 & 3.5 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{figure}[t]
+        \centering
+        \begin{tikzpicture}
+            \begin{axis}[
+                width=8cm, height=5.5cm,
+                xmin=120, xmax=240, ymin=0, ymax=60,
+                xlabel={signature bytes},
+                ylabel={verification, megacycles (median)},
+                axis lines=left,
+                xtick={120,140,...,240}, ytick={0,20,40,60},
+                tick label style={font=\small}, label style={font=\small},
+                every node near coord/.append style={font=\small},
+                ]
+                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(139,45.6)};
+                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(176,8.4) (200,7.1)};
+                \addplot[only marks, mark=*, mark size=2.5pt, color=red] coordinates {(139,28.5)};
+                \node[teal, anchor=west, font=\small] at (axis cs:145,47) {compact (dimension 4)};
+                \node[red, anchor=west, font=\small] at (axis cs:145,29) {two points};
+                \node[blue!55, anchor=south, font=\small] at (axis cs:168,11) {compressed};
+                \node[blue!55, anchor=south west, font=\small] at (axis cs:203,10) {standard};
+            \end{axis}
+        \end{tikzpicture}
+        \caption{The trade at level I on the round-3 prime: signature bytes
+            against verification cost for the three formats of one crate, from
+            Tables~\ref{tab:sizes} and~\ref{tab:cycles}; the red point is the
+            two-point verifier.}
+        \label{fig:trade}
+    \end{figure}
+
+    Table~\ref{tab:ms} gives the corresponding wall-clock times at level I.
+    The machine is not what a deployment runs; the ratios between the rows are
+    the numbers to carry.
+
+    \begin{table}[t]
+        \centering
+        \caption{Wall-clock milliseconds at level I on the round-3 prime, medians,
+            on the machine of Section~\ref{sec:setup}.}
+        \label{tab:ms}
+        \small
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{l l r}
+            \toprule
+            format & operation & ms \\
+            \midrule
+            dimension 2 (standard) & key generation & 10.3 \\
+            & signing & 29.2 \\
+            & verification & 3.1 \\
+            & verification, compressed & 3.6 \\
+            \addlinespace
+            dimension 4 (compact) & key generation & 9.8 \\
+            & signing & 95.5 \\
+            & verification & 19.8 \\
+            & verification, two points & 12.4 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    The higher signing cost is entirely due to the search for a good degree.
+    Table~\ref{tab:loop} compares this search over the session's signatures
+    with the expectation of Section~\ref{sec:params}. A candidate costs one
+    norm computation; one in two reaches a Miller--Rabin test on an $e$-bit
+    number, and composites fail at the first round. The loop also accounts for
+    the spread of signing times: the median signature needs 80 samples, the
+    mean 107, and the range is 1 to 566.
+
+    \begin{table}[t]
+        \centering
+        \caption{The compact signer's good-degree loop at level I: measured over
+            the session's signatures against the density $1/(e \ln 2)$ for odd $q$
+            (and the figure for a candidate of random parity, which the sampler does
+            not produce).}
+        \label{tab:loop}
+        \begin{tabular}{l r r}
+            \toprule
+            & measured & expected \\
+            \midrule
+            signatures measured & 100 & \\
+            response samples per signature, mean & 107 & 121 \\
+            the same if $q$ had random parity & --- & 241 \\
+            response samples per signature, median (min, max) & 80 (1, 566) & \\
+            primality tests per signature, mean & 53 & 60 \\
+            signing, Mcycles, median (min, max) & 220 (27, 1400) & \\
+            signing, dimension 2, Mcycles, median & 67 & \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    Finally, at its peak, one compact verification at level I allocates
+    1673~KiB (1.63~MiB) of heap with four points and 1637~KiB with two,
+    measured with a counting allocator around the call, and 3474 and 6271~KiB
+    with four points at levels III and V; the dimension-2 verifier allocates
+    nothing.
+
+    \subsection{Scope and reproducibility}
+    \label{sec:scope}
+    These measurements come from one implementation; there is no independent
+    round-3 dimension-4 signer to compare against. The SQIsignHD authors'
+    verifier, re-parameterized to our level-I prime, accepts our signatures and
+    rejects tampered ones~\cite{DLRW25}. At levels III and V, the non-residue
+    tables of the basis-from-hint convention follow a documented deterministic
+    rule of our own rather than the library's seeded one, so such a cross-check
+    there would need the library's tables.   The
+    two-point verifier is not yet the default; it checks the pairing of the
+    kernel generators at the gluing and falls back to four points otherwise, and
+    on 24 signatures at level I and 5 each at levels III and V it reproduces
+    every codomain and every verdict of the four-point verifier, on honest and
+    tampered signatures alike (Appendix~\ref{app:remains}).
+
+    Constant-time execution was not attempted. For the verifier this is no
+    weakness in the usual setting, since it handles only public data, so its
+    timing reveals nothing secret; the exception is an application in which
+    the message or the signer's identity must itself stay confidential.
+    {\SQIsign} signing is variable-time by design in the reference as well. The
+    implementation is experimental and not for production.
+
+    %% ============================================================
+    \section{Conclusion}
+    \label{sec:conc}
+    %% ============================================================
+
+    In this paper we proposed two-point verification for SQIsignHD's
+    dimension-4 verifier, which halves the work spent on kernel points by
+    exploiting an automorphism of order 4 of the verifier's chain, and proved
+    that the automorphism acts as one fixed permutation of the theta
+    coordinates for every input, that the null points along the chain are
+    fixed by it, and that the change of basis at the gluing expresses the
+    structure the chain needs (Section~\ref{sec:twopoint} and
+    Appendix~\ref{app:symmetry}). We implemented the scheme at the round-3
+    {\SQIsign} primes, restating its response bound in terms of $\sqrt{p}$
+    (Section~\ref{sec:params}). At level I a signature takes 139 bytes, against 200 for the
+    specification's format, and key and signature together take 223 bytes, the
+    smallest level-I
+    combination we are aware of at parameters that stand after
+    Wesolowski's attack. The price is verification: a dimension-4
+    verification costs 6.4, 6.4 and 5.8 times a dimension-2 one in
+    the same code at levels I, III and V, and
+    signing costs 3.3, 2.8 and 2.0 times as much in median, because of the search
+    for a good degree;
+    the two-point verifier takes 0.63, 0.61 and 0.60 times the cycles of
+    the four-point one (Section~\ref{sec:bench}). The compact format therefore suits settings
+    where bandwidth or storage dominates and a verification of a few tens of
+    milliseconds is acceptable, while the specification's dimension-2 format
+    remains the better general-purpose choice.
+
+    The security argument is SQIsignHD's with our parameters substituted and
+    has not been re-examined; the existence of a good degree in every class is
+    a heuristic in their paper and remains one here. Like the specification's
+    format, the compact one is not strongly unforgeable
+    (Section~\ref{sec:wire}).
+
+    The main bottleneck remains the dimension-4 arithmetic itself, and
+    narrowing it decides whether the 61 bytes saved at level I are worth
+    having; there is reason to expect room. MIKE's chain costs about 0.07 megacycles per step
+    at level I, against about 0.26 for ours (45.6 megacycles over $2 \cdot
+    87$ steps). The comparison is loose, since MIKE works over $\mathbb{F}_p$
+    on a different processor and our verifier also evaluates a point for its
+    image check, but it suggests that much of our 6.4-fold penalty lies in the
+    implementation rather than in the dimension. Doubling on the quotient by
+    the automorphism would save more, but it needs efficient image formulas
+    there, which are not known (Appendix~\ref{app:beyond}); and MIKE's
+    observation that additions, not
+    multiplications, are a significant share of the cost of dimension-4 theta
+    arithmetic~\cite[Section 6]{BDD+26} points toward field representations
+    and vectorization tuned to the Hadamard transform.
+
+    Finally, every construction in this paper is young, ours included, and the
+    numbers describe code as it stood at the time of writing, not a settled design.
+
+
+    \section*{Acknowledgments}
+    We are grateful to Steven Galbraith for valuable comments while this work
+    was being done.
+
+    \bibliographystyle{alpha}
+    \bibliography{Dim4SQI}
+
+    \appendix
+
+    %% ============================================================
+    \section{Proofs for Sections~\ref{sec:twopoint} and~\ref{sec:gluing}\texorpdfstring{ \includegraphics[scale=0.4]{db.png}}{}}
+    \label{app:symmetry}
+    %% ============================================================
+
+    This appendix proves the results of Sections~\ref{sec:twopoint}
+    and~\ref{sec:gluing}, in the order in which they are stated there, with
+    the notation of Section~\ref{sec:sym-notation}.
+
+    \subsection*{Proofs for Section~\ref{app:J}}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:J}]
+        (i) $J^2(P, Q) = J(Q, -P) = (-P, -Q)$. (ii) We have
+        \[
+        (a_1 + a_2 J)(P, Q) = \bigl([a_1]P + [a_2]Q, \; -[a_2]P + [a_1]Q\bigr),
+        \]
+        which is $\alpha(P, Q)$; the dual
+        of an integer matrix is its transpose, and $J^{\mathsf{T}} = -J$. (iii)
+        $(a_1 + a_2 J)(a_1 - a_2 J) = a_1^2 - a_2^2 J^2 = a_1^2 + a_2^2$, since
+        $J$ commutes with integers. (iv) $J^{\mathsf{T}} J = 1$ by direct
+        computation, and an automorphism $\gamma$ preserves the polarization
+        exactly when $\widehat{\gamma}\gamma = 1$.
+    \end{proof}
+
+    \subsection*{Proofs for Section~\ref{app:kani}}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:kani}]
+        Every entry of $F$ and $\widehat{F}$ is an integer matrix or a
+        componentwise map $\operatorname{diag}(\psi, \psi)$, and these commute with
+        each other: for an integer matrix $M$ and any homomorphism $\psi$ of
+        curves, $\operatorname{diag}(\psi, \psi) M = M \operatorname{diag}(\psi,
+        \psi)$, because $\psi$ is a group homomorphism. The diagonal blocks of
+        $\widehat{F} F$ are $\widehat{\alpha}\alpha + \widehat{\Sigma}\Sigma =
+        (2^e - q) + q = 2^e$ and $\Sigma\widehat{\Sigma} + \alpha\widehat{\alpha}
+        = 2^e$, by Lemma~\ref{lem:J}(iii) and $\widehat{\sigma}\sigma =
+        \sigma\widehat{\sigma} = q$; the off-diagonal blocks are
+        $\widehat{\alpha}\widehat{\Sigma} - \widehat{\Sigma}\widehat{\alpha} = 0$
+        and $\Sigma\alpha - \alpha\Sigma = 0$. The same holds for
+        $F\widehat{F}$. Then $(\deg F)^2 = \deg [2^e] = 2^{8e}$ on a fourfold, so
+        $\deg F = 2^{4e}$. Finally $\widehat{F}(A[2^e]) \subseteq \ker F$ because
+        $F\widehat{F} = 2^e$, and both groups have $2^{4e}$ elements, since
+        $\ker \widehat{F} \subseteq A[2^e]$ has $2^{4e}$ elements and
+        $|A[2^e]| = 2^{8e}$.
+    \end{proof}
+
+    \begin{proof}[Proof of Proposition~\ref{prop:commute}]
+        Since $D = \operatorname{diag}(J, J)$, the identity $FD = DF$ holds block
+        by block exactly when each block of $F$ commutes with $J$. The blocks
+        $\alpha$ and $\widehat{\alpha}$ are polynomials in $J$
+        (Lemma~\ref{lem:J}(ii)), and $\Sigma$, $\widehat{\Sigma}$ are componentwise
+        maps, which commute with every integer matrix (proof of
+        Lemma~\ref{lem:kani}). Explicitly, $J\Sigma(P, Q) = J(\sigma P, \sigma Q)
+        = (\sigma Q, -\sigma P) = \Sigma(Q, -P) = \Sigma J(P, Q)$. If $F(x) = 0$
+        then $F(D x) = D F(x) = 0$. The blocks of $\widehat F$ are of the same
+        kinds, so $\widehat F D = D \widehat F$ as well.
+    \end{proof}
+
+    \subsection*{Proofs for Section~\ref{app:chain}}
+
+    \begin{proof}[Proof of Proposition~\ref{prop:descent}]
+        $D$ is a group automorphism with $D(K) = K$
+        (Proposition~\ref{prop:commute}), hence $D([2^{e-k}]K) = [2^{e-k}]K$, so
+        $F_k \circ D$ vanishes on $\ker F_k$ and factors as $D_k \circ F_k$; $D_k$
+        is an automorphism because $D$ is. The identities $D_k^2 = -1$ and
+        $\widehat{D_k} = -D_k$ follow from $D^2 = -1$ and $\widehat{D} = -D$
+        (Lemma~\ref{lem:J}) by uniqueness of the factorization. The principal
+        polarization of $A_k$ is the one induced from $2^k$ times that of $A$
+        through the isotropic kernel $\ker F_k$; $D$ preserves both, so $D_k$
+        preserves the induced one.
+    \end{proof}
+
+    \begin{proof}[Proof of Proposition~\ref{prop:forged}]
+        The verifier builds its kernel from the transmitted action rather than
+        from $\sigma$: the transmitted matrix defines a map $\sigma'$ on the
+        $2^r$-torsion (the map $\tau$ of Section~\ref{app:conjecture}, with the
+        curves exchanged as in Section~\ref{app:kani}), and the verifier uses $\Sigma' = \operatorname{diag}(\sigma',
+        \sigma')$ in place of $\Sigma$. Like $\Sigma$, the map $\Sigma'$ acts
+        componentwise, so it commutes with $J$, and the kernel generators
+        $(\widehat{\alpha}(x), \Sigma'(x))$ satisfy $D(\widehat{\alpha}(x),
+        \Sigma'(x)) = (\widehat{\alpha}(Jx), \Sigma'(Jx))$, which is again of that
+        form. The proof of Proposition~\ref{prop:descent} uses only that the kernel
+        is $D$-stable.
+    \end{proof}
+
+    \subsection*{Proofs for Section~\ref{app:coords}}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:product}]
+        $\theta_{(i,j)}(Q, -P) = \theta_i(Q)\,\theta_j(-P) = \theta_j(P)\,
+        \theta_i(Q)$, because level-2 theta functions are even.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:indexperm}]
+        The hypotheses of~\cite[Theorem 12]{Dar24} are: $\mathcal L$ totally
+        symmetric, here of type $\delta = (2, 2, 2, 2)$; a symmetric pair of theta
+        structures for $(\mathcal L, \mathcal L^2)$, which $B$ provides
+        by~\cite[Theorem 5]{Dar24}; $\zeta$ a primitive $2 d_g$-th root of unity,
+        here $d_g = 2$; and a symmetric automorphism $\psi$ of the Heisenberg
+        group whose matrix in the $\zeta$-canonical basis is $M$, which exists
+        because symmetric automorphisms surject onto
+        $\mathrm{Sp}_8(\mathbb Z/4)$~\cite[Section 2.11]{Dar24}. Composing with
+        $\psi$ maps the $\zeta$-canonical basis to $BM$, so the new structure is
+        the one induced by $BM$, and it depends on $M$ only~\cite[Theorem
+        5(ii)]{Dar24}. With these identifications, and with Dartois's blocks
+        $\left(\begin{smallmatrix} A & C \\ B & D \end{smallmatrix}\right)$
+        written $\left(\begin{smallmatrix} U & V \\ W & U' \end{smallmatrix}\right)$,
+        Theorem~12 of~\cite{Dar24} is the displayed formula, with
+        $\langle \cdot | \cdot \rangle$ the standard product since all $d_l = 2$.
+        Its condition on $\mathbf i_0$ is a condition on sections: the proof
+        obtains $\theta'_0 = \lambda T_{\mathbf i_0}$ from~\cite[Proposition
+        8]{Dar24}, for any $\mathbf i_0$ with $T_{\mathbf i_0} \neq 0$. Since
+        $\theta'$ is determined by the new structure up to a scalar, the choice
+        of admissible $\mathbf i_0$ does not matter.
+
+        (i) This is~\cite[Lemma 11]{Dar24} with $\Delta = 1$: $U^{\mathsf T} U' -
+        W^{\mathsf T} V \equiv 1 \pmod 4$. (ii) With $V = 0$ we have
+        $\zeta^{-2\langle \mathbf i_0 | U'\mathbf j\rangle} = (-1)^{\langle
+            U'^{\mathsf T} \mathbf i_0 | \mathbf j \rangle}$, so $T_{\mathbf i_0} =
+        \theta^B_{\mathbf i_0} \sum_{\mathbf j} (-1)^{\langle U'^{\mathsf T}
+            \mathbf i_0 | \mathbf j\rangle}$. By (i), $U'$ is invertible modulo 2,
+        so the sum is 16 for $\mathbf i_0 = 0$ and 0 otherwise. The sixteen
+        $\theta^B_a$ form a basis of the sections of $\mathcal L$~\cite[Section
+        2.4]{Dar24} and $16 \neq 0$ in odd characteristic, so $T_0 = 16
+        \theta^B_0 \neq 0$. The condition concerns the section $\theta^B_0$, not
+        its value at the origin, so it holds even where the theta null point has
+        $\theta^B_0(0) = 0$. (iii) With $V = 0$ and $\mathbf i_0 = 0$ the exponent
+        is $\mathbf i^{\mathsf T}(1 - U^{\mathsf T} U')\mathbf j - \langle
+        U\mathbf i | W\mathbf i\rangle$ for any integer lifts of $\mathbf i,
+        \mathbf j$, and the first term vanishes modulo 4 by (i). The summand no
+        longer depends on $\mathbf j$, and the factor 16 goes into $\lambda$.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:transport}]
+        Since $\varphi$ preserves the polarization, it preserves the Weil pairing
+        $e_4$, so $\varphi(B)$ is $\zeta$-symplectic. Next, $\varphi^*\mathcal L
+        \cong \mathcal L$. Indeed $\varphi^*\mathcal L_0$ is symmetric, because
+        $\varphi$ commutes with $[-1]$, and algebraically equivalent to $\mathcal
+        L_0$, because $\varphi$ preserves the polarization; so $\varphi^*\mathcal
+        L_0 \cong t_x^*\mathcal L_0$ for some $x$ with $2x = 0$, and then
+        $\varphi^*\mathcal L \cong t_x^*(\mathcal L_0^2) \cong \mathcal L$,
+        since $A'[2]$ is the kernel of the polarization of $\mathcal L_0^2$.
+
+        Fix an isomorphism $\beta \colon \varphi^*\mathcal L \to \mathcal L$.
+        The pair $(\varphi, \beta)$ is an instance of the situation $(*)$
+        of~\cite[p.~290]{Mum66}, with $\pi = \varphi$ an isomorphism, so that its
+        kernel and the corresponding level subgroup are trivial.
+        By~\cite[Proposition 2, p.~291]{Mum66} it induces an isomorphism $\tau$
+        of the theta group of $\mathcal L$ lying over $\varphi$ (Mumford's map
+        (2) on p.~302, the map $\alpha_f$ of~\cite[proof of Theorem 56]{DLRW24}),
+        and $(\varphi, \beta^{\otimes 2})$ likewise induces $\tau_2$ on the theta
+        group of $\mathcal L^2$. Mumford states~\cite[p.~312, diagram (s), with
+        $n = 2$]{Mum66}, for every separable isogeny, that these maps commute
+        with his maps $\varepsilon_2$ and $\eta_2$~\cite[pp.~309--311]{Mum66}.
+        They therefore commute with $\delta_2 = \eta_2 \circ
+        \varepsilon_2$~\cite[Proposition 5(iii), p.~311]{Mum66} on both theta
+        groups, and hence with $\delta_{-1}$, since $\delta_2(z) = z^3
+        \delta_{-1}(z)$~\cite[p.~312]{Mum66}. Write the compatible pair of
+        symmetric theta structures induced by $B$ as Mumford's isomorphisms $j_1$
+        and $j_2$ from the theta groups of $\mathcal L$ and $\mathcal L^2$ onto
+        his standard groups of types $(2, 2, 2, 2)$ and $(4, 4, 4,
+        4)$~\cite[p.~317]{Mum66}. By these commutations, $(j_1 \circ \tau^{-1},
+        j_2 \circ \tau_2^{-1})$ is again a compatible pair of symmetric theta
+        structures in the sense of~\cite[p.~317]{Mum66}. Since $\tau_2$ lies over
+        $\varphi$, its symplectic isomorphism onto $A'[4]$ maps the
+        $\zeta$-canonical basis to $\varphi(B)$, so by~\cite[Theorem
+        5(ii)]{Dar24} $j_1 \circ \tau^{-1}$ is the structure induced by
+        $\varphi(B)$. Finally, Mumford's isogeny theorem~\cite[Theorem 4,
+        pp.~302--303]{Mum66}, applied to $(\varphi, \beta)$ with trivial kernel
+        and with the structure $j_1 \circ \tau^{-1}$ on the target, so that the
+        map $\sigma$ there is the identity, shows that $\varphi^*$ maps the
+        section with coordinates $f$ for the structure induced by $\varphi(B)$ to
+        $c$ times the section with coordinates $f$ for the structure induced by
+        $B$, for a constant $c \in \Bbbk^*$. In the form of~\cite[Theorem
+        3]{Dar24}, this is $\theta^{\varphi(B)}_a \circ \varphi = c\,
+        \theta^B_a$ for all $a$, that is, $\theta^{\varphi(B)}_a(\varphi(z)) = c\,
+        \theta^B_a(z)$, which is the first assertion.
+
+        For the second, Lemma~\ref{lem:indexperm} with $V = W = 0$ gives
+        $\theta^{BM}_a = \lambda\, \theta^B_{Ua}$. Hence $\theta^B_a(z) = c^{-1}
+        \theta^{\varphi(B)}_a(\varphi(z)) = c^{-1}\lambda\, \theta^B_{Ua}
+        (\varphi(z))$, and putting $b = Ua$, which runs over all indices because
+        $U$ is invertible modulo 2, $\theta^B_b(\varphi(z)) = c \lambda^{-1}
+        \theta^B_{U^{-1} b}(z)$.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:onestep}]
+        By Proposition~\ref{prop:descent}, $D_{k+1} \circ f = f \circ D_k$. The
+        hypothesis on $s$ is an identity between points of $A_k[4]$, so
+        $D_{k+1} f(s) = f(D_k s) = f(s)\, U$; and $D_{k+1} f(T'') = f(D_k T'') =
+        f(T'')\, U$ exactly.
+    \end{proof}
+
+    \begin{proof}[Proof of Theorem~\ref{thm:conditional}]
+        Lemma~\ref{lem:onestep}, with the pairing of the pushed generators noted
+        above, carries the block action from the gluing codomain to every later
+        fourfold of the half-chain. On each of them, Lemma~\ref{lem:transport}
+        turns it into $\theta_a(D_k z) = \mu_k\, \theta_{U^{-1} a}(z)$. Modulo 2,
+        $U^{-1} = U^{\mathsf T}$ is the permutation matrix of $(0\;2)(1\;3)$, so
+        by the index convention $U^{-1} a = \pi(a)$. The step from $A_k$ uses the
+        8-torsion points $T''_0, \ldots, T''_3$ above the kernel, and $T''_2 = \pm
+        D_k T''_0$, $T''_3 = \pm D_k T''_1$. Since level-2 theta functions are
+        even, $\theta(T''_2) = \theta(D_k T''_0) = \mu_k\, \pi(\theta(T''_0))$,
+        and likewise for $T''_3$. The two-point chain uses
+        $\pi(\theta(T''_0))$ and $\pi(\theta(T''_1))$ in place of the theta
+        coordinates of $T''_2$ and $T''_3$: the same projective points, hence the
+        same kernel, isogeny and codomain, and the doublings and images it
+        computes for $T''_0$, $T''_1$ are those of the four-point chain.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:block}]
+        On the first half, $(a_1, a_2, 1, 0) \mapsto (a_2, -a_1, 0, -1) = -(-a_2,
+        a_1, 0, 1)$, so $D g_0 = -g_2$; the same computation on the second half,
+        with $q$ in place of $1$, gives $D g_1 = -g_3$.
+    \end{proof}
+
+    \subsection*{Proofs for Section~\ref{app:conjecture}}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:basepoints}]
+        The rule enforces $ad - bc \equiv kq \pmod{2^r}$, so by bilinearity
+        $e(\tau R, \tau S) = e(P, Q)^{ad - bc} = e(P, Q)^{kq} = e(R, S)^q$. Hence
+        $e(\tau R, \lambda \tau S) = \zeta^{q\lambda} = \zeta$, which has order
+        $2^r$, so $\tau R$ and $\lambda \tau S$ form a basis of $\Echl[2^r]$. The
+        pairing $e_A$ is the product of the pairings on the four copies, so
+        $e_A(b_n, b_{n+4}) = \zeta$ for $0 \le n \le 3$, while two base points on
+        different copies, or equal ones, pair to 1. Bilinearity gives the formula.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:kanimat}]
+        On the first coefficients of each copy, $\tau$ acts as 1 and
+        $\widehat\tau$ as $q$; on the second coefficients, $\tau$ acts as $q$ and
+        $\widehat\tau$ as 1. Substituting these into $F$ and $\widehat F$ gives the
+        blocks. Since $\alpha\widehat\alpha = \widehat\alpha\alpha = a_1^2 + a_2^2$
+        (Lemma~\ref{lem:J}(iii)) and integers commute with everything,
+        multiplying the $2 \times 2$ blocks gives $F_i \widehat F_i = \widehat F_i
+        F_i = (a_1^2 + a_2^2 + q) I$ for $i = 1, 2$. The blocks satisfy $\widehat
+        F_2 = F_1^{\mathsf T}$ and $\widehat F_1 = F_2^{\mathsf T}$, because
+        $\widehat\alpha = \alpha^{\mathsf T}$; this says $F^{\mathsf T} \Omega =
+        \Omega \widehat F$, that is, $\omega(F u, v) = \omega(u, \widehat F v)$. On
+        coefficient vectors $\tilde D = \operatorname{diag}(K, K)$ with $K =
+        \operatorname{diag}(J, J)$ and $J = \left(\begin{smallmatrix} 0 & 1 \\ -1 &
+            0 \end{smallmatrix}\right)$ (Lemma~\ref{lem:block}). The blocks $\alpha =
+        a_1 + a_2 J$ and $\widehat\alpha = a_1 - a_2 J$ commute with $J$, and so
+        do integers, so $K$ commutes with $F_1$, $F_2$, $\widehat F_1$ and $\widehat
+        F_2$. Finally $K^{\mathsf T} K = I$, so $\tilde D^{\mathsf T} \Omega \tilde
+        D = \Omega$.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:anycompletion}]
+        A symplectic matrix is invertible, so its columns form a basis, and the
+        span of $X$ is a free direct summand with complement the span of $Y$. It
+        is isotropic, since $\omega(X, X) = 0$. If $v = Y\mathbf a + X\mathbf b$ is
+        orthogonal to every column of $X$, then $0 = \omega(v, X) = \mathbf
+        a^{\mathsf T}$, so $v$ lies in the span of $X$: the summand is its own
+        orthogonal, that is, Lagrangian. Let $\Delta = \tilde D Y - YU$. Since
+        $\tilde D$ preserves $\omega$ and $U^{\mathsf T} U = I$,
+        \[
+        \omega(\Delta, XU) = \omega(\tilde D Y, \tilde D X) - U^{\mathsf T}
+        \omega(Y, X)\, U = I - U^{\mathsf T} U = 0,
+        \]
+        and $U$ is invertible, so every column of $\Delta$ is orthogonal to the
+        span of $X$ and lies in it: $\Delta = XS$, and $\omega(Y, \Delta) =
+        \omega(Y, X) S = S$.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:paired}]
+        The verifier builds its matrices in four steps; we follow them.
+        (1) The first kernel block $X^{(1)}$ is that of Lemma~\ref{lem:block},
+        paired by $U$; its columns are columns of $\widehat F$, so $F X^{(1)} =
+        F \widehat F E = 2^e E = 0$, with $E$ as after Lemma~\ref{lem:kanimat}.
+        (2) Its completion $Y^{(1)}$ satisfies $\tilde D Y^{(1)} = Y^{(1)} U +
+        X^{(1)} S_1$ by Lemma~\ref{lem:anycompletion}.
+        (3) The second kernel block is $X^{(2)} = F Y^{(1)}$, and
+        $\tilde D X^{(2)} = F \tilde D Y^{(1)} = X^{(2)} U + F X^{(1)} S_1 =
+        X^{(2)} U$. It is isotropic, since $\omega(F Y^{(1)}, F Y^{(1)}) =
+        \omega(Y^{(1)}, \widehat F F Y^{(1)}) = 0$, and its completion $Y^{(2)}$
+        satisfies $\tilde D Y^{(2)} = Y^{(2)} U + X^{(2)} S_2$, again by
+        Lemma~\ref{lem:anycompletion}.
+        (4) The first half-chain's kernel columns are $X_1 = -\widehat F
+        Y^{(2)}$, and $\tilde D X_1 = -\widehat F Y^{(2)} U - \widehat F F
+        Y^{(1)} S_2 = X_1 U$, since $\widehat F F = 2^e = 0$. The matrix $M_1$ is
+        symplectic: $\omega(Y^{(1)}, X_1) = -\omega(F Y^{(1)}, Y^{(2)}) =
+        -\omega(X^{(2)}, Y^{(2)}) = \omega(Y^{(2)}, X^{(2)})^{\mathsf T} = I$ and
+        $\omega(X_1, X_1) = \omega(Y^{(2)}, F \widehat F Y^{(2)}) = 0$ by
+        \eqref{eq:kani-matrices}, while $\omega(Y^{(1)}, Y^{(1)}) = 0$ from step
+        (2). Lemma~\ref{lem:anycompletion} applied to $M_1$ and $M_2$ gives the
+        last assertion. Applying the columns to the base points, which are the
+        same on both copies of each curve, turns these identities into identities
+        between points.
+    \end{proof}
+
+    \begin{proof}[Proof of Lemma~\ref{lem:gluing}]
+        The algorithm takes $q$ odd and names the odd one of $a_1, a_2$ as $a_1$,
+        which is possible because $a_1^2 + a_2^2 = 2^e - q$ is odd~\cite[Section
+        5.1 and Algorithm 6]{Dar24}. It computes the first $m = v_2(a_2)$ steps
+        of each half-chain in dimension 2 and step $m + 1$ as the dimension-4
+        gluing~\cite[Lemmas 23 and 28]{Dar24}. This needs $m$ finite, that is,
+        $a_2 \neq 0$, and then $m \ge 1$ because $a_2$ is even. For a good degree
+        nothing is excluded: $2^e - q$ is then a prime, which is not a square, so
+        $a_2 \neq 0$.
+    \end{proof}
+
+    \begin{proof}[Proof of Proposition~\ref{prop:gluingbasis}]
+        (i) The basis $\tilde B_0$ is symplectic by Lemma~\ref{lem:basepoints},
+        its two pairs pairing to $e(P', Q')$. In its coordinates,
+        $\omega(s_1, t_1) = -c a_1 - \epsilon b = 1$, $\omega(s_2, t_2) = \mu a_1
+        + \epsilon c q = 1$, $\omega(s_1, t_2) = \epsilon(a q - c a_2) = 0$,
+        $\omega(s_2, t_1) = -\epsilon \mu a_2 + \epsilon \mu a_2 = 0$,
+        $\omega(t_1, t_2) = a_1^2 + a_2^2 + q = 2^e \equiv 0$, and $\omega(s_1,
+        s_2) = -a \mu a_2 - c(\mu + b) \equiv 0$ modulo $2^{m+2}$, since $a \mu
+        a_2 = c \mu a_2^2 q^{-1}$ with $a_2$ even and $\mu + b$ is even. Since
+        $2^{m+2}$ divides $4 a_2$, $4 t_1 = (a_1 X, \epsilon\tau X)$ with $X =
+        4P'$ and $4 t_2 = (a_1 Y, \epsilon\tau Y)$ with $Y = 4Q'$, using $q
+        \lambda \equiv 1$; these generate $\ker\varphi$. Modulo 4, $c \equiv a
+        \equiv 0$, $b \equiv -\epsilon$ and $\mu \equiv a_1^{-1}$, and $\tilde M$
+        reduces to the matrix of~\cite[proof of Lemma 25]{Dar24} for $h = 1$ and
+        of~\cite[Appendix C.1]{Dar24} for $h = 2$, which give the bases of
+        $(\Ecom \times \Echl)[4]$ with which the algorithm starts $\varphi$. The
+        last assertion is~\cite[Theorem 56]{DLRW24} for $\varphi$ and the basis
+        $\tilde B$, whose half above the kernel is $(t_1, t_2)$, in the form
+        of~\cite[Section 4.2]{Dar24}, on each pair of copies.
+
+        (ii) A point of $(\Ecom \times \Echl)[2^{m+2}]$ with coordinates $z$ in
+        $\tilde B_0$ has coordinates $\tilde M^{-1} z$ in $\tilde B$. Since $\tilde
+        M$ is symplectic, $\tilde M^{-1} = \left(\begin{smallmatrix} D^{\mathsf T} &
+        -C^{\mathsf T} \\ -B^{\mathsf T} & A^{\mathsf T} \end{smallmatrix}\right)$
+        for $\tilde M = \left(\begin{smallmatrix} A & C \\ B & D
+        \end{smallmatrix}\right)$ in $2 \times 2$ blocks, which gives the displayed
+        $u$. A completion column $v$ gives the point $y_{h,j}$, whose components on
+        copies $(0, 2)$ and $(1, 3)$ are $2^m w$ and $2^m w'$, with $w = \tilde B_0
+        z$ and $w' = \tilde B_0 z'$. So $\varphi(2^m w) = \sum_i u_i \cdot 2^m
+        \varphi(s_i) + 2^m u_{2+i} \cdot \varphi(t_i)$, and the points of $C$ are
+        4-torsion, which gives the coefficients modulo 4. A kernel-lift column
+        gives $x'_{h,m,j}$, whose components are $w$ and $w'$. Since $4
+        x'_{h,m,j} \in \ker \Phi_{h,m}$, $4w \in \langle 4 t_1, 4 t_2 \rangle$, so
+        $2^{m+2}$ divides $4 u_1$ and $4 u_2$; hence $2^m$ divides $u_1$ and
+        $u_2$, and $\varphi(w) = \sum_i (u_i / 2^m) \cdot 2^m \varphi(s_i) +
+        u_{2+i} \cdot \varphi(t_i)$. The same holds for $w'$. For $h = 1$,
+        reducing modulo 4 as in (i), with $2^m a_2 \equiv 0$, gives the rows
+        of~\cite[Lemma 30]{Dar24}.
+    \end{proof}
+
+    \begin{proof}[Proof of Theorem~\ref{thm:base}]
+        The argument is the same for $h = 1$ and $h = 2$: the second half-chain
+        is the chain of $\Phi_2 = \widetilde F_2$, computed from $A$ by the same
+        algorithm from $M_2$ (Definition~\ref{def:structures}). Fix $h$ and let
+        $U$ be the signed permutation of Lemma~\ref{lem:paired}.
         The kernel of $\Phi_{h,k}$ is generated by the $4 x'_{h,k,j}$ and is
         stable under $D$ by Lemma~\ref{lem:paired}, so the proof of
         Proposition~\ref{prop:descent} gives an automorphism $D_{h,k}$ with
@@ -1711,97 +2013,76 @@
         For the last assertion, Lemma~\ref{lem:paired} gives the pairing of the
         generators, and Lemma~\ref{lem:gluing} shows that the gluing codomain is
         $A_{h, m+1}$ with $m + 1 \ge 2$, where the block action has just been
-        proved; Theorem~\ref{thm:conditional} applies.
+        proved; Theorem~\ref{thm:conditional} applies. The verifier evaluates
+        $F_2$ as the dual of the second half-chain, step by step, from the steps
+        that chain computes; since the two-point algorithm computes the same
+        steps, that evaluation is unchanged as well.
     \end{proof}
 
-    The bound $k \ge 2$ matters only when $m = 1$. Then on $A_{h,1}$ the term
-    $x_h S_h$ need not vanish under $\Phi_{h,1}$: $D_{h,1}$ acts on $B_{h,1}$ by
-    $\left(\begin{smallmatrix} U & 0 \\ 2 S_h & U \end{smallmatrix}\right)$
-    modulo 4, and the first part of Lemma~\ref{lem:transport} with
-    Lemma~\ref{lem:indexperm}(iii) gives $\theta_{U\mathbf i}(D_{h,1} z) = \mu\,
-    (-1)^{\langle U\mathbf i | S_h \mathbf i\rangle}\, \theta_{\mathbf i}(z)$,
-    the permutation twisted by signs. This does not affect the verifier, whose
-    two-point chain starts at the gluing codomain $A_{h, m+1}$.
+    \begin{proof}[Proof of Proposition~\ref{prop:symnull}]
+        Write $A' = A_{h,k}$, $D' = D_{h,k}$, and $\mathcal L = \mathcal L_0^2$ for
+        the line bundle of the structure, with $\mathcal L_0$ symmetric and
+        representing the principal polarization, so that $\mathcal L$ is totally
+        symmetric~\cite[p.~307]{Mum66}. As in the proof of
+        Lemma~\ref{lem:transport}, $D'^*\mathcal L \cong \mathcal L$; since $D'(0)
+        = 0$, we may choose an isomorphism $\beta \colon D'^* \mathcal L \to
+        \mathcal L$ whose fiber at $0$ is the identity. Let $T(s) = \beta(D'^*
+        s)$ on the sections of $\mathcal L$.
 
-    \begin{proposition}[The second half-chain]
-        \label{prop:halves}
-        \leavevmode
-        \begin{enumerate}[label=(\roman*)]
-            \item The second half-chain is the chain of $\widetilde F_2$, computed
-            from $A$ by the same algorithm from the second starting matrix; its
-            theta structures are those of Definition~\ref{def:structures} with $h =
-            2$, which~\cite[Theorem 56]{DLRW24} induces from that matrix, and
-            Theorem~\ref{thm:base} covers it. The verifier evaluates $F_2$ as the
-            dual of this chain, step by step; the two-point algorithm changes
-            nothing there, since it computes the same steps.
-            \item Suppose $F = F_2 \circ F_1$, as for honest signatures. The
-            starting matrices satisfy the conditions of~\cite[Corollary
-            58]{DLRW24}, with $(x'; y') = (-x'_1; y'_1)$ on the side of $F_1$ and
-            $(u'; v')$ given by $M_2$ on the side of $\widetilde F_2$, applied to
-            the base points scaled to order $2^{e_1 + 2}$. Hence, by~\cite[Proposition
-            57]{DLRW24}, the structures that the two half-chains induce on their
-            common codomain $C$ have bases related by the exchange of halves
-            $\left(\begin{smallmatrix} 0 & -I \\ I & 0 \end{smallmatrix}\right)$,
-            and their coordinates differ by a Hadamard transform~\cite[Lemma 29 and
-            proof of Lemma 22]{Dar24}. The automorphisms of $C$ induced by $D$
-            along the two half-chains coincide, and $\pi$ commutes with the
-            Hadamard transform, so the two instances of Theorem~\ref{thm:base} on
-            $C$ agree.
-        \end{enumerate}
-    \end{proposition}
+        First, $T^2 = 1$. Indeed, $\beta \circ D'^*\beta$ is an isomorphism
+        $[-1]^*\mathcal L \to \mathcal L$ that is the identity at $0$, hence the
+        normalized isomorphism of~\cite[p.~304]{Mum66}, which fixes every theta
+        function of a symmetric structure of level 2 by the inverse
+        formula~\cite[p.~331]{Mum66}, because $-x = x$ on $(\mathbb Z/2)^4$.
+        Second, by Theorem~\ref{thm:base} and Lemma~\ref{lem:transport}, $T(\theta_a)
+        = \mu\, \theta_{\pi(a)}$ for all $a$ and one scalar $\mu$; then $T^2 = 1$
+        gives $\mu = \pm 1$, and evaluating at $0$, where $\beta$ is the identity,
+        gives $\theta_a(0) = \mu\, \theta_{\pi(a)}(0)$. It remains to show that
+        $\mu = 1$, which we do by computing the trace of $T$ in two ways.
 
-    \begin{proof}
-        (i) The kernel lifts and the completion of $M_2$ play the roles that
-        those of $M_1$ play for the first half-chain, and the proof of
-        Theorem~\ref{thm:base} used nothing else about them.
+        In the basis $(\theta_a)$, $T$ is $\mu$ times the permutation matrix of
+        $\pi$, which has trace 4, since $\pi$ fixes the indices 0, 5, 10 and 15.
+        On the other hand, $D'$ has order 4, prime to $p$. Its fixed points form
+        the kernel of $1 - D'$, a group of order $\deg(1 - D') = 16$, since $D'(1
+        - D') = 1 + D'$ and $(1 + D')(1 - D') = 2$; they are 2-torsion points. On
+        the tangent space of $E^2$, $J$ acts by $\left(\begin{smallmatrix} 0 & 1 \\
+        -1 & 0 \end{smallmatrix}\right)$, so $D$ acts on the tangent space of $A$
+        with eigenvalues $i, i, -i, -i$, and so does $D'$ at each of its fixed
+        points, because $\Phi_{h,k}$ has degree a power of 2, hence is separable,
+        and its differential intertwines $D$ and $D'$. At a fixed point $x$,
+        $\beta$ acts on the fiber of $\mathcal L$ by a scalar $\varphi_x$, with
+        $\varphi_0 = 1$ and $\varphi_x^2 = 1$, because $\varphi_x^2$ is the scalar
+        by which the normalized isomorphism acts on the fiber at a point of order
+        2, which is 1 since $\mathcal L$ is totally symmetric~\cite[p.~305,
+        Proposition 1]{Mum66}. Since $\mathcal L$ is ample, $H^i(A', \mathcal L)
+        = 0$ for $i > 0$~\cite[\S 16, p.~150]{Mum74}. Donovan's
+        Lefschetz--Riemann--Roch formula~\cite[Corollary 5.5, with Lemmas 4.2 and
+        4.3]{Don69}, which holds for automorphisms of order prime to the
+        characteristic, then gives, in the Witt ring of $\Bbbk$, which has
+        characteristic 0,
+        \[
+        \mathrm{Br}(T) = \sum_{x \in \ker(1 - D')} \frac{w(\varphi_x)}{\prod_t (1
+        - w(\alpha_t))},
+        \]
+        where $\mathrm{Br}$ is the Brauer trace, $w$ the Teichmüller lift, and the
+        $\alpha_t$ are the eigenvalues of $D'$ on the cotangent space at $x$. The
+        eigenvalues of $T$ are $\pm 1$, so $\mathrm{Br}(T) = 4\mu$. With $\iota =
+        w(i)$, which satisfies $\iota^2 = w(-1) = -1$, every denominator is $(1 -
+        \iota)^2 (1 + \iota)^2 = (1 - \iota^2)^2 = 4$. Hence $\sum_x w(\varphi_x) =
+        16\mu$, a sum of sixteen terms equal to $\pm 1$, one of which, $w(\varphi_0)$,
+        is 1; so $\mu = -1$ is impossible, and $\mu = 1$.
 
-        (ii) Write $d' = 2^{e_1}$, $c_1 = 1$ and $c_2 = 2^{e_1 - e_2}$, as
-        in~\cite[Proposition 57]{DLRW24}. The basis $(-x'_1; y'_1)$ is
-        $\zeta$-symplectic because $(y'_1; x'_1)$ is, and $\ker F_1 = \langle 4
-        c_1 (-x'_1)\rangle$; on the other side $\ker \widetilde F_2 = \langle 4
-        x'_2 \rangle = \langle 4 c_2 v' \rangle$. The conditions of
-        Corollary~58, $F(c_2 y') = c_2 v'$ and $\widetilde F(c_1 u') = c_1 x'$,
-        follow from $X^{(2)} = F Y^{(1)}$ and $-X_1 = \widehat F Y^{(2)}$ in
-        Lemma~\ref{lem:paired}, with $\widetilde F = \widehat F$ by
-        \eqref{eq:kani-matrices}. Proposition~57 orders the basis of
-        $F_1$ with the half above the kernel first and that of $\widetilde F_2$
-        with it second; the algorithm uses the second order on both sides, which
-        exchanges the two halves of the first basis and gives the matrix stated.
-        If $F_2 \circ F_1 = -F$ instead, replacing $F_2$ by $-F_2$ changes
-        neither kernel nor the structures, since a basis and its negative induce
-        the same structure.
-
-        Let $D_C$ satisfy $D_C F_1 = F_1 D$. Then $F_2 D_C F_1 = F D = D F = D F_2
-        F_1$, and $F_1$ is surjective, so $F_2 D_C = D F_2$. Taking duals, with
-        $\widehat D = D^{-1}$ and $\widehat{D_C} = D_C^{-1}$
-        (Proposition~\ref{prop:descent}), gives $D_C^{-1} \widetilde F_2 =
-        \widetilde F_2 D^{-1}$, that is, $D_C \widetilde F_2 = \widetilde F_2 D$:
-        $D_C$ is also the automorphism induced along $\widetilde F_2$. Finally,
-        $\pi$ permutes index bits, so $\langle \pi(a) | \pi(b)\rangle = \langle a |
-        b \rangle$ and $\pi$ commutes with the Hadamard transform $\theta_a
-        \mapsto \sum_b (-1)^{\langle a | b\rangle} \theta_b$.
+        Finally, the Hadamard transform commutes with the permutation of
+        coordinates by $\pi$, because $\pi$ permutes the bits of the indices and
+        so preserves the parity of $a \cdot b$: $a \cdot \pi(b) = \pi(a) \cdot b$.
     \end{proof}
 
-    \begin{remark}[An equivariant completion]
-        \label{rem:eqcompletion}
-        One can also choose the completion so that $\tilde D Y = Y U$ exactly:
-        solve for two completion columns, adjust each by one kernel column so that
-        $\omega(y, \tilde D y) = 0$, which is possible because $\omega(y, \tilde D
-        y)$ is always even in these coordinates, and obtain the other two as
-        $-\tilde D$ of the first two. Then $S = 0$ in
-        Lemma~\ref{lem:anycompletion}. The implementation provides this
-        completion and uses it in the two-point verifier; by
-        Lemma~\ref{lem:paired} it is not needed for Theorem~\ref{thm:base}.
-    \end{remark}
-
-    \subsection{Conformance of the implementation}
+    \section{Conformance of the implementation}
     \label{app:remains}
 
-    Theorem~\ref{thm:base} is a statement about the verifier's algorithm. It
+    Theorem~\ref{thm:base} is a statement about the verifier's algorithm, and
     applies to our verifier to the extent that the implementation computes that
-    algorithm. This subsection separates what we established about that by
-    reading the code of our crate from what remains unproven, which is set in
-    red.
+    algorithm. We record what a reading of the crate's code establishes.
 
     \begin{remark}[Conformance]
         \label{rem:conformance}
@@ -1827,11 +2108,11 @@
             \item \emph{The integers $a_1$, $a_2$.} Our crate's Cornacchia step
             returns the odd value as $a_1$, and rejects, among other cases, when
             $2^e - q$ is even or not congruent to 1 modulo 4. It computes $m$ as
-            the number of trailing zero bits of $a_2$, which is 128 when $a_2 = 0$,
+            the number of trailing zero bits of $a_2$, which exceeds 40 when $a_2 = 0$,
             and rejects every $m > 40$. So every input that reaches our
             half-chains has $a_1$ odd and $1 \le m \le 40$, as
             Lemma~\ref{lem:gluing} requires. Before Cornacchia's algorithm, our
-            verifier repeats the goodness test of Section~\ref{sec:dim4} and
+            verifier repeats the goodness test of Section~\ref{sec:verif} and
             rejects a degree that is not good; being deterministic, it runs its 40
             Miller--Rabin rounds on the first 40 primes as bases. The properties
             above are all that this appendix uses.
@@ -1844,99 +2125,103 @@
             transmitted matrix as the map $\tau$ of Section~\ref{app:conjecture},
             from the commitment basis to points of $\Echl$, uses the base points
             of Lemma~\ref{lem:basepoints} with $\lambda \equiv q^{-1}$, and
-            recovers the dropped entry by the rule of Section~\ref{sec:dim4},
+            recovers the dropped entry by the rule of Section~\ref{sec:wire},
             rejecting a signature whose transmitted $a$ and $b$ are both even,
             where the rule is not defined. Every input that reaches our
             half-chains therefore satisfies the hypotheses of
             Lemma~\ref{lem:basepoints}.
-            \item \emph{Our Rust port.} Of our Rust port we established the same
-            items by reading its code at the commit of the session of
-            Section~\ref{sec:bench}: the index convention of (a) line by line
-            against the appendix, the index $\mathbf i_0$ of (b), the projective
-            use of the kernel points of (d), the base points and the rule of (e),
-            and, for (c), the odd $a_1$, the parity and residue tests on $2^e - q$,
-            and the bound on $m$. The port's verifier does not repeat the goodness
-            test before Cornacchia's algorithm: the only tests on $2^e - q$ are the
-            parity, the residue modulo 4 and the success of the descent. It rejects
-            a transmitted $a$ and $b$ both even before any inversion. The
-            dimension-2 gluing is one chain applied to both pairs of copies;
-            whether its structure, the dimension-4 gluing's change of basis and the
-            plain steps are those of Definition~\ref{def:structures} is not
-            established for the port either, and what the port's tests show is
-            only that its two-point and four-point chains agree at every step and
-            that the SQIsignHD library's verifier accepts its signatures.
+            \item \emph{The change of basis at the gluing.} For both half-chains,
+            our crate computes the coordinates $u_1, \ldots, u_4$ of
+            Proposition~\ref{prop:gluingbasis}(ii), with the constants of $\tilde
+            M$, and assembles the matrix as stated there. By that proposition,
+            the matrix expresses $B_{h,m}$ in the product basis.
         \end{enumerate}
-        {\color{red}
-            What is not established is that our crate computes the algorithm's
-            theta structures of Definition~\ref{def:structures} on every fourfold
-            $A_{h,k}$ with $k \ge m$: that is, that its dimension-2 gluing
-            $\Phi\colon \Ecom \times \Echl \to A_m$, applied with the same theta
-            structure to both pairs of copies, its change of basis for the
-            dimension-4 gluing, its dimension-4 gluing step and the plain steps
-            after it are faithful. Our crate computes the change of basis of the
-            gluing by closed formulas taken from~\cite{Dar25} (cf.~\cite[Lemmas 30
-            and 31]{Dar24}), meant to express the basis $B_{h,m}$ in the product
-            theta basis of $A_m \times A_m$; we have not verified them against
-            Definition~\ref{def:structures}. We checked only that on 60 inputs,
-            from 24 honest and 36 forged signatures, our crate returns exactly the
-            matrices that the formulas of~\cite{Dar25} return on the same inputs,
-            all of them symplectic modulo 4, with $m$ ranging over 1, 2, 3, 4, 6
-            and 8. The dimension-2 gluing, the dimension-4 gluing step and the
-            plain steps are not checked. Until they are, Theorem~\ref{thm:base}
-            reaches our verifier only through this statement.
-        }
+        The step formulas, checked against~\cite{Dar24}, are also as the
+        algorithm requires.
+        \begin{enumerate}[label=(\alph*), resume]
+            \item \emph{Plain steps.} Images are~\cite[Algorithm 1]{Dar24},
+            doublings~\cite[Algorithm 8]{Dar24} with the two constants computed as
+            stated there, and codomains~\cite[Algorithms 2--4]{Dar24}, applying
+            \cite[Eq.~(21)]{Dar24} along each edge, with kernel point $l$ labeling
+            index bit $l$ as Definition~\ref{def:structures} requires.
+            \item \emph{The dimension-2 chain.} One chain $\varphi$ serves both
+            pairs of copies, whose images are combined in the order of
+            Proposition~\ref{prop:gluingbasis}. Its kernel points are those of
+            that proposition, and it starts from the change of coordinates
+            of~\cite[Theorem 12]{Dar24}, computed as in (a) and (b), for the
+            matrices of Proposition~\ref{prop:gluingbasis}(i) modulo 4. Its plain
+            steps are the algorithms of (g) in dimension 2, and its gluing
+            evaluates by~\cite[Eqs.~(20), (24) and (25)]{Dar24} with one translate,
+            computed on the elliptic curves~\cite[Remarks 19 and 20]{Dar24}.
+            \item \emph{The dimension-4 gluing step.} Its codomain is computed
+            by~\cite[Algorithm 4]{Dar24} from the four kernel points and the sum of
+            the first two~\cite[Remark 21]{Dar24}, and its images
+            by~\cite[Algorithm 5]{Dar24} with two translates, computed on the
+            elliptic curves~\cite[Remarks 19 and 20]{Dar24}.
+            \item \emph{Undefined cases.} Wherever these algorithms would divide by
+            a vanishing value, our crate rejects the signature.
+        \end{enumerate}
+        So our crate computes the theta structures of
+        Definition~\ref{def:structures} on every fourfold $A_{h,k}$ with $k \ge
+        m$, and Theorem~\ref{thm:base} applies to our verifier. These are
+        findings of a reading of the code, not of a machine-checked proof.
     \end{remark}
 
-    %% ------------------------------------------------------------
-    %% OPEN ISSUE, set in red on purpose: remove the color once
-    %% the conformance of Remark rem:conformance is established.
-    %% ------------------------------------------------------------
-    {\color{red}
-        \paragraph{Evidence}
-        Everything observed agrees with Theorem~\ref{thm:base}. Solving for the
-        matrix $N_k$ with $N_k\,\theta(x) \sim \theta(Dx)$ from 20 random points at
-        the gluing codomain and after plain steps 1, 2, 3, 20, 43, 70 and 84 of the
-        first half-chain of one level-I signature gives the pure permutation $\pi$,
-        with all scalars equal to 1, and nothing else. The identity $\theta(Dx) =
-        \pi(\theta(x))$ held at every step of both half-chains, on four random
-        points per signature and on every codomain null point: with the generic
-        completion, for 32 honest signatures (5\,472 steps) and the 72 of 96
-        forged ones that pass the setup (12\,318 steps); with the equivariant one,
-        for the same honest signatures and 70 forged ones from other seeds
-        (17\,332 steps in all). On these 102 signatures, $\tilde D$ acts on
-        the generic starting matrices exactly as Lemmas~\ref{lem:anycompletion}
-        and~\ref{lem:paired} say, modulo 4: block-diagonally on the kernel lifts
-        and modulo the kernel on the completion, although not block-diagonally on
-        the completion itself in 47 of them; and the gluing's change of basis
-        intertwines $D$, acting on $A_m \times A_m$ as the signed exchange of the
-        two copies of $A_m$, which is how $J$ acts on a square, with a
-        block-diagonal signed permutation, while an unsigned exchange fails on all
-        102. Levels III and V,
-        which are not implemented, remain untested.
+    \paragraph{Tests and safeguards}
+    The two-point verifier checks on each signature that the gluing images of
+    $g_2, g_3$ are the $\pi$-permutations of those of $g_0, g_1$ and that the
+    gluing codomain's null point is fixed by $\pi$, at the cost of four
+    evaluations through the gluing and six comparisons, and falls back to four
+    points otherwise. These checks would make the two-point chain correct even
+    without the conformance above: every plain step consists of coordinatewise
+    operations, Hadamard transforms and products with constants fixed by $\pi$,
+    so it commutes with $\pi$, and by induction from the gluing the two-point
+    chain computes what the four-point chain computes. Only the direct codomain
+    formula of Section~\ref{sec:twopoint} needs more, the consistency of the
+    equations~\cite[Eq.~(21)]{Dar24} it solves along a single path, which the
+    conformance above provides. The
+    fallback has not occurred on any honest signature tested. In the tests, the
+    codomain computation of Section~\ref{sec:twopoint}, which assumes that each
+    codomain's dual null point is fixed by $\pi$, and the four-point verifier,
+    which does not, produce the same codomain, projectively, at all 1\,688
+    plain steps of both half-chains of five level-I test vectors, and the same
+    verdict on those vectors and on 70 tampered variants. An earlier version of
+    the crate was checked more directly: $\theta(Dx) = \pi(\theta(x))$ held at
+    every step of both half-chains of 32 honest and 72 forged signatures
+    (17\,790 steps). At levels III and V, the same tests give the same codomain at all
+    2\,564 and 3\,416 plain steps of five vectors each, and the same verdict on 75 and 70 tampered variants.
 
-        \paragraph{What the implementation does meanwhile}
-        The two-point verifier checks on each signature that the gluing images of
-        $g_2, g_3$ are the $\pi$-permutations of those of $g_0, g_1$, and falls
-        back to four points otherwise; the fallback never occurred on the
-        signatures tested. Until the conformance of Remark~\ref{rem:conformance} is
-        established this check should stay; it costs four evaluations through the
-        gluing.
-    }
+    \section{Beyond two-point evaluation}
+    \label{app:beyond}
 
-    \subsection{Beyond two-point evaluation}
+    MIKE exploits its automorphism $[i]$ in two ways, of which the verifier
+    now shares the first. In the theta coordinates of MIKE's chain, induced
+    like ours by the images of a symplectic basis, $[i]$ acts as a permutation
+    of the sixteen coordinates~\cite[Corollary G.3]{BDD+26}, so that the
+    codomain's null point has repeated coefficients and each codomain can be
+    computed from two points above the kernel~\cite[Theorem E.1]{BDD+26}.
+    Theorem~\ref{thm:base}, Proposition~\ref{prop:gluingbasis} and
+    Proposition~\ref{prop:symnull} give the corresponding facts for the
+    verifier's chain, for every input, and Section~\ref{sec:twopoint} uses them
+    in the same way. MIKE assumes that certain theta coordinates do not
+    vanish~\cite[Heuristic E.1]{BDD+26}, which a forged signature could be
+    built to violate; the verifier of Section~\ref{sec:twopoint} instead checks
+    the symmetry it uses and falls back to the full computation, so that it
+    needs no such assumption. MIKE's coordinates in which $[i]$ acts diagonally,
+    by signs~\cite[Definition G.1 and Proposition G.3]{BDD+26}, show the same
+    phenomenon as Proposition~\ref{prop:symnull}: there the null point vanishes
+    at the six coordinates that $[i]$ negates.
 
-    The two-point verifier halves the work of doubling and pushing kernel
-    points; it still computes each codomain from four points. MIKE also
-    computes the codomain from two points~\cite[Theorem E.1]{BDD+26}, using
-    coordinates adapted to its automorphism in the sense of~\cite[Definition
-    G.1]{BDD+26} and a nonvanishing assumption on some theta
-    coordinates~\cite[Heuristic E.1]{BDD+26}, and gives doubling formulas on
-    the quotient by it. Transferring those would require carrying adapted
-    coordinates through the gluing steps from a product of four elliptic
-    curves, which differ from MIKE's, and checking the nonvanishing assumption
-    on this family of fourfolds; a forged signature could be built to make one
-    of those coordinates vanish, so a verifier using them must reject rather
-    than divide by zero. None of this is done here.
+    The second way is not available to the verifier. On the quotient by $[i]$,
+    only the ten coordinates fixed by $[i]$ need to be kept, and doubling
+    formulas in these coordinates are about 1.6 times faster than with all
+    sixteen; but no efficient formulas are known for images under the
+    2-isogenies in this model~\cite[Remark E.2]{BDD+26}, and MIKE does not use
+    it. The verifier doubles and pushes every kernel point it carries, so it
+    would need both. Efficient image formulas on the quotient by $D$ would
+    reduce the dominant cost of a step, the doublings and images of kernel
+    points, by up to about $1 - 1/1.6 \approx 38\,\%$; finding them is an open
+    question.
 
 
 \end{document}
