@@ -16,7 +16,9 @@
 //!   points without it, as an extra row);
 //! * compact, levels III and V: 20 key generations, 52 signatures, and for
 //!   verification six signatures, 15 runs each, in each mode;
-//! * the phase profile of the four-point and two-point verifiers at level I.
+//! * the phase profile of the four-point and two-point verifiers at each
+//!   level, with the pre-chain checks on their own: the decode, the hint
+//!   and pairing-order checks, the goodness test.
 //!
 //! Verification is from bytes: decode the key, decode the signature,
 //! verify. The compact signatures are in the bit-packed layout. The heap
@@ -38,7 +40,8 @@ use sqisign_rs::compact::{
 use sqisign_rs::mp::ShakeRng;
 use sqisign_rs::sqisign::{level1, level3, level5, Params};
 use sqisign_verify::hd::{
-    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled, parse_public_key, parse_signature,
+    challenge_limbs, hd_verify_bytes_with, hd_verify_profiled_full, parse_public_key,
+    parse_signature,
     HdLevel, HdSignature, HdVerifyOptions, KernelPoints, SLOTS, SLOT_NAMES,
 };
 use sqisign_verify::{P324_3, P500_27, P664_17};
@@ -238,7 +241,13 @@ fn compact<L: HdLevel, const N: usize>(
             writeln!(file, "# slot{k} = {n}").unwrap();
         }
         let slots: Vec<String> = (0..SLOTS).map(|k| format!("slot{k}")).collect();
-        writeln!(file, "iteration,signature,total,decode,{}", slots.join(",")).unwrap();
+        writeln!(file, "# checks_hints_pairing = the canonical hints of both curves and the order of e(P, Q) (sub-slot 16); checks_goodness = the goodness test on q (sub-slot 17); both lie inside the slots, decode does not").unwrap();
+        writeln!(
+            file,
+            "iteration,signature,total,decode,{},checks_hints_pairing,checks_goodness",
+            slots.join(",")
+        )
+        .unwrap();
         let clock: &dyn Fn() -> u64 = &cycles;
         for it in 0..sigs * 10 {
             let j = it % sigs;
@@ -261,11 +270,20 @@ fn compact<L: HdLevel, const N: usize>(
                 q: ps.q,
             };
             let c1 = cycles();
-            let (verdict, _, sl) = hd_verify_profiled::<L>(&hdsig, &opts, clock);
+            let (verdict, _, sl, subs) = hd_verify_profiled_full::<L>(&hdsig, &opts, clock);
             let c2 = cycles();
             assert_eq!(verdict, Ok(()));
             let cols: Vec<String> = sl.iter().map(|v| v.to_string()).collect();
-            writeln!(file, "{it},{j},{},{},{}", c2 - c0, c1 - c0, cols.join(",")).unwrap();
+            writeln!(
+                file,
+                "{it},{j},{},{},{},{},{}",
+                c2 - c0,
+                c1 - c0,
+                cols.join(","),
+                subs[16],
+                subs[17]
+            )
+            .unwrap();
         }
     }
 }

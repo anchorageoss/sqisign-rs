@@ -10,7 +10,8 @@ The session's value of a row is the value of pass 1 when two passes agree
 within 3 percent on every row, and otherwise the median of the three
 passes' values. Writes numbers.json and table.md into the session
 directory. With --check-noise: exit 1 when two passes disagree by more
-than 3 percent on some row (the session script then runs a third pass).
+than 3 percent on some row (the session script then runs a third pass). The
+threshold is the environment variable PAPER_NOISE (default 0.03).
 """
 import glob
 import json
@@ -19,7 +20,7 @@ import re
 import statistics
 import sys
 
-NOISE = 0.03
+NOISE = float(os.environ.get("PAPER_NOISE", "0.03"))
 
 
 def read(path):
@@ -118,6 +119,11 @@ def profile(pdir, name):
     out = {"total_mc": total / 1e6, "decode_share": med([r[1] for r in rows]) / total}
     for k, n in enumerate(names):
         out[n] = med([r[2 + k] for r in rows]) / total
+    if len(rows[0]) >= 2 + len(names) + 2:
+        # the pre-chain checks, megacycles per verification
+        out["decode_mc"] = med([r[1] for r in rows]) / 1e6
+        out["checks_hints_pairing_mc"] = med([r[-2] for r in rows]) / 1e6
+        out["checks_goodness_mc"] = med([r[-1] for r in rows]) / 1e6
     return out
 
 
@@ -170,6 +176,7 @@ def main():
         "loop": loop_stats(passes[0]),
         "sign_quartiles": {lvl: quartiles(passes[0], lvl) for lvl in ("I", "III", "V")},
         "profile": {lvl + "-" + m: profile(passes[0], f"dim4-{lvl}-profile-{m}") for lvl in ("I", "III", "V") for m in ("four", "two")},
+        "profile_per_pass": [{lvl + "-" + m: profile(p, f"dim4-{lvl}-profile-{m}") for lvl in ("I", "III", "V") for m in ("four", "two")} for p in passes],
         "heap": heap(sdir),
     }
     with open(os.path.join(sdir, "numbers.json"), "w") as f:
