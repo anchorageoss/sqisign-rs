@@ -10,6 +10,21 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+# The session binary of the earlier sessions (blocks, rounds) and the two
+# binaries of the paper's own protocol (paper_session.sh): `paper` times,
+# `paper_heap` measures heap peaks with a counting allocator.
+[[bin]]
+name = "dim4-session"
+path = "src/main.rs"
+
+[[bin]]
+name = "paper"
+path = "src/paper.rs"
+
+[[bin]]
+name = "paper_heap"
+path = "src/paper_heap.rs"
+
 [dependencies]
 sqisign-rs = { path = "../../crates/sqisign-rs", features = ["compact"] }
 sqisign-verify = { path = "../../crates/verify", features = ["compact"] }

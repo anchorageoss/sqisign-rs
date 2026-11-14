@@ -226,7 +226,7 @@ fn dim2_level<L: sqisign_rs::SigningLevel>(level: &str, a: &Args, raw_dir: &Path
 
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
 const PK_BYTES: usize = 84;
-const SIG_BYTES: usize = 142;
+const SIG_BYTES: usize = 139;
 
 /// A key and `n` signatures of this round, the same in every block of the
 /// round that asks for them.
