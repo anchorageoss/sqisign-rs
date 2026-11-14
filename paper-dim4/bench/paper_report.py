@@ -30,12 +30,17 @@ def read(path):
             if not line[0].isdigit():
                 continue
             it, cyc, ns, extra = line.rstrip("\n").split(",", 3)
-            rows.append((int(cyc), int(ns), extra))
+            rows.append((None if cyc == "NA" else int(cyc), int(ns), extra))
     return rows
 
 
 def med(xs):
     return statistics.median(xs)
+
+
+def med_cyc(xs):
+    """Median of a cycle column; None when the timer had no cycles (NA)."""
+    return None if any(x is None for x in xs) else statistics.median(xs)
 
 
 def row_stats(name, rows):
@@ -45,12 +50,13 @@ def row_stats(name, rows):
         by_sig = {}
         for cyc, ns, extra in rows:
             by_sig.setdefault(extra.split(";")[0], []).append((cyc, ns))
-        mc = statistics.mean(med([c for c, _ in v]) for v in by_sig.values())
+        mcs = [med_cyc([c for c, _ in v]) for v in by_sig.values()]
+        mc = None if any(x is None for x in mcs) else statistics.mean(mcs)
         ms = statistics.mean(med([n for _, n in v]) for v in by_sig.values())
     else:
-        mc = med([c for c, _, _ in rows])
+        mc = med_cyc([c for c, _, _ in rows])
         ms = med([n for _, n, _ in rows])
-    return mc / 1e6, ms / 1e6
+    return (None if mc is None else mc / 1e6), ms / 1e6
 
 
 def c_ref(path):
@@ -74,7 +80,10 @@ def load_pass(pdir):
         p = os.path.join(pdir, f"c-ref-{lvl}.txt")
         if os.path.exists(p):
             for op, v in c_ref(p).items():
-                vals[f"c-{lvl}-{'keygen' if op == 'keypair' else op}"] = (v, None)
+                key = f"c-{lvl}-{'keygen' if op == 'keypair' else op}"
+                # built with -DNO_CYCLE_COUNTER the reference's "megacycles"
+                # are nanoseconds / 1e6, that is milliseconds
+                vals[key] = (None, v) if os.environ.get("C_REF_UNIT") == "ms" else (v, None)
     return vals
 
 
@@ -83,8 +92,13 @@ def loop_stats(pdir):
     samples = [int(e.split(";")[0]) for _, _, e in rows]
     tests = [int(e.split(";")[1]) for _, _, e in rows]
     restarts = sum(int(e.split(";")[2]) for _, _, e in rows)
-    cyc = [c / 1e6 for c, _, _ in rows]
+    has_cyc = all(c is not None for c, _, _ in rows)
+    cyc = [c / 1e6 for c, _, _ in rows] if has_cyc else [float("nan")]
+    msv = [n / 1e6 for _, n, _ in rows]
     return {
+        "sign_ms_median": med(msv),
+        "sign_ms_min": min(msv),
+        "sign_ms_max": max(msv),
         "signatures": len(rows),
         "samples_mean": statistics.mean(samples),
         "samples_median": med(samples),
@@ -100,9 +114,10 @@ def loop_stats(pdir):
 
 def quartiles(pdir, lvl):
     rows = read(os.path.join(pdir, "raw", f"dim4-{lvl}-sign.csv"))
-    cyc = sorted(c / 1e6 for c, _, _ in rows)
+    unit = "mc" if all(c is not None for c, _, _ in rows) else "ms"
+    cyc = sorted((c if unit == "mc" else n) / 1e6 for c, n, _ in rows)
     q = statistics.quantiles(cyc, n=4)
-    return {"q1": q[0], "q3": q[2], "min": cyc[0], "max": cyc[-1]}
+    return {"unit": unit, "q1": q[0], "q3": q[2], "min": cyc[0], "max": cyc[-1]}
 
 
 def profile(pdir, name):
@@ -116,6 +131,7 @@ def profile(pdir, name):
                 p = line.strip().split(",")
                 rows.append([int(x) for x in p[2:]])
     total = med([r[0] for r in rows])
+    # the unit is the timer's: megacycles with rdtsc, milliseconds with the wall clock
     out = {"total_mc": total / 1e6, "decode_share": med([r[1] for r in rows]) / total}
     for k, n in enumerate(names):
         out[n] = med([r[2 + k] for r in rows]) / total
@@ -150,24 +166,26 @@ def main():
     noisy = []
     if len(vals) >= 2:
         for n in names:
-            a, b = vals[0][n][0], vals[1][n][0]
+            k = 0 if vals[0][n][0] is not None else 1
+            a, b = vals[0][n][k], vals[1][n][k]
             if abs(a - b) / min(a, b) > NOISE:
                 noisy.append((n, a, b))
     if check:
         for n, a, b in noisy:
-            print(f"noise: {n}: pass 1 {a:.3f}, pass 2 {b:.3f} megacycles ({abs(a - b) / min(a, b) * 100:.1f} percent)")
+            print(f"noise: {n}: pass 1 {a:.3f}, pass 2 {b:.3f} ({abs(a - b) / min(a, b) * 100:.1f} percent)")
         sys.exit(1 if noisy else 0)
 
     use_three = len(vals) >= 3
     session = {}
     for n in names:
-        mcs = [v[n][0] for v in vals]
+        mcs = [v[n][0] for v in vals if v[n][0] is not None]
         mss = [v[n][1] for v in vals if v[n][1] is not None]
         if use_three:
-            session[n] = {"mc": med(mcs), "ms": med(mss) if mss else None}
+            session[n] = {"mc": med(mcs) if mcs else None, "ms": med(mss) if mss else None}
         else:
-            session[n] = {"mc": mcs[0], "ms": mss[0] if mss else None}
+            session[n] = {"mc": mcs[0] if mcs else None, "ms": mss[0] if mss else None}
         session[n]["passes_mc"] = mcs
+        session[n]["passes_ms"] = mss
     out = {
         "passes": len(vals),
         "rule": "median of the three passes' values" if use_three else "pass 1 (two passes within 3 percent on every row)",
@@ -181,11 +199,13 @@ def main():
     }
     with open(os.path.join(sdir, "numbers.json"), "w") as f:
         json.dump(out, f, indent=1)
-    lines = [f"passes: {len(vals)}; session value: {out['rule']}", "", "| row | megacycles | ms | per pass (megacycles) |", "|---|---:|---:|---|"]
+    lines = [f"passes: {len(vals)}; session value: {out['rule']}", "", "| row | megacycles | ms | per pass (megacycles, or ms where there are no cycles) |", "|---|---:|---:|---|"]
     for n in names:
         r = session[n]
         ms = "" if r["ms"] is None else f"{r['ms']:.2f}"
-        lines.append(f"| {n} | {r['mc']:.2f} | {ms} | {', '.join(f'{x:.2f}' for x in r['passes_mc'])} |")
+        mcv = "" if r["mc"] is None else f"{r['mc']:.2f}"
+        per = r["passes_mc"] if r["passes_mc"] else r["passes_ms"]
+        lines.append(f"| {n} | {mcv} | {ms} | {', '.join(f'{x:.2f}' for x in per)} |")
     with open(os.path.join(sdir, "table.md"), "w") as f:
         f.write("\n".join(lines) + "\n")
     print("\n".join(lines))

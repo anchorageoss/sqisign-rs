@@ -1,10 +1,12 @@
 //! The paper's benchmark protocol (Section "Setup" of
 //! paper-dim4/main_standalone.tex), one pass per invocation:
 //!
-//!     paper --out <dir> [--only <block>]
+//!     paper --out <dir> [--only <block>] [--timer wall|tsc]
 //!
-//! Every call is timed with `rdtsc` and the wall clock around it and
-//! written as one CSV line `iteration,cycles,ns,extra` under `<dir>/raw/`,
+//! Every call is timed by the [`timer::Timer`] of the architecture (`rdtsc`
+//! and the wall clock on x86-64; the wall clock alone elsewhere or with
+//! `--timer wall`, the cycle column then reading `NA`) and written as one
+//! CSV line `iteration,cycles,ns,extra` under `<dir>/raw/`,
 //! so that the report script recomputes every statistic from the raw
 //! files. Run counts, per the paper:
 //!
@@ -46,10 +48,9 @@ use sqisign_verify::hd::{
 };
 use sqisign_verify::{P324_3, P500_27, P664_17};
 
-fn cycles() -> u64 {
-    // SAFETY: rdtsc is available on every x86-64 CPU.
-    unsafe { core::arch::x86_64::_rdtsc() }
-}
+#[path = "timer.rs"]
+mod timer;
+use timer::{Timer, WallTimer};
 
 struct Raw {
     file: File,
@@ -63,21 +64,28 @@ impl Raw {
         writeln!(file, "iteration,cycles,ns,extra").unwrap();
         Raw { file, iteration: 0 }
     }
-    /// Time `f` once and write its line; `f` returns the extra column.
-    fn time<F: FnOnce() -> String>(&mut self, f: F) {
-        let t0 = Instant::now();
-        let c0 = cycles();
+    /// Time `f` once with the timer `T` and write its line; `f` returns
+    /// the extra column.
+    fn time<T: Timer, F: FnOnce() -> String>(&mut self, f: F) {
+        let t = T::start();
         let extra = f();
-        let c1 = cycles();
-        let ns = t0.elapsed().as_nanos();
-        writeln!(self.file, "{},{},{},{}", self.iteration, c1 - c0, ns, extra).unwrap();
+        let s = t.stop();
+        writeln!(
+            self.file,
+            "{},{},{},{}",
+            self.iteration,
+            s.cycles_cell(),
+            s.ns,
+            extra
+        )
+        .unwrap();
         self.iteration += 1;
     }
 }
 
 const MSG: &[u8] = b"dimension-4 paper session";
 
-fn dim2<L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
+fn dim2<T: Timer, L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
     use sqisign_rs::{generate, CompressedSignature, PublicKey, Signature};
     let mut rng = StdRng::seed_from_u64(0x2026_1114 ^ ((level.len() as u64) << 32));
     let mut f = Raw::open(
@@ -86,7 +94,7 @@ fn dim2<L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
         &format!("dimension 2 | {level} | keygen, 52 runs"),
     );
     for _ in 0..52 {
-        f.time(|| {
+        f.time::<T, _>(|| {
             black_box(generate::<L>(&mut rng));
             String::new()
         });
@@ -98,7 +106,7 @@ fn dim2<L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
         &format!("dimension 2 | {level} | sign, a fresh message each run, 52 runs"),
     );
     for i in 0..52u64 {
-        f.time(|| {
+        f.time::<T, _>(|| {
             black_box(sk.sign(&i.to_le_bytes(), &mut rng).unwrap());
             String::new()
         });
@@ -115,7 +123,7 @@ fn dim2<L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
         ),
     );
     for _ in 0..200 {
-        f.time(|| {
+        f.time::<T, _>(|| {
             let pk = PublicKey::<L>::from_bytes(black_box(&pkb)).unwrap();
             let sig = Signature::<L>::from_bytes(black_box(&sigb)).unwrap();
             assert!(pk.verify(MSG, &sig).is_ok());
@@ -132,7 +140,7 @@ fn dim2<L: sqisign_rs::SigningLevel>(level: &str, raw: &Path) {
         ),
     );
     for _ in 0..200 {
-        f.time(|| {
+        f.time::<T, _>(|| {
             let pk = PublicKey::<L>::from_bytes(black_box(&pkb)).unwrap();
             let c = CompressedSignature::<L>::from_bytes(black_box(&cb)).unwrap();
             assert!(pk.verify_compressed(MSG, &c).is_ok());
@@ -150,7 +158,8 @@ const MODES: [(&str, KernelPoints); 3] = [
 /// The compact format at one level: `keygens` key generations, `signs`
 /// signatures with the loop's counts, and `sigs` signatures verified
 /// `runs_per_sig` times each in each mode, the signatures taken in turn.
-fn compact<L: HdLevel, const N: usize>(
+#[allow(clippy::too_many_arguments)]
+fn compact<T: Timer, L: HdLevel, const N: usize>(
     level: &str,
     params: &Params<N>,
     keygens: usize,
@@ -170,7 +179,7 @@ fn compact<L: HdLevel, const N: usize>(
         &format!("compact | {level} | keygen, {keygens} runs"),
     );
     for _ in 0..keygens {
-        f.time(|| {
+        f.time::<T, _>(|| {
             black_box(compact_keygen::<L, N>(params, &mut r).unwrap());
             String::new()
         });
@@ -185,7 +194,7 @@ fn compact<L: HdLevel, const N: usize>(
         &format!("compact | {level} | sign, a fresh message each run, {signs} runs; extra = response samples;primality tests;restarts"),
     );
     for i in 0..signs as u64 {
-        f.time(|| {
+        f.time::<T, _>(|| {
             let (_, s) =
                 compact_sign_stats::<L, N>(params, &pk, &sk, &i.to_le_bytes(), &mut r, &mut sig)
                     .unwrap();
@@ -218,7 +227,7 @@ fn compact<L: HdLevel, const N: usize>(
         for it in 0..sigs * runs_per_sig {
             let j = it % sigs;
             let (s, msg) = &set[j];
-            f.time(|| {
+            f.time::<T, _>(|| {
                 let (verdict, report) =
                     hd_verify_bytes_with::<L>(black_box(s), black_box(&pkb), msg, &opts);
                 assert_eq!(verdict, Ok(()));
@@ -236,7 +245,7 @@ fn compact<L: HdLevel, const N: usize>(
             kernel_points: mode,
         };
         let mut file = File::create(raw.join(format!("dim4-{level}-profile-{name}.csv"))).unwrap();
-        writeln!(file, "# compact | {level} | phase profile of verify from bytes, {mode:?}: cycles per phase, both half-chains added; total = rdtsc around decode and verify").unwrap();
+        writeln!(file, "# compact | {level} | phase profile of verify from bytes, {mode:?}: per phase, both half-chains added, in the unit of the timer ({}): cycles with rdtsc, nanoseconds with the wall clock; total = around decode and verify", T::NAME).unwrap();
         for (k, n) in SLOT_NAMES.iter().enumerate() {
             writeln!(file, "# slot{k} = {n}").unwrap();
         }
@@ -248,11 +257,11 @@ fn compact<L: HdLevel, const N: usize>(
             slots.join(",")
         )
         .unwrap();
-        let clock: &dyn Fn() -> u64 = &cycles;
+        let clock: &dyn Fn() -> u64 = &T::counter;
         for it in 0..sigs * 10 {
             let j = it % sigs;
             let (s, msg) = &set[j];
-            let c0 = cycles();
+            let c0 = T::counter();
             let ps = parse_signature::<L>(s).unwrap();
             let pp = parse_public_key::<L>(&pkb).unwrap();
             let chal = challenge_limbs::<L>(&ps, &pp, msg).unwrap();
@@ -269,9 +278,9 @@ fn compact<L: HdLevel, const N: usize>(
                 resp_c_or_d: ps.c_or_d,
                 q: ps.q,
             };
-            let c1 = cycles();
+            let c1 = T::counter();
             let (verdict, _, sl, subs) = hd_verify_profiled_full::<L>(&hdsig, &opts, clock);
-            let c2 = cycles();
+            let c2 = T::counter();
             assert_eq!(verdict, Ok(()));
             let cols: Vec<String> = sl.iter().map(|v| v.to_string()).collect();
             writeln!(
@@ -288,9 +297,46 @@ fn compact<L: HdLevel, const N: usize>(
     }
 }
 
+/// The six blocks with the timer `T`.
+fn run_blocks<T: Timer>(raw: &Path, only: &Option<String>) {
+    const N1: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
+    const N3: usize = sqisign_rs::precomp::p500_27::IBZ_NLIMBS;
+    const N5: usize = sqisign_rs::precomp::p664_17::IBZ_NLIMBS;
+    let want = |b: &str| only.as_deref().is_none_or(|o| o == b);
+    let blocks: [(&str, Box<dyn Fn()>); 6] = [
+        ("dim2-I", Box::new(|| dim2::<T, sqisign_rs::Level1>("I", raw))),
+        (
+            "dim2-III",
+            Box::new(|| dim2::<T, sqisign_rs::Level3>("III", raw)),
+        ),
+        ("dim2-V", Box::new(|| dim2::<T, sqisign_rs::Level5>("V", raw))),
+        (
+            "dim4-I",
+            Box::new(|| compact::<T, P324_3, N1>("I", &level1(), 52, 100, 5, 40, raw)),
+        ),
+        (
+            "dim4-III",
+            Box::new(|| compact::<T, P500_27, N3>("III", &level3(), 20, 52, 6, 15, raw)),
+        ),
+        (
+            "dim4-V",
+            Box::new(|| compact::<T, P664_17, N5>("V", &level5(), 20, 52, 6, 15, raw)),
+        ),
+    ];
+    for (name, run) in blocks.iter() {
+        if want(name) {
+            let t = Instant::now();
+            run();
+            eprintln!("{name}: {:.1} s", t.elapsed().as_secs_f64());
+        }
+    }
+}
+
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     let (mut out, mut only) = (PathBuf::from("paper-session-out"), None::<String>);
+    // the default timer: rdtsc and the wall clock on x86-64, the wall clock elsewhere
+    let mut wall = !cfg!(target_arch = "x86_64");
     let mut i = 0;
     while i < argv.len() {
         match argv[i].as_str() {
@@ -302,47 +348,36 @@ fn main() {
                 i += 1;
                 only = Some(argv[i].clone());
             }
+            "--timer" => {
+                i += 1;
+                wall = match argv[i].as_str() {
+                    "wall" => true,
+                    "tsc" if cfg!(target_arch = "x86_64") => false,
+                    t => panic!("unknown or unavailable timer {t} (wall, or tsc on x86-64)"),
+                };
+            }
             s => panic!("unknown argument {s}"),
         }
         i += 1;
     }
     let raw = out.join("raw");
     fs::create_dir_all(&raw).unwrap();
-    let want = |b: &str| only.as_deref().is_none_or(|o| o == b);
-    eprintln!(
-        "field backend: {}",
-        sqisign_verify::fp::arithmetic_backend()
-    );
-    fs::write(
-        out.join("backend.txt"),
-        format!("{}\n", sqisign_verify::fp::arithmetic_backend()),
-    )
-    .unwrap();
-    const N1: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
-    const N3: usize = sqisign_rs::precomp::p500_27::IBZ_NLIMBS;
-    const N5: usize = sqisign_rs::precomp::p664_17::IBZ_NLIMBS;
-    let blocks: [(&str, Box<dyn Fn()>); 6] = [
-        ("dim2-I", Box::new(|| dim2::<sqisign_rs::Level1>("I", &raw))),
-        ("dim2-III", Box::new(|| dim2::<sqisign_rs::Level3>("III", &raw))),
-        ("dim2-V", Box::new(|| dim2::<sqisign_rs::Level5>("V", &raw))),
-        (
-            "dim4-I",
-            Box::new(|| compact::<P324_3, N1>("I", &level1(), 52, 100, 5, 40, &raw)),
-        ),
-        (
-            "dim4-III",
-            Box::new(|| compact::<P500_27, N3>("III", &level3(), 20, 52, 6, 15, &raw)),
-        ),
-        (
-            "dim4-V",
-            Box::new(|| compact::<P664_17, N5>("V", &level5(), 20, 52, 6, 15, &raw)),
-        ),
-    ];
-    for (name, run) in blocks.iter() {
-        if want(name) {
-            let t = Instant::now();
-            run();
-            eprintln!("{name}: {:.1} s", t.elapsed().as_secs_f64());
-        }
+    let backend = sqisign_verify::fp::arithmetic_backend();
+    let timer_name = if wall {
+        WallTimer::NAME
+    } else {
+        "rdtsc and the monotonic wall clock"
+    };
+    let note = timer::prefer_performance_core();
+    eprintln!("field kernels: {backend}");
+    eprintln!("timer: {timer_name}");
+    eprintln!("{note}");
+    fs::write(out.join("backend.txt"), format!("{backend}\n")).unwrap();
+    fs::write(out.join("timer.txt"), format!("{timer_name}\n{note}\n")).unwrap();
+    if wall {
+        run_blocks::<WallTimer>(&raw, &only);
+    } else {
+        #[cfg(target_arch = "x86_64")]
+        run_blocks::<timer::TscTimer>(&raw, &only);
     }
 }

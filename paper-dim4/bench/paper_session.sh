@@ -38,8 +38,8 @@ run() { say "+ $*"; "$@"; }
   echo "cargo: $(cargo --version)"
   echo "RUSTFLAGS: '${RUSTFLAGS:-}' CARGO_BUILD_RUSTFLAGS: '${CARGO_BUILD_RUSTFLAGS:-}'"
   echo "machine type: $(curl -s -m 3 -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/machine-type 2>/dev/null | sed 's#.*/##')"
-  echo "pinned core: $CORE (siblings: $(cat /sys/devices/system/cpu/cpu$CORE/topology/thread_siblings_list 2>/dev/null))"
-  echo "governor: $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo 'none exposed')"
+  echo "pinned core: $CORE (siblings: $(cat /sys/devices/system/cpu/cpu"$CORE"/topology/thread_siblings_list 2>/dev/null))"
+  echo "governor: $(cat /sys/devices/system/cpu/cpu"$CORE"/cpufreq/scaling_governor 2>/dev/null || echo 'none exposed')"
   echo "load before: $(cat /proc/loadavg)"
   echo "--- lscpu"; lscpu
   echo "--- /proc/meminfo (head)"; head -5 /proc/meminfo
