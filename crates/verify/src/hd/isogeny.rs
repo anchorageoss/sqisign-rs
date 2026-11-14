@@ -86,6 +86,19 @@ impl<L: FpBackend> IsogenyDim4<L> {
         })
     }
 
+    /// An isogeny from its codomain null point and the image weights `1/O`,
+    /// both without a zero coordinate (the two-point step computes them on
+    /// the orbits of its permutation).
+    #[inline]
+    pub(crate) fn from_parts(codomain_null: ThetaPointDim4<L>, inv_dual_null: [Fp2<L>; N]) -> Self {
+        Self {
+            codomain: ThetaStructureDim4::new(codomain_null),
+            inv_dual_null,
+            dual_null_zero: [false; N],
+            has_zero_dual: false,
+        }
+    }
+
     /// The codomain theta structure.
     #[inline]
     pub fn codomain(&self) -> &ThetaStructureDim4<L> {

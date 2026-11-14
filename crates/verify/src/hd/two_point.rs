@@ -8,9 +8,16 @@
 //! doubles and pushes `g0` and `g1` only and forms `g2`, `g3` by [`permute_pi`]
 //! wherever a step reads them. It is the walk of
 //! [`run_strategy_chain`](crate::hd::strategy::run_strategy_chain) with a stack
-//! of pairs; the strategy, the step ([`IsogenyDim4::from_kernel`]), the images
-//! and the codomains are those of the four-point loop. The four-point loop
-//! stays the default; see `KernelPoints` in `self_contained`.
+//! of pairs and the same strategy. The codomain null points along the chain
+//! and their Hadamard transforms are fixed by [`PI`], so each step computes
+//! its dual null point, the inverse and the next doubling constants on the
+//! ten orbits of [`PI`] (`isogeny_from_pair`, `hadamard_pi_assign`,
+//! `ThetaStructureDim4::precompute_pi`), and the doubling constants only
+//! when a doubling follows; a step that meets a vanishing coordinate runs
+//! the full computation of the four-point loop
+//! ([`IsogenyDim4::from_kernel`]). The codomains and the images are those
+//! of the four-point loop, which stays the default; see `KernelPoints` in
+//! `self_contained`.
 //!
 //! The checked entry tests, at the gluing, that the images of `g2`, `g3`
 //! are the permutations of those of `g0`, `g1` and that the gluing
@@ -49,6 +56,156 @@ pub fn permute_pi<L: FpBackend>(p: &ThetaPointDim4<L>) -> ThetaPointDim4<L> {
 
 /// The fixed points of [`PI`].
 pub const PI_FIXED: [usize; 4] = [0, 5, 10, 15];
+
+/// One index of each of the ten orbits of [`PI`]: the four fixed points,
+/// then the lower index of each two-cycle.
+pub const ORBIT_REPS: [usize; 10] = [0, 5, 10, 15, 1, 2, 3, 6, 7, 11];
+
+/// The orbit (its position in [`ORBIT_REPS`]) of each index.
+pub const ORBIT_OF: [usize; THETA_DIM4_N] = [0, 4, 5, 6, 4, 1, 7, 8, 5, 7, 2, 9, 6, 8, 9, 3];
+
+/// The sixteen coordinates of a vector fixed by [`PI`] from its values on
+/// the ten orbits.
+#[inline]
+pub fn expand_orbits<L: FpBackend>(v: &[Fp2<L>; 10]) -> [Fp2<L>; THETA_DIM4_N] {
+    core::array::from_fn(|a| v[ORBIT_OF[a]].clone())
+}
+
+/// The Hadamard transform of a vector fixed by [`PI`] coordinate by
+/// coordinate, in place; the result is fixed by [`PI`] too. The transform
+/// is done on the pairs of index bits that [`PI`] exchanges, (0, 2) then
+/// (1, 3). In each stage the two-by-two blocks whose other two bits are
+/// equal are symmetric (three distinct outputs: four additions and one
+/// doubling), and the remaining two blocks are transposes of each other
+/// (one of them computed, eight additions): 32 additions and 4 doublings
+/// in all, against 64 additions for [`hadamard_assign`](crate::hd::arith::hadamard_assign).
+pub fn hadamard_pi_assign<L: FpBackend>(a: &mut [Fp2<L>; THETA_DIM4_N]) {
+    // one stage on bits (lo, hi) with strides (s, t): `sym` are the bases
+    // of the two symmetric blocks, `gen` the base of the computed general
+    // block and `mirror` the base of its transpose
+    let mut stage = |s: usize, t: usize, sym: [usize; 2], gen: usize, mirror: usize| {
+        for c in sym {
+            let (p, q, r) = (a[c].clone(), a[c + s].clone(), a[c + s + t].clone());
+            let sum = p.add(&r);
+            let q2 = q.add(&q);
+            a[c] = sum.add(&q2);
+            a[c + s + t] = sum.sub(&q2);
+            let d = p.sub(&r);
+            a[c + t] = d.clone();
+            a[c + s] = d;
+        }
+        let (p, q, r, w) = (
+            a[gen].clone(),
+            a[gen + s].clone(),
+            a[gen + t].clone(),
+            a[gen + s + t].clone(),
+        );
+        let (pq, rw, pmq, rmw) = (p.add(&q), r.add(&w), p.sub(&q), r.sub(&w));
+        a[gen] = pq.add(&rw);
+        a[gen + s] = pmq.add(&rmw);
+        a[gen + t] = pq.sub(&rw);
+        a[gen + s + t] = pmq.sub(&rmw);
+        // the transposed block: its (i, j) entry is the (j, i) entry
+        a[mirror] = a[gen].clone();
+        a[mirror + s] = a[gen + t].clone();
+        a[mirror + t] = a[gen + s].clone();
+        a[mirror + s + t] = a[gen + s + t].clone();
+    };
+    // bits 0 and 2: blocks indexed by bits (1, 3)
+    stage(1, 4, [0, 10], 2, 8);
+    // bits 1 and 3: blocks indexed by bits (0, 2)
+    stage(2, 8, [0, 5], 1, 4);
+}
+
+/// The edges of the tree through the ten orbits along which the two-point
+/// step reads its codomain: `(k, j)` is the flip of index bit `k` at index
+/// `j`, measured by kernel point `k` (`g0` for bit 0, `g1` for bit 1; a
+/// flip of bit 2 or 3 is a flip of bit 0 or 1 at the permuted index).
+/// The first eight edges are a path over nine orbits,
+/// `{0} {1,4} {5} {7,13} {15} {11,14} {10} {2,8} {3,12}`; the ninth hangs
+/// the last orbit `{6,9}` on the eighth vertex `{2,8}`. No path visits all
+/// ten: every single-bit flip joins one of the four orbits `{1,4}`,
+/// `{2,8}`, `{7,13}`, `{11,14}` to one of the six others.
+const TREE_EDGES: [(usize, usize); 9] = [
+    (0, 0),
+    (0, 4),
+    (1, 5),
+    (1, 13),
+    (0, 15),
+    (0, 11),
+    (1, 10),
+    (0, 2),
+    (0, 8),
+];
+
+/// The orbits of the tree's vertices: the nine of the path in order, then
+/// the leaf.
+const TREE_ORBITS: [usize; 10] = [0, 4, 1, 8, 3, 9, 2, 5, 6, 7];
+
+/// A vector with ratios `x[v'] / x[v] = num / den` along each edge
+/// `v → v'` of the tree, up to a common scalar, on the ten orbits (in the
+/// order of [`ORBIT_REPS`]): prefix products of the numerators and suffix
+/// products of the denominators along the path, the leaf's denominator
+/// folded into the suffixes. 25 multiplications.
+fn along_tree<L: FpBackend>(num: &[Fp2<L>; 9], den: &[Fp2<L>; 9]) -> [Fp2<L>; 10] {
+    // suf[i] = den[8] * prod_{i <= t < 8} den[t], for the path vertices
+    let mut suf: [Fp2<L>; 9] = core::array::from_fn(|_| den[8].clone());
+    for i in (0..8).rev() {
+        suf[i] = den[i].mul(&suf[i + 1]);
+    }
+    // pre = prod_{t < i} num[t]
+    let mut x: [Fp2<L>; 10] = core::array::from_fn(|_| Fp2::zero());
+    x[TREE_ORBITS[0]] = suf[0].clone();
+    let mut pre = num[0].clone();
+    for i in 1..9 {
+        if i == 7 {
+            // the leaf, from the eighth vertex: its own suffix is den[7]
+            x[TREE_ORBITS[9]] = pre.mul(&den[7]).mul(&num[8]);
+        }
+        x[TREE_ORBITS[i]] = pre.mul(&suf[i]);
+        if i < 8 {
+            pre.mul_assign(&num[i]);
+        }
+    }
+    x
+}
+
+/// The two-point step from the order-8 pair `[K0, K1]`: the codomain null
+/// point and the image weights computed on the ten orbits of [`PI`], from
+/// the squared-dual coordinates of `K0` and `K1` alone (those of
+/// `PI(K0)`, `PI(K1)` are their permutations). `None` when a coordinate
+/// the tree reads vanishes; the caller then runs the full computation.
+fn isogeny_from_pair<L: FpBackend>(pair: &[ThetaPointDim4<L>; 2]) -> Option<IsogenyDim4<L>> {
+    let hsk: [[Fp2<L>; THETA_DIM4_N]; 2] = core::array::from_fn(|k| {
+        let mut a = pair[k].coords().clone();
+        crate::hd::arith::to_squared_theta_assign(&mut a);
+        a
+    });
+    // O[j ^ 2^k] / O[j] = hsk[k][j ^ 2^k] / hsk[k][j] for the dual null O
+    let from: [Fp2<L>; 9] = core::array::from_fn(|e| {
+        let (k, j) = TREE_EDGES[e];
+        hsk[k][j].clone()
+    });
+    let to: [Fp2<L>; 9] = core::array::from_fn(|e| {
+        let (k, j) = TREE_EDGES[e];
+        hsk[k][j ^ (1 << k)].clone()
+    });
+    if from
+        .iter()
+        .chain(to.iter())
+        .any(|c| bool::from(c.ct_is_zero()))
+    {
+        return None;
+    }
+    let dual_null = along_tree(&to, &from);
+    let inv_dual_null = along_tree(&from, &to);
+    let mut null = expand_orbits(&dual_null);
+    hadamard_pi_assign(&mut null);
+    Some(IsogenyDim4::from_parts(
+        ThetaPointDim4::new(null),
+        expand_orbits(&inv_dual_null),
+    ))
+}
 
 /// Whether `o` is fixed by [`PI`] projectively, that is `o[PI[a]] = t o[a]`
 /// for all `a` and one `t`, in six comparisons: with a reference pair
@@ -174,7 +331,10 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
     let mut level: Vec<u32> = vec![0];
     let mut kernel_elements: Vec<[ThetaPointDim4<L>; 2]> = vec![basis.clone()];
     let mut cur = start.clone();
-    let mut cur_ready = cur.precompute();
+    // The doubling constants of a codomain are computed only when a
+    // doubling follows. `cur_pi`: the null point of `cur` came from the
+    // orbit computation, so its constants can be computed on the orbits.
+    let mut cur_pi = false;
 
     let mut kernels: Vec<[ThetaPointDim4<L>; 4]> = Vec::with_capacity(l);
     let mut codomains: Vec<ThetaPointDim4<L>> = Vec::with_capacity(l);
@@ -185,7 +345,12 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         let target = (l - 1 - k) as u32;
         let t0 = prof.now();
         while prev != target {
-            if !cur_ready {
+            let ready = if cur_pi {
+                cur.precompute_pi()
+            } else {
+                cur.precompute()
+            };
+            if !ready {
                 return None;
             }
             let s = strategy[strat_idx];
@@ -205,9 +370,15 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         let t1 = prof.now();
         prof.add(SLOT_PLAIN_PUSHES, t1 - t0);
 
-        // The descended top-of-stack pair gives the order-8 kernel of this step.
-        let ker = kernel_from_pair(kernel_elements.last().expect("non-empty kernel stack"));
-        let iso = IsogenyDim4::from_kernel(&ker)?;
+        // The descended top-of-stack pair gives the order-8 kernel of this
+        // step: the codomain on the orbits, or the full computation from
+        // the four points when a coordinate it reads vanishes.
+        let top = kernel_elements.last().expect("non-empty kernel stack");
+        let ker = kernel_from_pair(top);
+        let (iso, on_orbits) = match isogeny_from_pair(top) {
+            Some(iso) => (iso, true),
+            None => (IsogenyDim4::from_kernel(&ker)?, false),
+        };
         let t2 = prof.now();
         prof.add(SLOT_PLAIN_CODOMAIN, t2 - t1);
         debug_assert!(
@@ -232,7 +403,7 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         let t3 = prof.now();
         prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
         cur = iso.into_codomain();
-        cur_ready = cur.precompute();
+        cur_pi = on_orbits;
         prof.add(SLOT_PLAIN_CODOMAIN, prof.now() - t3);
     }
 
@@ -241,4 +412,89 @@ pub fn run_strategy_chain_two_point_prof<L: FpBackend, P: Profiler>(
         codomains,
         image_precomp,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hd::arith::hadamard;
+    use crate::params::P324_3;
+
+    type F = Fp2<P324_3>;
+
+    fn value(seed: u64) -> F {
+        // a spread of field elements from small integers
+        let a = F::from_small(seed.wrapping_mul(0x9e37_79b9).wrapping_add(17) % 1_000_003);
+        let b = F::from_small(seed.wrapping_mul(0x85eb_ca6b).wrapping_add(5) % 999_983);
+        a.sqr().add(&b.mul(&F::i_element())).add(&b.sqr().sqr())
+    }
+
+    #[test]
+    fn orbit_tables_are_consistent() {
+        for a in 0..THETA_DIM4_N {
+            assert_eq!(ORBIT_OF[a], ORBIT_OF[PI[a]]);
+            assert!(ORBIT_REPS[ORBIT_OF[a]] == a || ORBIT_REPS[ORBIT_OF[a]] == PI[a]);
+        }
+        // every tree edge is a single-bit flip between the orbits listed
+        let mut seen = [false; 10];
+        seen[TREE_ORBITS[0]] = true;
+        for (e, &(k, j)) in TREE_EDGES.iter().enumerate() {
+            let from = if e < 8 {
+                TREE_ORBITS[e]
+            } else {
+                TREE_ORBITS[7]
+            };
+            let to = if e < 8 {
+                TREE_ORBITS[e + 1]
+            } else {
+                TREE_ORBITS[9]
+            };
+            assert_eq!(ORBIT_OF[j], from, "edge {e}");
+            assert_eq!(ORBIT_OF[j ^ (1 << k)], to, "edge {e}");
+            assert!(!seen[to]);
+            seen[to] = true;
+        }
+        assert!(seen.iter().all(|&s| s));
+    }
+
+    #[test]
+    fn hadamard_of_a_fixed_vector() {
+        for seed in 0..50u64 {
+            let v10: [F; 10] = core::array::from_fn(|i| value(31 * seed + i as u64));
+            let v = expand_orbits(&v10);
+            let want = hadamard(&v);
+            let mut got = v.clone();
+            hadamard_pi_assign(&mut got);
+            for a in 0..THETA_DIM4_N {
+                assert!(
+                    bool::from(got[a].ct_equal(&want[a])),
+                    "seed {seed} index {a}"
+                );
+                assert!(bool::from(got[a].ct_equal(&got[PI[a]])));
+            }
+        }
+    }
+
+    #[test]
+    fn along_tree_has_the_edge_ratios() {
+        let num: [F; 9] = core::array::from_fn(|i| value(1000 + i as u64));
+        let den: [F; 9] = core::array::from_fn(|i| value(2000 + i as u64));
+        let x = along_tree(&num, &den);
+        for e in 0..9 {
+            let from = if e < 8 {
+                TREE_ORBITS[e]
+            } else {
+                TREE_ORBITS[7]
+            };
+            let to = if e < 8 {
+                TREE_ORBITS[e + 1]
+            } else {
+                TREE_ORBITS[9]
+            };
+            // x[to] * den = x[from] * num
+            assert!(bool::from(
+                x[to].mul(&den[e]).ct_equal(&x[from].mul(&num[e]))
+            ));
+        }
+    }
 }

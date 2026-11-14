@@ -102,6 +102,37 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
         true
     }
 
+    /// [`Self::precompute`] for a null point fixed by the permutation
+    /// [`PI`](crate::hd::two_point::PI) coordinate by coordinate (equal
+    /// values on each orbit, as the two-point step produces): the squares,
+    /// the Hadamard transform and the two sets of weights are computed on
+    /// the ten orbits. The caller guarantees the symmetry.
+    pub fn precompute_pi(&mut self) -> bool {
+        use crate::hd::two_point::{expand_orbits, hadamard_pi_assign, ORBIT_REPS};
+        if self.precomputed {
+            return true;
+        }
+        let o = self.null_point.coords();
+        let mut hso = o.clone();
+        for &a in ORBIT_REPS.iter() {
+            hso[a].sqr_assign();
+        }
+        hadamard_pi_assign(&mut hso);
+        let o10: [Fp2<L>; 10] = core::array::from_fn(|i| o[ORBIT_REPS[i]].clone());
+        let h10: [Fp2<L>; 10] = core::array::from_fn(|i| hso[ORBIT_REPS[i]].clone());
+        if o10
+            .iter()
+            .chain(h10.iter())
+            .any(|c| bool::from(c.ct_is_zero()))
+        {
+            return false;
+        }
+        self.inv_null = expand_orbits(&crate::hd::field::products_of_others(&o10));
+        self.inv_dual_sq = expand_orbits(&crate::hd::field::products_of_others(&h10));
+        self.precomputed = true;
+        true
+    }
+
     /// Double a theta point on this structure: `P ↦ 2·P`.
     ///
     /// Ports `ThetaPointDim4.double` (suitable-null-point path) from the sage
