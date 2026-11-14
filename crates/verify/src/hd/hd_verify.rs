@@ -48,6 +48,15 @@ pub enum HdReject {
     /// The response images could not be recovered (the pairing discrete
     /// logarithm failed: the commitment and challenge bases are inconsistent).
     ResponseRecovery,
+    /// A basis hint is not the canonical one of its curve.
+    NonCanonicalHint,
+    /// A pairing does not have exact order `2^r`: `e(P, Q)` on the challenge
+    /// curve, or `e(R, S)` on the commitment curve (its logarithm `k` is
+    /// even).
+    PairingOrder,
+    /// The response degree is not good: `q ≥ 2^e`, or `2^e − q` is not a
+    /// probable prime congruent to 1 modulo 4.
+    DegreeNotGood,
     /// `2^e − q` is not a sum of two squares the verifier can find.
     NormEquation,
     /// The gluing parameter `m = v_2(a_2)` is out of range.

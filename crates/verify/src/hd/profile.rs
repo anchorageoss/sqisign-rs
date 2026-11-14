@@ -39,7 +39,7 @@ pub const SLOT_NAMES: [&str; SLOTS] = [
 /// the challenge recovery, the response recovery and the kernel setup,
 /// in the order of the computation. Working evidence; the record's slots
 /// above are unchanged by them.
-pub const SUB_SLOTS: usize = 16;
+pub const SUB_SLOTS: usize = 18;
 
 /// The names of the sub-slots, in order: what each one encloses.
 pub const SUB_NAMES: [&str; SUB_SLOTS] = [
@@ -59,6 +59,8 @@ pub const SUB_NAMES: [&str; SUB_SLOTS] = [
     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
     "b_kpp, both halves: the kernel generators from the fixed-base chains",
     "ThetaStructureDim4::new of the start, both halves",
+    "checks: the canonical hints of both curves and the order of e(P, Q)",
+    "checks: the goodness test on q (forty Miller-Rabin rounds)",
 ];
 
 /// A sink for phase timings.

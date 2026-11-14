@@ -69,6 +69,14 @@ conversion of round-2 keys or signatures.
   (`hd::W`), the degree and the norm equation 384-bit (`hd::U6`), and the
   non-residue tables of the basis-from-hint convention at III and V follow
   the rule of `hd::nqr_rule`.
+- The compact verifier's checks before the chain: the goodness test on `q`
+  repeated before Cornacchia (`hd::is_good_degree`: `q < 2^e`, `2^e − q`
+  congruent to 1 modulo 4 and passing forty Miller-Rabin rounds with the
+  first forty primes as bases), the hints of both curves required to be
+  the canonical ones, both pairings required to have exact order `2^r`.
+  The compact signer applies the same degree test and the bound
+  `v_2(a_2) ≤ 40` to every candidate, and starts over with a fresh
+  commitment after 4096 samples without a good degree.
 - The compact (dimension-4) format at level I behind the `compact`
   feature, experimental ([docs/COMPACT_R3.md](docs/COMPACT_R3.md)): our
   instantiation of SQIsignHD (ePrint 2023/436) on `3·2^324 − 1` with

@@ -31,12 +31,14 @@ use super::uint::U6;
 use super::wide::W;
 
 use crate::hd::arith::{hadamard, pointwise_square};
+use crate::hd::basis::canonical_hints;
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
 use crate::hd::challenge::recover_challenge_prof;
 use crate::hd::gluing_chain::{
     jac_mul_w, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
 };
+use crate::hd::goodness::is_good_degree;
 use crate::hd::hd_verify::HdReject;
 use crate::hd::isogeny::apply_plain_image;
 use crate::hd::kani::{
@@ -49,7 +51,7 @@ use crate::hd::profile::{
     CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE,
     SLOT_GLUING, SLOT_IMAGE, SLOT_SETUP, SUB_SLOTS,
 };
-use crate::hd::response::{recover_response_prof, ResponseScalars};
+use crate::hd::response::{recover_response_prof, ResponseError, ResponseScalars};
 use crate::hd::strategy::{run_strategy_chain_prof, StrategyChain};
 use crate::hd::structure::ThetaStructureDim4;
 use crate::hd::two_point::{
@@ -62,7 +64,7 @@ use crate::hd::two_point::{
 /// stays far below the `r − 3` cap the half-chain step counts need. A
 /// legitimate response has a tiny `m` (`v_2` of a random even number), so
 /// this rejects only a crafted `q`.
-const MAX_GLUING_M: usize = 40;
+pub const MAX_GLUING_M: usize = 40;
 
 /// How many kernel points the plain chain of each half-chain carries from
 /// the gluing codomain on (SECENG-2421).
@@ -341,6 +343,17 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     prof: &mut P,
 ) -> Result<Setup<L>, HdReject> {
     let t0 = prof.now();
+    // The hints must be the canonical ones of their curves: any other pair
+    // that gives a basis would be a second encoding of the same signature.
+    for (a, hp, hq) in [
+        (&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q),
+        (&sig.a_com, sig.hint_com_p, sig.hint_com_q),
+    ] {
+        if canonical_hints::<L>(a) != Some((hp, hq)) {
+            return Err(HdReject::NonCanonicalHint);
+        }
+    }
+    prof.sub_add(16, prof.now() - t0);
     let chal = recover_challenge_prof::<L, P>(
         &sig.a_pk,
         sig.hint_pk_p,
@@ -349,6 +362,16 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         prof,
     )
     .ok_or(HdReject::ChallengeRecovery)?;
+    // e(P, Q) of exact order 2^r: its 2^(r-1)-th power is -1.
+    let tp = prof.now();
+    let mut w = chal.w_chal.clone();
+    for _ in 0..L::R - 1 {
+        w = w.sqr();
+    }
+    if !bool::from(w.ct_equal(&Fp2::<L>::one().neg())) {
+        return Err(HdReject::PairingOrder);
+    }
+    prof.sub_add(16, prof.now() - tp);
     let q4 = sig.q.low_w();
     let rsp = recover_response_prof::<L, P>(
         &chal,
@@ -363,14 +386,24 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         },
         prof,
     )
-    .ok_or(HdReject::ResponseRecovery)?;
+    .map_err(|e| match e {
+        ResponseError::PairingOrder => HdReject::PairingOrder,
+        ResponseError::Other => HdReject::ResponseRecovery,
+    })?;
     let t1 = prof.now();
     prof.add(SLOT_BASIS, t1 - t0);
 
     // 5b.4: norm equation 2^e - q = a1² + a2² (a1 odd, a2 even); m = v₂(a2).
+    // The goodness test, before Cornacchia: q < 2^e and 2^e - q a probable
+    // prime congruent to 1 modulo 4.
     let ts = prof.now();
+    if !is_good_degree(L::E_EMBED, &sig.q) {
+        return Err(HdReject::DegreeNotGood);
+    }
+    let tg = prof.now();
+    prof.sub_add(17, tg - ts);
     let (a1u, a2u) = norm_equation_2f_minus_q(L::E_EMBED, &sig.q).ok_or(HdReject::NormEquation)?;
-    prof.sub_add(11, prof.now() - ts);
+    prof.sub_add(11, prof.now() - tg);
     let a1 = a1u.low_w();
     let a2 = a2u.low_w();
     let m = a2.trailing_zeros() as usize;

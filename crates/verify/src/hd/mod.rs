@@ -55,6 +55,7 @@ pub mod dim4;
 pub mod field;
 pub mod gluing;
 pub mod gluing_chain;
+pub mod goodness;
 pub mod hd_verify;
 pub mod isogeny;
 pub mod kani;
@@ -91,6 +92,7 @@ pub use gluing_chain::{
     jac_mul_u128, jac_mul_w, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,
     KaniGluingChainHalf, TuplePoint4,
 };
+pub use goodness::{is_good_degree, is_probable_prime, MR_BASES};
 pub use hd_verify::{
     hd_challenge, hd_challenge_len, recover_response_cd, HdReject, MAX_CHAL_BYTES,
 };
@@ -108,11 +110,13 @@ pub use product_theta::{
 pub use profile::{
     CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_NAMES, SUB_NAMES, SUB_SLOTS,
 };
-pub use response::{recover_response, recover_response_prof, ResponseRecovery, ResponseScalars};
+pub use response::{
+    recover_response, recover_response_prof, ResponseError, ResponseRecovery, ResponseScalars,
+};
 pub use self_contained::{
     hd_codomains, hd_image, hd_kernel_setup, hd_verify, hd_verify_bool, hd_verify_profiled,
     hd_verify_profiled_full, hd_verify_profiled_record, hd_verify_with, HdCodomains, HdKernelSetup,
-    HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints,
+    HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints, MAX_GLUING_M,
 };
 pub use strategy::{
     optimised_strategy, run_strategy_chain, run_strategy_chain_prof, StrategyChain,

@@ -28,6 +28,16 @@ pub struct ResponseScalars {
     pub q: W,
 }
 
+/// Why the response recovery failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResponseError {
+    /// `e(R, S)` on the commitment curve does not have exact order `2^r`:
+    /// its logarithm `k` to the base `e(P, Q)` is even.
+    PairingOrder,
+    /// Anything else: `a` and `b` both even, no basis, no logarithm.
+    Other,
+}
+
 /// Stage-3 outputs: `c`, `d` modulo `2^r`, the commitment basis of order
 /// `2^r` and its images on `E_chall`.
 pub struct ResponseRecovery<L: FpBackend> {
@@ -129,7 +139,7 @@ pub fn recover_response<L: HdLevel>(
     hcq: u32,
     s: ResponseScalars,
 ) -> Option<ResponseRecovery<L>> {
-    recover_response_prof::<L, NoProfiler>(chal, a_com, hcp, hcq, s, &mut NoProfiler)
+    recover_response_prof::<L, NoProfiler>(chal, a_com, hcp, hcq, s, &mut NoProfiler).ok()
 }
 
 /// [`recover_response`] with a [`Profiler`]: sub-slots 6 to 9.
@@ -140,21 +150,21 @@ pub fn recover_response_prof<L: HdLevel, P: Profiler>(
     hcq: u32,
     s: ResponseScalars,
     prof: &mut P,
-) -> Option<ResponseRecovery<L>> {
+) -> Result<ResponseRecovery<L>, ResponseError> {
     let ResponseScalars { a, b, c_or_d, q } = s;
     // The rule for the dropped scalar inverts a when a is odd and b
     // otherwise; with a and b both even it is not defined, and the
     // signature is rejected here, before any inversion.
     if !a.is_odd() && !b.is_odd() {
-        return None;
+        return Err(ResponseError::Other);
     }
     let r = L::R;
     let rescale = (L::TWO_ADIC_EXPONENT - r) as usize;
     let t = prof.now();
-    let (p_com, q_com) = hd_torsion_basis::<L>(a_com, hcp, hcq)?;
+    let (p_com, q_com) = hd_torsion_basis::<L>(a_com, hcp, hcq).ok_or(ResponseError::Other)?;
     prof.sub_add(6, prof.now() - t);
     let t = prof.now();
-    let mut e_com = EcCurve::from_a(a_com)?;
+    let mut e_com = EcCurve::from_a(a_com).ok_or(ResponseError::Other)?;
     e_com.normalize_a24();
     let r_com = jac_dbl_iter(&p_com, rescale, &e_com);
     let s_com = jac_dbl_iter(&q_com, rescale, &e_com);
@@ -169,8 +179,14 @@ pub fn recover_response_prof<L: HdLevel, P: Profiler>(
     // k with w_chall^k = w_com: the dlog of w_com to the base w_chall,
     // given 1 / w_chall
     let mut scal = [0u64; MAX_ORDER_WORDS];
-    fp2_dlog_2e(&mut scal[..L::ORDER_WORDS], &w_com, &chal.w_chal.inv(), r)?;
+    fp2_dlog_2e(&mut scal[..L::ORDER_WORDS], &w_com, &chal.w_chal.inv(), r)
+        .ok_or(ResponseError::Other)?;
     let k = W::from_limbs(&scal[..L::ORDER_WORDS]) & W::mask(r);
+    // k odd: e(R, S) has exact order 2^r, as e(P, Q) does (checked by the
+    // caller), so the determinant k q of the transmitted matrix is odd.
+    if !k.is_odd() {
+        return Err(ResponseError::PairingOrder);
+    }
     prof.sub_add(8, prof.now() - t);
     let t = prof.now();
 
@@ -181,7 +197,7 @@ pub fn recover_response_prof<L: HdLevel, P: Profiler>(
     let phi_rsp_s_com = jac_double_mul(&chal.p_chal_resc, c, &chal.q_chal_resc, d, e_chal);
 
     prof.sub_add(9, prof.now() - t);
-    Some(ResponseRecovery {
+    Ok(ResponseRecovery {
         k,
         c,
         d,

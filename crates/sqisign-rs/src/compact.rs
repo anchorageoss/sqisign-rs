@@ -41,8 +41,8 @@ use sqisign_verify::ec::{EcBasis, EcCurve};
 use sqisign_verify::fp::Fp2;
 use sqisign_verify::hd::{
     canonical_hints, encode_public_key, encode_signature, hd_challenge, hd_challenge_len,
-    hd_torsion_basis, pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_CHAL_BYTES, MAX_PK_WIRE_BYTES,
-    U6, W,
+    hd_torsion_basis, is_good_degree, norm_equation_2f_minus_q, pk_wire_bytes, sig_wire_bytes,
+    HdLevel, MAX_CHAL_BYTES, MAX_GLUING_M, MAX_PK_WIRE_BYTES, U6, W,
 };
 
 use crate::id2iso::{
@@ -119,10 +119,13 @@ pub enum CompactSignError {
     Encode,
 }
 
-/// How many response samples to try before giving up on a signature.
+/// How many response samples to try on one commitment before starting
+/// over with a fresh one.
 const MAX_RESPONSE_TRIES: usize = 4096;
-/// Miller–Rabin rounds on `2^e − q`.
-const PRIME_ROUNDS: u32 = 40;
+/// How many commitments to try before giving up on a signature. A restart
+/// is rare (a commitment whose response class has no good degree), so this
+/// bound is reached only on a broken entropy source or key.
+const MAX_COMMITMENTS: usize = 64;
 
 fn seeded(entropy: &mut impl Rng, dom: &[u8; 3]) -> Option<ShakeRng> {
     let mut seed = Zeroizing::new([0u8; 48]);
@@ -247,9 +250,15 @@ pub struct CompactSignStats {
     pub response_samples: u32,
     /// Samples that reached the Miller–Rabin test on `2^e − q`.
     pub primality_tests: u32,
+    /// Commitments abandoned for a fresh one: no good degree within the
+    /// sampling budget, or a commitment the response could not be built on.
+    pub restarts: u32,
 }
 
-/// [`compact_sign`] returning the sampler's counts next to the length.
+/// [`compact_sign`] returning the sampler's counts next to the length. A
+/// commitment that yields no good degree within the sampling budget is
+/// dropped and signing starts over with a fresh one, so that signing ends
+/// with a valid signature.
 pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     params: &Params<N>,
     pk: &CompactPublicKey<L>,
@@ -258,8 +267,56 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     entropy: &mut impl Rng,
     out: &mut [u8],
 ) -> Result<(usize, CompactSignStats), CompactSignError> {
+    compact_sign_stats_with_budget(params, pk, sk, msg, entropy, out, MAX_RESPONSE_TRIES)
+}
+
+/// [`compact_sign_stats`] with the per-commitment sampling budget as a
+/// parameter (4096 in [`compact_sign`]), so that the restart on a fresh
+/// commitment can be exercised with a small one.
+pub fn compact_sign_stats_with_budget<L: HdLevel, const N: usize>(
+    params: &Params<N>,
+    pk: &CompactPublicKey<L>,
+    sk: &CompactSecretKey<L, N>,
+    msg: &[u8],
+    entropy: &mut impl Rng,
+    out: &mut [u8],
+    max_tries: usize,
+) -> Result<(usize, CompactSignStats), CompactSignError> {
     use CompactSignError as E;
     let mut stats = CompactSignStats::default();
+    let mut rng = seeded(entropy, b"csg").ok_or(E::Entropy)?;
+    let mut last = E::NoGoodResponse;
+    // a small budget needs more commitments for the same chance of success
+    let commitments =
+        MAX_COMMITMENTS * (MAX_RESPONSE_TRIES / max_tries.clamp(1, MAX_RESPONSE_TRIES));
+    for _ in 0..commitments {
+        match sign_one_commitment(params, pk, sk, msg, &mut rng, out, &mut stats, max_tries) {
+            Ok(n) => return Ok((n, stats)),
+            // failures of this commitment: try another
+            Err(e @ (E::NoGoodResponse | E::CommitmentBasis)) => {
+                stats.restarts += 1;
+                last = e;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last)
+}
+
+/// One commitment: the challenge, and the response if a good degree is
+/// found within `max_tries` samples.
+#[allow(clippy::too_many_arguments)]
+fn sign_one_commitment<L: HdLevel, const N: usize>(
+    params: &Params<N>,
+    pk: &CompactPublicKey<L>,
+    sk: &CompactSecretKey<L, N>,
+    msg: &[u8],
+    rng: &mut ShakeRng,
+    out: &mut [u8],
+    stats: &mut CompactSignStats,
+    max_tries: usize,
+) -> Result<usize, CompactSignError> {
+    use CompactSignError as E;
     let alg = &params.alg;
     let act = &params.act;
     let f = L::TWO_ADIC_EXPONENT;
@@ -267,22 +324,21 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     let two_r = Ibz::<N>::one().mul_2exp(L::R);
     let two_e = Ibz::<N>::one().mul_2exp(L::E_EMBED);
     let four = Ibz::<N>::set(4, 4);
-    let mut rng = seeded(entropy, b"csg").ok_or(E::Entropy)?;
 
     // commitment (round 3)
     let (mut e_com, b_com, ideal_commit) = loop {
-        let Some(ideal) = QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, &mut rng)
-            .map(Zeroizing::new)
+        let Some(ideal) =
+            QuatIdeal::random_given_prime_norm(&params.sec_degree, alg, rng).map(Zeroizing::new)
         else {
             continue;
         };
-        let Some((beta, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, &mut rng)
+        let Some((beta, ideal)) = ideal.small_equivalent_coprime(Some(&Ibz::two()), alg, rng)
         else {
             continue;
         };
         drop(Zeroizing::new(beta));
         let ideal = Zeroizing::new(ideal);
-        if let Some((e, b)) = arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, &mut rng) {
+        if let Some((e, b)) = arbitrary_isogeny_evaluation::<L, N>(&ideal, alg, act, rng) {
             break (e, Zeroizing::new(b), ideal);
         }
     };
@@ -326,7 +382,7 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     ));
     let (beta_bar, k_ideal) = {
         let (beta, k_ideal) = inter
-            .small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut DefaultDomain(&mut rng))
+            .small_equivalent_coprime(Some(&Ibz::zero()), alg, &mut DefaultDomain(&mut *rng))
             .ok_or(E::NoGoodResponse)?;
         let beta = Zeroizing::new(beta);
         (Zeroizing::new(beta.conj()), Zeroizing::new(k_ideal))
@@ -338,10 +394,10 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     let mut bound = Ibz::<N>::one().mul_2exp(L::E_EMBED).sub(&Ibz::one());
     bound.set_bound(L::E_EMBED as i32 + 1);
     let mut found = None;
-    for _ in 0..MAX_RESPONSE_TRIES {
+    for _ in 0..max_tries {
         stats.response_samples += 1;
         let Some((gamma, mut q)) = prod
-            .sample_from_ball(&bound, alg, &mut rng)
+            .sample_from_ball(&bound, alg, rng)
             .map(|(g, q)| (Zeroizing::new(g), q))
         else {
             continue;
@@ -353,11 +409,18 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
         if q >= two_e {
             continue;
         }
-        let mut nn = two_e.sub(&q);
-        nn.set_bound(L::E_EMBED as i32 + 1);
+        // The verifier's own test (forty Miller-Rabin rounds on 2^e − q
+        // with the first forty primes as bases) and its bound on
+        // m = v_2(a_2), so that no signature produced here is rejected for
+        // either reason.
         stats.primality_tests += 1;
-        if !nn.probab_prime(PRIME_ROUNDS, &mut rng) {
+        let q6 = to_u6(&q);
+        if !is_good_degree(L::E_EMBED, &q6) {
             continue;
+        }
+        match norm_equation_2f_minus_q(L::E_EMBED, &q6) {
+            Some((_, a2)) if a2.trailing_zeros() as usize <= MAX_GLUING_M => {}
+            _ => continue,
         }
         found = Some((gamma, q));
         break;
@@ -423,7 +486,7 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
         out,
     )
     .ok_or(E::Encode)?;
-    Ok((n, stats))
+    Ok(n)
 }
 
 /// The wire size of a compact signature at this level.
