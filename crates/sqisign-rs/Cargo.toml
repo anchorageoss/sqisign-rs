@@ -22,7 +22,7 @@ signature = { workspace = true, features = ["rand_core"] }
 
 [features]
 default = []
-# The dimension-4 compact format at level I (experimental).
+# The dimension-4 compact format at levels I, III and V (experimental).
 compact = ["sqisign-verify/compact"]
 
 [dev-dependencies]

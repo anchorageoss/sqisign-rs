@@ -302,8 +302,8 @@ fn check_vector(tag: &str, pkb: &[u8; PK_BYTES], sig: &[u8; SIG_BYTES], msg: &[u
         q: s.q,
     };
     let k = hd_kernel_setup::<P324_3>(&hdsig).unwrap();
-    let q4 = s.q.low_u128();
-    let mask = (1u128 << <P324_3 as HdLevel>::R) - 1;
+    let q4 = s.q.low_w();
+    let mask = sqisign_verify::hd::W::mask(<P324_3 as HdLevel>::R);
     let (m1, m2) = starting_two_symplectic_matrices(k.a1, k.a2, q4, mask).unwrap();
     let mg4 = [
         gluing_bc_dim4_f1(k.a1, k.a2, q4, k.m, &m1),

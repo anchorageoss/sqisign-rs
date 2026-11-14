@@ -58,6 +58,7 @@ pub mod gluing_chain;
 pub mod hd_verify;
 pub mod isogeny;
 pub mod kani;
+pub mod nqr_rule;
 mod nqr_tables_p324_3;
 pub mod params;
 pub mod point;
@@ -69,6 +70,7 @@ pub mod strategy;
 pub mod structure;
 pub mod two_point;
 pub mod uint;
+pub mod wide;
 pub mod wire;
 
 pub use arith::{
@@ -86,7 +88,7 @@ pub use dim2::{
 pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4, BaseChangeDim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
 pub use gluing_chain::{
-    jac_mul_u128, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,
+    jac_mul_u128, jac_mul_w, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,
     KaniGluingChainHalf, TuplePoint4,
 };
 pub use hd_verify::{
@@ -120,7 +122,8 @@ pub use two_point::{
     gluing_images_paired, null_fixed_by_pi, permute_pi, run_strategy_chain_two_point,
     run_strategy_chain_two_point_checked, PI, PI_FIXED, PI_PAIRS,
 };
-pub use uint::U4;
+pub use uint::U6;
+pub use wide::W;
 pub use wire::{
     challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_bytes_with,
     hd_verify_parsed, hd_verify_parsed_with, parse_public_key, parse_signature, public_key_bytes,

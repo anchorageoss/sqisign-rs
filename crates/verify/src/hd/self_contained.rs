@@ -27,19 +27,20 @@ use crate::ec::{EcCurve, JacPoint};
 use crate::fp::{Fp2, FpBackend};
 
 use super::params::HdLevel;
-use super::uint::U4;
+use super::uint::U6;
+use super::wide::W;
 
 use crate::hd::arith::{hadamard, pointwise_square};
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
 use crate::hd::challenge::recover_challenge_prof;
 use crate::hd::gluing_chain::{
-    jac_mul_u128, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
+    jac_mul_w, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
 };
 use crate::hd::hd_verify::HdReject;
 use crate::hd::isogeny::apply_plain_image;
 use crate::hd::kani::{
-    gluing_bc_dim4_f1, gluing_bc_dim4_f2, inverse_mod_pow2, norm_equation_2f_minus_q,
+    gluing_bc_dim4_f1, gluing_bc_dim4_f2, norm_equation_2f_minus_q,
     starting_two_symplectic_matrices,
 };
 use crate::hd::point::ThetaPointDim4;
@@ -135,12 +136,11 @@ pub struct HdSignature<'a, L: FpBackend> {
     pub chal_limbs: &'a [u64],
     /// The signature's challenge as little-endian bytes (for the binding check).
     /// Response scalars `(a, b, c_or_d)`.
-    pub resp_a: i128,
-    pub resp_b: i128,
-    pub resp_c_or_d: i128,
-    /// Response degree `q` (the full ~136-bit value).
+    pub resp_a: W,
+    pub resp_b: W,
+    pub resp_c_or_d: W,
     /// The response degree, `q < 2^e`.
-    pub q: U4,
+    pub q: U6,
 }
 
 // small helpers (mirroring the validated tests)
@@ -178,22 +178,22 @@ struct Setup<L: FpBackend> {
     /// The full `2^e`-torsion commitment basis point `P_com` (stage-6 input `T`).
     p_com: JacPoint<L>,
     /// `lambda = q^-1 mod 2^r`.
-    lambda: u128,
+    lambda: W,
     /// The doubling chains of `R_com`, `S_com`, `phi R` and `phi S`, the
     /// base points of the kernel generators, computed once.
     tables: [FixedBase<L>; 4],
     zero12: [Fp2<L>; 4],
     m0: [[u8; 4]; 4],
     e4: Fp2<L>,
-    a1: u128,
-    a2: u128,
-    q4: u128,
+    a1: W,
+    a2: W,
+    q4: W,
     m: usize,
 }
 
 /// `B_Kpp = kernel_basis(M, e1, R_com, S_com, φR, lamb·φS)` (modulus `2^(e1+2)=2^70`).
-fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 4] {
-    let mask = (1u128 << L::R) - 1;
+fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[W; 8]; 8]) -> [TuplePoint4<L>; 4] {
+    let mask = W::mask(L::R);
     point_matrix_product_k_fixed(m_full, &s.tables, s.lambda, mask, &s.e_com, &s.e_chal)
 }
 
@@ -203,7 +203,7 @@ fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 
 /// [`KernelPoints::TwoWithImageCheck`] and the half ran with four points.
 fn run_half<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
-    m_full: &[[u128; 8]; 8],
+    m_full: &[[W; 8]; 8],
     m_glue: &[[i64; 8]; 8],
     dual: bool,
     kernel_points: KernelPoints,
@@ -317,8 +317,8 @@ fn hd_image_check<L: HdLevel>(
     // F2 = F2_dual.dual(): pt is on C1 = Hadamard(C2).
     let ft = eval_f2_dual(chain2, &sc2.codomains, &pt)?;
 
-    let a1p = jac_mul_u128(&s.p_com, s.a1, &s.e_com);
-    let a2p = jac_mul_u128(&s.p_com, s.a2, &s.e_com);
+    let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
+    let a2p = jac_mul_w(&s.p_com, &s.a2, &s.e_com);
     let ok0 = x_eq(&ft.c[0], &a1p);
     let ok1 = x_eq(&ft.c[1], &a2p);
     let ok3 = bool::from(ft.c[3].z.ct_is_zero()); // FT[3] = 0_{E_chal}
@@ -349,7 +349,7 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
         prof,
     )
     .ok_or(HdReject::ChallengeRecovery)?;
-    let q4 = sig.q.low_u128();
+    let q4 = sig.q.low_w();
     let rsp = recover_response_prof::<L, P>(
         &chal,
         &sig.a_com,
@@ -371,8 +371,8 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     let ts = prof.now();
     let (a1u, a2u) = norm_equation_2f_minus_q(L::E_EMBED, &sig.q).ok_or(HdReject::NormEquation)?;
     prof.sub_add(11, prof.now() - ts);
-    let a1 = a1u.low_u128();
-    let a2 = a2u.low_u128();
+    let a1 = a1u.low_w();
+    let a2 = a2u.low_w();
     let m = a2.trailing_zeros() as usize;
     // `m = v₂(a2)` must lie in the protocol's small range. Out-of-range values
     // would otherwise drive the dim-4 gluing base change's `i128` products past
@@ -381,7 +381,7 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     if m > MAX_GLUING_M {
         return Err(HdReject::GluingBound);
     }
-    let lamb4 = q4 & 3;
+    let lamb4 = q4.low_u64() & 3;
 
     let mut e_com = EcCurve::<L>::from_a(&sig.a_com).ok_or(HdReject::BadCurve)?;
     e_com.normalize_a24();
@@ -397,8 +397,7 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
 
     // The doubling chains of the four base points, once (SECENG-2429): the
     // 4-torsion points, points_m and every kernel generator read them.
-    let mask_r = (1u128 << L::R) - 1;
-    let lambda = inverse_mod_pow2(q4, mask_r);
+    let lambda = q4.inv_odd() & W::mask(L::R);
     // one entry past the scalars' width, for the top digit of a non-adjacent form
     let bits = L::R as usize + 1;
     let tables = [
@@ -454,9 +453,9 @@ type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>, bool);
 /// bit-identical - the halves do not interact until the middle-codomain match.
 fn run_both_halves<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
-    m1: &[[u128; 8]; 8],
+    m1: &[[W; 8]; 8],
     mg1: &[[i64; 8]; 8],
-    m2: &[[u128; 8]; 8],
+    m2: &[[W; 8]; 8],
     mg2: &[[i64; 8]; 8],
     kernel_points: KernelPoints,
     prof: &mut P,
@@ -475,7 +474,7 @@ fn self_derived_check<L: HdLevel, P: Profiler>(
 ) -> (Result<(), HdReject>, HdVerifyReport) {
     let none = HdVerifyReport::default();
     let t0 = prof.now();
-    let mask = (1u128 << L::R) - 1;
+    let mask = W::mask(L::R);
     let (m1, m2) = match starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask) {
         Some(m) => m,
         None => return (Err(HdReject::ChainFailed), none),
@@ -615,7 +614,7 @@ pub fn hd_image<L: HdLevel>(
     sig: &HdSignature<L>,
 ) -> Option<(TuplePoint4<L>, JacPoint<L>, JacPoint<L>)> {
     let s = build_setup(sig).ok()?;
-    let mask = (1u128 << L::R) - 1;
+    let mask = W::mask(L::R);
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
@@ -629,8 +628,8 @@ pub fn hd_image<L: HdLevel>(
         pt = apply_plain_image(inv, &pt);
     }
     let ft = eval_f2_dual(&chain2, &sc2.codomains, &pt)?;
-    let a1p = jac_mul_u128(&s.p_com, s.a1, &s.e_com);
-    let a2p = jac_mul_u128(&s.p_com, s.a2, &s.e_com);
+    let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
+    let a2p = jac_mul_w(&s.p_com, &s.a2, &s.e_com);
     Some((ft, a1p, a2p))
 }
 
@@ -643,7 +642,7 @@ pub fn hd_codomains<L: HdLevel>(
     opts: &HdVerifyOptions,
 ) -> Option<HdCodomains<L>> {
     let s = build_setup(sig).ok()?;
-    let mask = (1u128 << L::R) - 1;
+    let mask = W::mask(L::R);
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
@@ -677,11 +676,11 @@ pub fn hd_codomains<L: HdLevel>(
 /// and the tests; not on the verification path.
 pub struct HdKernelSetup<L: FpBackend> {
     /// The norm equation's `a1` (odd) and `a2`, and `m = v2(a2)`.
-    pub a1: u128,
-    pub a2: u128,
+    pub a1: W,
+    pub a2: W,
     pub m: usize,
     /// `lambda = q^-1 mod 2^r`.
-    pub lambda: u128,
+    pub lambda: W,
     /// `[P1_m, Q1_m, R2_m, S2_m]` of order `2^(m+3)`.
     pub points_m: [JacPoint<L>; 4],
     /// The product null point, the dimension-2 base-change matrix over
@@ -698,7 +697,7 @@ pub struct HdKernelSetup<L: FpBackend> {
 /// before the kernel points.
 pub fn hd_kernel_setup<L: HdLevel>(sig: &HdSignature<L>) -> Option<HdKernelSetup<L>> {
     let s = build_setup(sig).ok()?;
-    let mask = (1u128 << L::R) - 1;
+    let mask = W::mask(L::R);
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let generators = [b_kpp(&s, &m1), b_kpp(&s, &m2)];
     Some(HdKernelSetup {

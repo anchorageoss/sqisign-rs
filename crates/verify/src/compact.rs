@@ -1,4 +1,4 @@
-//! The compact (dimension-4) format's typed API, level I, experimental
+//! The compact (dimension-4) format's typed API, levels I, III and V, experimental
 //! (feature `compact`; the protocol is in [`crate::hd`], the parameters in
 //! `docs/COMPACT_R3.md`). A compact key is not a round-3 key: its basis
 //! convention is the SQIsignHD library's, and its signatures verify only
@@ -6,11 +6,11 @@
 
 use core::marker::PhantomData;
 
-use hybrid_array::typenum::{Unsigned, U142, U84};
+use hybrid_array::typenum::{Unsigned, U130, U142, U170, U214, U280, U84};
 use hybrid_array::{Array, ArraySize};
 
 use crate::hd::{hd_verify_bytes, HdLevel};
-use crate::params::P324_3;
+use crate::params::{P324_3, P500_27, P664_17};
 use crate::Error;
 
 /// A level with compact-format wire sizes.
@@ -24,6 +24,16 @@ pub trait CompactLevel: HdLevel {
 impl CompactLevel for P324_3 {
     type PkLen = U84;
     type SigLen = U142;
+}
+
+impl CompactLevel for P500_27 {
+    type PkLen = U130;
+    type SigLen = U214;
+}
+
+impl CompactLevel for P664_17 {
+    type PkLen = U170;
+    type SigLen = U280;
 }
 
 /// A compact public key (84 bytes at level I).

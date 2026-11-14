@@ -13,12 +13,12 @@
 //!
 //! * **Norm equation.** `N = 2^e - q` has `e` bits (`e = 174` at level I,
 //!   `q < 2^e`), and Cornacchia squares values up to `⌊√N⌋ ≈ 2^87`
-//!   (`b² < 2^136`). A fixed 256-bit [`U4`] holds `N` and every square with
+//!   (`b² < 2^136`). A fixed 256-bit [`U6`] holds `N` and every square with
 //!   room to spare; the modular exponentiation for `√(-1) mod N` uses
 //!   `MontyForm` (internal wide products, no overflow). No `alloc`.
 //! * **Symplectic matrices over `Z/2^f`** (`f = r = 70` inside `KaniEndoHalf`).
-//!   Entries are kept as `u128` in `[0, 2^70)`. Products of two reduced entries
-//!   reach ~140 bits and *wrap* `u128` (`> 2^128`), but `2^70 | 2^128`, so
+//!   Entries are kept as `W` in `[0, 2^70)`. Products of two reduced entries
+//!   reach ~140 bits and *wrap* `W` (`> 2^128`), but `2^70 | 2^128`, so
 //!   `wrapping_mul` followed by a mask to 70 bits is exactly the product mod
 //!   `2^70`. Sums are handled the same way.
 //! * **Gluing matrices over `Z/4`.** Entries fit a `u8`; arithmetic is done in
@@ -40,7 +40,8 @@
 //! therefore validate the completion by the **symplectic property** (it is a
 //! valid completion of the real kernel blocks for all 5 vectors).
 
-use super::uint::{jacobi_small, U4};
+use super::uint::{jacobi_small, U6};
+use super::wide::W;
 
 // Sum of two squares (Cornacchia), N = 2^f - q = a₁² + a₂², N prime ≡ 1 (mod 4).
 
@@ -50,16 +51,16 @@ use super::uint::{jacobi_small, U4};
 /// to `(n − 1)/4`, then the Euclidean descent), `a_1` odd. `None` if `n` is
 /// even, no root is found among the first bases, or the descent fails (`n`
 /// not a prime `≡ 1 mod 4`, or not a sum of two squares).
-pub fn sum_of_two_squares(n: &U4) -> Option<(U4, U4)> {
+pub fn sum_of_two_squares(n: &U6) -> Option<(U6, U6)> {
     if !n.is_odd() || n.0[0] & 3 != 1 {
         return None;
     }
-    let nm1 = n.wrapping_sub(&U4::ONE);
+    let nm1 = n.wrapping_sub(&U6::ONE);
     let exp = nm1.shr(2); // (n - 1) / 4
                           // The first base with Jacobi symbol -1 (for a prime n the base the old
                           // loop over every base found); one exponentiation, t^2 != -1 rejects.
     let b = (2..1000u64).find(|&b| jacobi_small(b, n) == -1)?;
-    let t = U4::from_u64(b).pow_mod(&exp, n);
+    let t = U6::from_u64(b).pow_mod(&exp, n);
     if t.mul_mod(&t, n) != nm1 {
         return None;
     }
@@ -90,98 +91,91 @@ pub fn sum_of_two_squares(n: &U4) -> Option<(U4, U4)> {
 }
 
 /// `(a_1, a_2)` with `a_1^2 + a_2^2 = 2^e − q`.
-pub fn norm_equation_2f_minus_q(e: u32, q: &U4) -> Option<(U4, U4)> {
-    let n = U4::pow2(e).wrapping_sub(q);
+pub fn norm_equation_2f_minus_q(e: u32, q: &U6) -> Option<(U6, U6)> {
+    let n = U6::pow2(e).wrapping_sub(q);
     sum_of_two_squares(&n)
 }
 
 #[inline]
-fn neg_m(x: u128, mask: u128) -> u128 {
-    0u128.wrapping_sub(x & mask) & mask
+fn neg_m(x: W, mask: W) -> W {
+    (x & mask).wrapping_neg() & mask
 }
+
+const Z: W = W::ZERO;
+const O: W = W::ONE;
 
 /// `matrix_F` (sage `kani_base_change.matrix_F`): the matrix of `F(B1)` in
 /// `B1`, an `8×8` matrix over `Z/2^f`. `a1, a2, q` must be reduced mod `2^f`.
-pub fn matrix_f(a1: u128, a2: u128, q: u128, mask: u128) -> [[u128; 8]; 8] {
+pub fn matrix_f(a1: W, a2: W, q: W, mask: W) -> [[W; 8]; 8] {
     let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
-    let neg70 = |x: u128| neg_m(x, mask);
-    let n1 = neg70(1);
+    let neg70 = |x: W| neg_m(x, mask);
+    let n1 = neg70(O);
     [
-        [a1, a2, q, 0, 0, 0, 0, 0],
-        [neg70(a2), a1, 0, q, 0, 0, 0, 0],
-        [n1, 0, a1, neg70(a2), 0, 0, 0, 0],
-        [0, n1, a2, a1, 0, 0, 0, 0],
-        [0, 0, 0, 0, a1, a2, 1, 0],
-        [0, 0, 0, 0, neg70(a2), a1, 0, 1],
-        [0, 0, 0, 0, neg70(q), 0, a1, neg70(a2)],
-        [0, 0, 0, 0, 0, neg70(q), a2, a1],
+        [a1, a2, q, Z, Z, Z, Z, Z],
+        [neg70(a2), a1, Z, q, Z, Z, Z, Z],
+        [n1, Z, a1, neg70(a2), Z, Z, Z, Z],
+        [Z, n1, a2, a1, Z, Z, Z, Z],
+        [Z, Z, Z, Z, a1, a2, O, Z],
+        [Z, Z, Z, Z, neg70(a2), a1, Z, O],
+        [Z, Z, Z, Z, neg70(q), Z, a1, neg70(a2)],
+        [Z, Z, Z, Z, Z, neg70(q), a2, a1],
     ]
 }
 
 /// `matrix_F_dual` (sage `kani_base_change.matrix_F_dual`).
-pub fn matrix_f_dual(a1: u128, a2: u128, q: u128, mask: u128) -> [[u128; 8]; 8] {
+pub fn matrix_f_dual(a1: W, a2: W, q: W, mask: W) -> [[W; 8]; 8] {
     let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
-    let neg70 = |x: u128| neg_m(x, mask);
-    let n1 = neg70(1);
+    let neg70 = |x: W| neg_m(x, mask);
+    let n1 = neg70(O);
     [
-        [a1, neg70(a2), neg70(q), 0, 0, 0, 0, 0],
-        [a2, a1, 0, neg70(q), 0, 0, 0, 0],
-        [1, 0, a1, a2, 0, 0, 0, 0],
-        [0, 1, neg70(a2), a1, 0, 0, 0, 0],
-        [0, 0, 0, 0, a1, neg70(a2), n1, 0],
-        [0, 0, 0, 0, a2, a1, 0, n1],
-        [0, 0, 0, 0, q, 0, a1, a2],
-        [0, 0, 0, 0, 0, q, neg70(a2), a1],
+        [a1, neg70(a2), neg70(q), Z, Z, Z, Z, Z],
+        [a2, a1, Z, neg70(q), Z, Z, Z, Z],
+        [O, Z, a1, a2, Z, Z, Z, Z],
+        [Z, O, neg70(a2), a1, Z, Z, Z, Z],
+        [Z, Z, Z, Z, a1, neg70(a2), n1, Z],
+        [Z, Z, Z, Z, a2, a1, Z, n1],
+        [Z, Z, Z, Z, q, Z, a1, a2],
+        [Z, Z, Z, Z, Z, q, neg70(a2), a1],
     ]
 }
 
 /// Kernel blocks `(C, D)` of `complete_kernel_matrix_F1` - the symplectic
 /// generators of `B_Kp1` in `B1`, i.e. exactly the columns `kernel_basis`
 /// applies to the torsion points. `4×4` each, over `Z/2^f`.
-pub fn kernel_matrix_f1(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    mask: u128,
-) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
+pub fn kernel_matrix_f1(a1: W, a2: W, q: W, mask: W) -> ([[W; 4]; 4], [[W; 4]; 4]) {
     let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
-    let neg70 = |x: u128| neg_m(x, mask);
+    let neg70 = |x: W| neg_m(x, mask);
     let c = [
-        [a1, 0, neg70(a2), 0],
-        [a2, 0, a1, 0],
-        [1, 0, 0, 0],
-        [0, 0, 1, 0],
+        [a1, Z, neg70(a2), Z],
+        [a2, Z, a1, Z],
+        [O, Z, Z, Z],
+        [Z, Z, O, Z],
     ];
     let d = [
-        [0, a1, 0, neg70(a2)],
-        [0, a2, 0, a1],
-        [0, q, 0, 0],
-        [0, 0, 0, q],
+        [Z, a1, Z, neg70(a2)],
+        [Z, a2, Z, a1],
+        [Z, q, Z, Z],
+        [Z, Z, Z, q],
     ];
     (c, d)
 }
 
 /// Kernel blocks `(C, D)` of `complete_kernel_matrix_F2_dual`.
-pub fn kernel_matrix_f2_dual(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    mask: u128,
-) -> ([[u128; 4]; 4], [[u128; 4]; 4]) {
+pub fn kernel_matrix_f2_dual(a1: W, a2: W, q: W, mask: W) -> ([[W; 4]; 4], [[W; 4]; 4]) {
     let (a1, a2, q) = (a1 & mask, a2 & mask, q & mask);
-    let neg70 = |x: u128| neg_m(x, mask);
-    let n1 = neg70(1);
+    let neg70 = |x: W| neg_m(x, mask);
+    let n1 = neg70(O);
     let c = [
-        [a1, 0, a2, 0],
-        [neg70(a2), 0, a1, 0],
-        [n1, 0, 0, 0],
-        [0, 0, n1, 0],
+        [a1, Z, a2, Z],
+        [neg70(a2), Z, a1, Z],
+        [n1, Z, Z, Z],
+        [Z, Z, n1, Z],
     ];
     let d = [
-        [0, a1, 0, a2],
-        [0, neg70(a2), 0, a1],
-        [0, neg70(q), 0, 0],
-        [0, 0, 0, neg70(q)],
+        [Z, a1, Z, a2],
+        [Z, neg70(a2), Z, a1],
+        [Z, neg70(q), Z, Z],
+        [Z, Z, Z, neg70(q)],
     ];
     (c, d)
 }
@@ -202,8 +196,12 @@ fn inv4(a: u8) -> u8 {
 
 /// `gluing_base_change_matrix_dim2_F1` - `4×4` symplectic matrix over `Z/4`.
 /// `a1, a2, q` are reduced mod 4 internally (`a1` must be odd).
-pub fn gluing_dim2_f1(a1: u128, a2: u128, q: u128) -> [[u8; 4]; 4] {
-    let (a1, a2, q) = ((a1 % 4) as i64, (a2 % 4) as i64, (q % 4) as i64);
+pub fn gluing_dim2_f1(a1: W, a2: W, q: W) -> [[u8; 4]; 4] {
+    let (a1, a2, q) = (
+        (a1.low_u64() % 4) as i64,
+        (a2.low_u64() % 4) as i64,
+        (q.low_u64() % 4) as i64,
+    );
     let mu = inv4(a1 as u8) as i64;
     [
         [0, m4(mu), m4(a1), m4(a2)],
@@ -215,8 +213,12 @@ pub fn gluing_dim2_f1(a1: u128, a2: u128, q: u128) -> [[u8; 4]; 4] {
 
 /// `gluing_base_change_matrix_dim2_F2` - `4×4` symplectic matrix over `Z/4`.
 /// `a1, a2, q` are reduced mod 4 internally (`a1` must be odd).
-pub fn gluing_dim2_f2(a1: u128, a2: u128, q: u128) -> [[u8; 4]; 4] {
-    let (a1, a2, q) = ((a1 % 4) as i64, (a2 % 4) as i64, (q % 4) as i64);
+pub fn gluing_dim2_f2(a1: W, a2: W, q: W) -> [[u8; 4]; 4] {
+    let (a1, a2, q) = (
+        (a1.low_u64() % 4) as i64,
+        (a2.low_u64() % 4) as i64,
+        (q.low_u64() % 4) as i64,
+    );
     let mu = inv4(a1 as u8) as i64;
     [
         [0, m4(mu), m4(a1), m4(-a2)],
@@ -232,25 +234,20 @@ pub fn gluing_dim2_f2(a1: u128, a2: u128, q: u128) -> [[u8; 4]; 4] {
 /// Inverse of an odd `a` modulo `2^k` (`mask = 2^k - 1`). Public wrapper used by
 /// the gluing chain (`inverse_mod(q, 2^{m+3})` etc.).
 #[inline]
-pub fn inverse_mod_pow2(a: u128, mask: u128) -> u128 {
+pub fn inverse_mod_pow2(a: W, mask: W) -> W {
     inv_pow2(a, mask)
 }
 
 /// Inverse of an odd `a` modulo `2^k` (`mask = 2^k - 1`), by Hensel doubling.
-fn inv_pow2(a: u128, mask: u128) -> u128 {
-    let a = a & mask;
-    let mut inv = 1u128;
-    for _ in 0..7 {
-        inv = inv.wrapping_mul(2u128.wrapping_sub(a.wrapping_mul(inv))) & mask;
-    }
-    inv & mask
+fn inv_pow2(a: W, mask: W) -> W {
+    a.inv_odd() & mask
 }
 
 /// Solve `rows · x = rhs` over `Z/(mask+1)` (a power of two) with the
 /// free-variable-zero particular solution, via unit-pivot Gaussian
 /// elimination. `nr ≤ 7` rows, 8 columns. Returns `None` if inconsistent.
-fn solve_pow2(rows: &[[u128; 8]], rhs: &[u128], nr: usize, mask: u128) -> Option<[u128; 8]> {
-    let mut aug = [[0u128; 9]; 7];
+fn solve_pow2(rows: &[[W; 8]], rhs: &[W], nr: usize, mask: W) -> Option<[W; 8]> {
+    let mut aug = [[Z; 9]; 7];
     for i in 0..nr {
         for j in 0..8 {
             aug[i][j] = rows[i][j] & mask;
@@ -264,7 +261,7 @@ fn solve_pow2(rows: &[[u128; 8]], rhs: &[u128], nr: usize, mask: u128) -> Option
         if pr >= nr {
             break;
         }
-        let s = match (pr..nr).find(|&i| aug[i][col] & 1 == 1) {
+        let s = match (pr..nr).find(|&i| aug[i][col].is_odd()) {
             Some(s) => s,
             None => continue,
         };
@@ -275,7 +272,7 @@ fn solve_pow2(rows: &[[u128; 8]], rhs: &[u128], nr: usize, mask: u128) -> Option
         }
         let piv = aug[pr]; // pivot row is fixed while eliminating this column
         for (i, row) in aug.iter_mut().enumerate().take(nr) {
-            if i != pr && row[col] & mask != 0 {
+            if i != pr && !(row[col] & mask).is_zero() {
                 let f = row[col] & mask;
                 for (x, &p) in row.iter_mut().zip(piv.iter()) {
                     *x = x.wrapping_sub(f.wrapping_mul(p)) & mask;
@@ -286,13 +283,13 @@ fn solve_pow2(rows: &[[u128; 8]], rhs: &[u128], nr: usize, mask: u128) -> Option
         np += 1;
         pr += 1;
     }
-    let mut x = [0u128; 8];
+    let mut x = [Z; 8];
     for &(p, c) in pivots.iter().take(np) {
         x[c] = aug[p][8] & mask;
     }
     // Verify (catches inconsistency / a missing unit pivot).
     for i in 0..nr {
-        let mut acc = 0u128;
+        let mut acc = Z;
         for j in 0..8 {
             acc = acc.wrapping_add((rows[i][j] & mask).wrapping_mul(x[j])) & mask;
         }
@@ -312,39 +309,35 @@ fn solve_pow2(rows: &[[u128; 8]], rhs: &[u128], nr: usize, mask: u128) -> Option
 /// orthogonality constraints `[B_t | -A_t]` against the previously chosen
 /// columns. The particular solution is the free-variable-zero one (a *valid*
 /// completion; not necessarily PARI's `matsolvemod` representative).
-pub fn complete_symplectic_dim4(
-    c: &[[u128; 4]; 4],
-    d: &[[u128; 4]; 4],
-    mask: u128,
-) -> Option<[[u128; 8]; 8]> {
+pub fn complete_symplectic_dim4(c: &[[W; 4]; 4], d: &[[W; 4]; 4], mask: W) -> Option<[[W; 8]; 8]> {
     // L_DC = [D^T | -C^T], 4×8.
-    let mut l_dc = [[0u128; 8]; 7];
+    let mut l_dc = [[Z; 8]; 7];
     for i in 0..4 {
         for k in 0..4 {
             l_dc[i][k] = d[k][i] & mask; // D^T
-            l_dc[i][4 + k] = (0u128.wrapping_sub(c[k][i])) & mask; // -C^T
+            l_dc[i][4 + k] = c[k][i].wrapping_neg() & mask; // -C^T
         }
     }
 
-    let mut cols = [[0u128; 8]; 4]; // completion columns x_0..x_3
+    let mut cols = [[Z; 8]; 4]; // completion columns x_0..x_3
     for i in 0..4 {
-        let mut rows = [[0u128; 8]; 7];
+        let mut rows = [[Z; 8]; 7];
         rows[..4].copy_from_slice(&l_dc[..4]);
         // accumulated constraints [B_t_j | -A_t_j] for j < i
         for j in 0..i {
             for k in 0..4 {
                 rows[4 + j][k] = cols[j][4 + k] & mask; // B_t_j
-                rows[4 + j][4 + k] = (0u128.wrapping_sub(cols[j][k])) & mask; // -A_t_j
+                rows[4 + j][4 + k] = cols[j][k].wrapping_neg() & mask; // -A_t_j
             }
         }
         let nr = 4 + i;
-        let mut rhs = [0u128; 7];
-        rhs[i] = 1;
+        let mut rhs = [Z; 7];
+        rhs[i] = O;
         cols[i] = solve_pow2(&rows, &rhs, nr, mask)?;
     }
 
     // M = [[A, C], [B, D]]: columns 0..4 = completion x_i, columns 4..8 = (C; D).
-    let mut m = [[0u128; 8]; 8];
+    let mut m = [[Z; 8]; 8];
     for i in 0..4 {
         for r in 0..8 {
             m[r][i] = cols[i][r] & mask;
@@ -360,11 +353,11 @@ pub fn complete_symplectic_dim4(
 }
 
 /// `4×4` matrix product over `Z/(mask+1)`.
-fn mat4_mul(x: &[[u128; 4]; 4], y: &[[u128; 4]; 4], mask: u128) -> [[u128; 4]; 4] {
-    let mut z = [[0u128; 4]; 4];
+fn mat4_mul(x: &[[W; 4]; 4], y: &[[W; 4]; 4], mask: W) -> [[W; 4]; 4] {
+    let mut z = [[Z; 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
-            let mut acc = 0u128;
+            let mut acc = Z;
             for k in 0..4 {
                 acc = acc.wrapping_add(x[i][k].wrapping_mul(y[k][j])) & mask;
             }
@@ -375,8 +368,8 @@ fn mat4_mul(x: &[[u128; 4]; 4], y: &[[u128; 4]; 4], mask: u128) -> [[u128; 4]; 4
 }
 
 #[inline]
-fn mat4_t(x: &[[u128; 4]; 4]) -> [[u128; 4]; 4] {
-    let mut t = [[0u128; 4]; 4];
+fn mat4_t(x: &[[W; 4]; 4]) -> [[W; 4]; 4] {
+    let mut t = [[Z; 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
             t[i][j] = x[j][i];
@@ -385,8 +378,8 @@ fn mat4_t(x: &[[u128; 4]; 4]) -> [[u128; 4]; 4] {
     t
 }
 
-fn block(m: &[[u128; 8]; 8], r0: usize, c0: usize) -> [[u128; 4]; 4] {
-    let mut b = [[0u128; 4]; 4];
+fn block(m: &[[W; 8]; 8], r0: usize, c0: usize) -> [[W; 4]; 4] {
+    let mut b = [[Z; 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
             b[i][j] = m[r0 + i][c0 + j];
@@ -397,12 +390,12 @@ fn block(m: &[[u128; 8]; 8], r0: usize, c0: usize) -> [[u128; 4]; 4] {
 
 /// Test whether `m` is symplectic over `Z/(mask+1)`: with the block
 /// decomposition `[[A,C],[B,D]]`, `BᵀA = AᵀB`, `CᵀD = DᵀC`, `AᵀD - BᵀC = I`.
-pub fn is_symplectic_dim4(m: &[[u128; 8]; 8], mask: u128) -> bool {
+pub fn is_symplectic_dim4(m: &[[W; 8]; 8], mask: W) -> bool {
     let a = block(m, 0, 0);
     let c = block(m, 0, 4);
     let b = block(m, 4, 0);
     let d = block(m, 4, 4);
-    let eq = |x: &[[u128; 4]; 4], y: &[[u128; 4]; 4]| -> bool {
+    let eq = |x: &[[W; 4]; 4], y: &[[W; 4]; 4]| -> bool {
         (0..4).all(|i| (0..4).all(|j| x[i][j] & mask == y[i][j] & mask))
     };
     let bta = mat4_mul(&mat4_t(&b), &a, mask);
@@ -417,9 +410,9 @@ pub fn is_symplectic_dim4(m: &[[u128; 8]; 8], mask: u128) -> bool {
     }
     let atd = mat4_mul(&mat4_t(&a), &d, mask);
     let btc = mat4_mul(&mat4_t(&b), &c, mask);
-    let mut id = [[0u128; 4]; 4];
+    let mut id = [[Z; 4]; 4];
     for (i, row) in id.iter_mut().enumerate() {
-        row[i] = 1;
+        row[i] = O;
     }
     (0..4).all(|i| (0..4).all(|j| atd[i][j].wrapping_sub(btc[i][j]) & mask == id[i][j]))
 }
@@ -435,10 +428,10 @@ pub fn is_symplectic_dim4(m: &[[u128; 8]; 8], mask: u128) -> bool {
 // but yields the invariant middle-codomain match.
 
 /// `(M·N[:, 0..4])` for two `8×8` matrices over `Z/(mask+1)`: an `8×4` result.
-fn mat8_mul_cols0to3(m: &[[u128; 8]; 8], n: &[[u128; 8]; 8], mask: u128) -> [[u128; 4]; 8] {
+fn mat8_mul_cols0to3(m: &[[W; 8]; 8], n: &[[W; 8]; 8], mask: W) -> [[W; 4]; 8] {
     core::array::from_fn(|i| {
         core::array::from_fn(|j| {
-            let mut acc = 0u128;
+            let mut acc = Z;
             for k in 0..8 {
                 acc = acc.wrapping_add(m[i][k].wrapping_mul(n[k][j])) & mask;
             }
@@ -452,11 +445,11 @@ fn mat8_mul_cols0to3(m: &[[u128; 8]; 8], n: &[[u128; 8]; 8], mask: u128) -> [[u1
 /// `None` if a completion is not solvable.
 #[allow(clippy::type_complexity)] // (M1, M2), two 8×8 matrices.
 pub fn starting_two_symplectic_matrices(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    mask: u128,
-) -> Option<([[u128; 8]; 8], [[u128; 8]; 8])> {
+    a1: W,
+    a2: W,
+    q: W,
+    mask: W,
+) -> Option<([[W; 8]; 8], [[W; 8]; 8])> {
     // M1_0 = complete_kernel_matrix_F1 (the single shared completion).
     let (c1, d1) = kernel_matrix_f1(a1, a2, q, mask);
     let m1_0 = complete_symplectic_dim4(&c1, &d1, mask)?;
@@ -464,18 +457,18 @@ pub fn starting_two_symplectic_matrices(
     // M2 kernel block = matrix_F · M1_0[:, 0..4]; complete it.
     let matf = matrix_f(a1, a2, q, mask);
     let br2 = mat8_mul_cols0to3(&matf, &m1_0, mask);
-    let c_br2: [[u128; 4]; 4] = core::array::from_fn(|i| br2[i]);
-    let d_br2: [[u128; 4]; 4] = core::array::from_fn(|i| br2[4 + i]);
+    let c_br2: [[W; 4]; 4] = core::array::from_fn(|i| br2[i]);
+    let d_br2: [[W; 4]; 4] = core::array::from_fn(|i| br2[4 + i]);
     let m2 = complete_symplectic_dim4(&c_br2, &d_br2, mask)?;
 
     // M1 = [ M1_0[:, 0..4] | -(matrix_F_dual · M2[:, 0..4]) ].
     let matf_dual = matrix_f_dual(a1, a2, q, mask);
     let br1 = mat8_mul_cols0to3(&matf_dual, &m2, mask);
-    let mut m1 = [[0u128; 8]; 8];
+    let mut m1 = [[Z; 8]; 8];
     for r in 0..8 {
         for j in 0..4 {
             m1[r][j] = m1_0[r][j] & mask;
-            m1[r][4 + j] = (0u128.wrapping_sub(br1[r][j])) & mask;
+            m1[r][4 + j] = br1[r][j].wrapping_neg() & mask;
         }
     }
     Some((m1, m2))
@@ -484,14 +477,7 @@ pub fn starting_two_symplectic_matrices(
 /// The four `4×4` blocks of an `8×8` matrix: `(A, B, C, D)` with
 /// `A = M[0..4][0..4]`, `B = M[4..8][0..4]`, `C = M[0..4][4..8]`, `D = M[4..8][4..8]`.
 #[allow(clippy::type_complexity)] // four 4×4 blocks (A, B, C, D).
-fn blocks8(
-    m: &[[u128; 8]; 8],
-) -> (
-    [[u128; 4]; 4],
-    [[u128; 4]; 4],
-    [[u128; 4]; 4],
-    [[u128; 4]; 4],
-) {
+fn blocks8(m: &[[W; 8]; 8]) -> ([[W; 4]; 4], [[W; 4]; 4], [[W; 4]; 4], [[W; 4]; 4]) {
     (
         block(m, 0, 0),
         block(m, 4, 0),
@@ -503,24 +489,17 @@ fn blocks8(
 /// `gluing_base_change_matrix_dim2_dim4_F1(a1, a2, q, m, M1)` - the dim-4 gluing
 /// change of basis (`8×8` over `Z/4`, returned as `i64`). `f1 = true` selects the
 /// F1 sign convention, `false` the F2_dual one.
-fn gluing_bc_dim4(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    m: usize,
-    m1: &[[u128; 8]; 8],
-    f1: bool,
-) -> [[i64; 8]; 8] {
+fn gluing_bc_dim4(a1: W, a2: W, q: W, m: usize, m1: &[[W; 8]; 8], f1: bool) -> [[i64; 8]; 8] {
     let modp2 = 1i128 << (m + 2); // 2^(m+2)
-    let maskp2 = (1u128 << (m + 2)) - 1;
+    let maskp2: u128 = (1 << (m + 2)) - 1;
     let two_mp1 = 1i128 << (m + 1); // 2^(m+1)
     let red = |x: i128| -> i128 { x.rem_euclid(modp2) };
 
-    let a1i = (a1 & maskp2) as i128;
-    let a2i = (a2 & maskp2) as i128;
-    let qi = (q & maskp2) as i128;
-    let inv_a1 = inv_pow2(a1, maskp2) as i128;
-    let inv_q = inv_pow2(q, maskp2) as i128;
+    let a1i = (a1.low_u128() & maskp2) as i128;
+    let a2i = (a2.low_u128() & maskp2) as i128;
+    let qi = (q.low_u128() & maskp2) as i128;
+    let inv_a1 = (a1.inv_odd().low_u128() & maskp2) as i128;
+    let inv_q = (q.inv_odd().low_u128() & maskp2) as i128;
 
     let lamb = two_mp1;
     let cc = two_mp1;
@@ -534,7 +513,8 @@ fn gluing_bc_dim4(
 
     // Block entries of M1, reduced mod 2^(m+2) (signed-friendly).
     let (ba, bb, bc, bd) = blocks8(m1);
-    let g = |blk: &[[u128; 4]; 4], i: usize, j: usize| -> i128 { (blk[i][j] & maskp2) as i128 };
+    let g =
+        |blk: &[[W; 4]; 4], i: usize, j: usize| -> i128 { (blk[i][j].low_u128() & maskp2) as i128 };
 
     let mut out = [[0i64; 8]; 8];
     let m_shift = m as u32;
@@ -606,23 +586,11 @@ fn gluing_bc_dim4(
 }
 
 /// `gluing_base_change_matrix_dim2_dim4_F1`.
-pub fn gluing_bc_dim4_f1(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    m: usize,
-    m1: &[[u128; 8]; 8],
-) -> [[i64; 8]; 8] {
+pub fn gluing_bc_dim4_f1(a1: W, a2: W, q: W, m: usize, m1: &[[W; 8]; 8]) -> [[i64; 8]; 8] {
     gluing_bc_dim4(a1, a2, q, m, m1, true)
 }
 
 /// `gluing_base_change_matrix_dim2_dim4_F2`.
-pub fn gluing_bc_dim4_f2(
-    a1: u128,
-    a2: u128,
-    q: u128,
-    m: usize,
-    m2: &[[u128; 8]; 8],
-) -> [[i64; 8]; 8] {
+pub fn gluing_bc_dim4_f2(a1: W, a2: W, q: W, m: usize, m2: &[[W; 8]; 8]) -> [[i64; 8]; 8] {
     gluing_bc_dim4(a1, a2, q, m, m2, false)
 }

@@ -23,16 +23,17 @@ use super::params::{
     pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_PK_WIRE_BYTES, MAX_SIG_WIRE_BYTES,
 };
 use super::self_contained::{hd_verify_with, HdSignature, HdVerifyOptions, HdVerifyReport};
-use super::uint::U4;
+use super::uint::U6;
+use super::wide::W;
 
 /// A decoded compact signature.
 #[derive(Clone, Debug)]
 pub struct ParsedSignature<L: FpBackend> {
     pub a_com: Fp2<L>,
-    pub a: i128,
-    pub b: i128,
-    pub c_or_d: i128,
-    pub q: U4,
+    pub a: W,
+    pub b: W,
+    pub c_or_d: W,
+    pub q: U6,
     pub hint_com_p: u32,
     pub hint_com_q: u32,
 }
@@ -45,15 +46,15 @@ pub struct ParsedPublicKey<L: FpBackend> {
     pub hint_pk_q: u32,
 }
 
-fn read_q<L: HdLevel>(b: &[u8]) -> Result<U4, HdReject> {
-    let q = U4::from_le_bytes(&b[..L::Q_BYTES]);
+fn read_q<L: HdLevel>(b: &[u8]) -> Result<U6, HdReject> {
+    let q = U6::from_le_bytes(&b[..L::Q_BYTES]);
     if q.bits() > L::E_EMBED {
         return Err(HdReject::MalformedInput);
     }
     Ok(q)
 }
 
-fn write_q<L: HdLevel>(q: &U4, out: &mut [u8]) -> Option<()> {
+fn write_q<L: HdLevel>(q: &U6, out: &mut [u8]) -> Option<()> {
     let bytes = q.to_le_bytes();
     if bytes[L::Q_BYTES..].iter().any(|&x| x != 0) {
         return None;
@@ -62,22 +63,17 @@ fn write_q<L: HdLevel>(q: &U4, out: &mut [u8]) -> Option<()> {
     Some(())
 }
 
-fn read_scalar<L: HdLevel>(b: &[u8]) -> Result<i128, HdReject> {
-    let mut v = 0u128;
-    for (i, &byte) in b.iter().enumerate().take(L::SCALAR_BYTES) {
-        v |= (byte as u128) << (8 * i);
-    }
-    if v >> L::R != 0 {
+fn read_scalar<L: HdLevel>(b: &[u8]) -> Result<W, HdReject> {
+    let v = W::from_le_bytes(&b[..L::SCALAR_BYTES]);
+    if !(v >> L::R).is_zero() {
         return Err(HdReject::MalformedInput);
     }
-    Ok(v as i128)
+    Ok(v)
 }
 
-fn write_scalar<L: HdLevel>(s: i128, out: &mut [u8]) {
-    let v = s.rem_euclid(1i128 << L::R) as u128;
-    for (i, b) in out.iter_mut().enumerate().take(L::SCALAR_BYTES) {
-        *b = (v >> (8 * i)) as u8;
-    }
+fn write_scalar<L: HdLevel>(s: W, out: &mut [u8]) {
+    let v = (s & W::mask(L::R)).to_le_bytes();
+    out[..L::SCALAR_BYTES].copy_from_slice(&v[..L::SCALAR_BYTES]);
 }
 
 /// Decode a signature (strict).
@@ -127,10 +123,10 @@ pub fn parse_public_key<L: HdLevel>(bytes: &[u8]) -> Result<ParsedPublicKey<L>, 
 /// returns the length, `None` if `q` does not fit or a hint exceeds a byte.
 pub fn encode_signature<L: HdLevel>(
     a_com: &Fp2<L>,
-    a: i128,
-    b: i128,
-    c_or_d: i128,
-    q: &U4,
+    a: W,
+    b: W,
+    c_or_d: W,
+    q: &U6,
     hint_com_p: u32,
     hint_com_q: u32,
     out: &mut [u8],
@@ -266,3 +262,4 @@ pub const fn public_key_bytes<L: HdLevel>() -> usize {
 }
 
 const _: () = assert!(MAX_SIG_WIRE_BYTES >= sig_wire_bytes::<crate::params::P324_3>());
+const _: () = assert!(MAX_SIG_WIRE_BYTES >= sig_wire_bytes::<crate::params::P500_27>());

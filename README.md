@@ -112,7 +112,7 @@ already has. It is not in the specification.
 
 ### Compact (dimension 4), experimental
 
-Behind the `compact` feature, level I only: our instantiation of SQIsignHD
+Behind the `compact` feature, at levels I, III and V: our instantiation of SQIsignHD
 (Dartois, Leroux, Robert, Wesolowski, [ePrint 2023/436](https://eprint.iacr.org/2023/436))
 on the round-3 prime `3·2^324 − 1`, with the round-3 key generation,
 commitment and challenge and SQIsignHD's response, a degree-`q` isogeny
@@ -151,8 +151,7 @@ pk.verify(b"hello world", &sig)?;
 ## Not in this release
 
 SQIsign-RK (rerandomizable keys) is not planned for this crate; it lives
-in eclipse-rs on ECLIPSE keys. The compact format at levels III and V is
-derived in [docs/COMPACT_R3.md](docs/COMPACT_R3.md) but not built.
+in eclipse-rs on ECLIPSE keys.
 
 ## About
 

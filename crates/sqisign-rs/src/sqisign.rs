@@ -60,15 +60,24 @@ macro_rules! level {
 
 level!(
     /// NIST level I, `p324_3`.
-    level1, p324_3, level1, level1
+    level1,
+    p324_3,
+    level1,
+    level1
 );
 level!(
     /// NIST level III, `p500_27`.
-    level3, p500_27, level3, level3
+    level3,
+    p500_27,
+    level3,
+    level3
 );
 level!(
     /// NIST level V, `p664_17`.
-    level5, p664_17, level5, level5
+    level5,
+    p664_17,
+    level5,
+    level5
 );
 
 /// `secret_key_t` (the canonical basis is not kept: signing recomputes

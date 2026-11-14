@@ -75,15 +75,18 @@ macro_rules! level {
 
 level!(
     /// NIST level I, `p324_3` ([`crate::P324_3`]).
-    level1, p324_3
+    level1,
+    p324_3
 );
 level!(
     /// NIST level III, `p500_27` ([`crate::P500_27`]).
-    level3, p500_27
+    level3,
+    p500_27
 );
 level!(
     /// NIST level V, `p664_17` ([`crate::P664_17`]).
-    level5, p664_17
+    level5,
+    p664_17
 );
 
 /// `public_key_t`.

@@ -64,6 +64,11 @@ conversion of round-2 keys or signatures.
 - Benchmarks in `rdtsc` cycles (`cargo bench -p sqisign-rs --bench
   bench`), a one-session table in [BENCH.md](BENCH.md) with the C
   reference's `broadwell` and `ref` builds named.
+- The compact (dimension-4) format at levels III and V (`e = 264`, `346`;
+  `r = 134`, `175`), next to level I: the scalars modulo `2^r` are 192-bit
+  (`hd::W`), the degree and the norm equation 384-bit (`hd::U6`), and the
+  non-residue tables of the basis-from-hint convention at III and V follow
+  the rule of `hd::nqr_rule`.
 - The compact (dimension-4) format at level I behind the `compact`
   feature, experimental ([docs/COMPACT_R3.md](docs/COMPACT_R3.md)): our
   instantiation of SQIsignHD (ePrint 2023/436) on `3·2^324 − 1` with
@@ -96,7 +101,6 @@ conversion of round-2 keys or signatures.
 ### Not in this release
 
 - SQIsign-RK on round 3: not planned; it lives in eclipse-rs on ECLIPSE keys.
-- The compact format at levels III and V (derived, not built).
 
 ### Migration
 

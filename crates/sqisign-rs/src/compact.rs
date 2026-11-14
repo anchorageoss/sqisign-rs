@@ -1,5 +1,5 @@
-//! The compact (dimension-4) format's key generation and signing, level I,
-//! experimental (`docs/COMPACT_R3.md`; the verifier is
+//! The compact (dimension-4) format's key generation and signing, levels I,
+//! III and V, experimental (`docs/COMPACT_R3.md`; the verifier is
 //! `sqisign_verify::hd`).
 //!
 //! Round 3 up to the response: the secret ideal and the commitment are the
@@ -42,7 +42,7 @@ use sqisign_verify::fp::Fp2;
 use sqisign_verify::hd::{
     canonical_hints, encode_public_key, encode_signature, hd_challenge, hd_challenge_len,
     hd_torsion_basis, pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_CHAL_BYTES, MAX_PK_WIRE_BYTES,
-    U4,
+    U6, W,
 };
 
 use crate::id2iso::{
@@ -201,18 +201,18 @@ pub fn compact_public_key_to_bytes<L: HdLevel>(
     encode_public_key::<L>(&pk.a_pk, pk.hint_p, pk.hint_q, out)
 }
 
-fn to_u128<const N: usize>(x: &Ibz<N>) -> u128 {
-    let mut d = [0u64; 2];
-    let mut all = [0u64; 32];
-    x.to_digits(&mut all[..N.min(32)]);
-    d.copy_from_slice(&all[..2]);
-    (d[0] as u128) | ((d[1] as u128) << 64)
+/// The low 192 bits of a non-negative `x`.
+fn to_w<const N: usize>(x: &Ibz<N>) -> W {
+    let mut all = [0u64; 64];
+    x.to_digits(&mut all[..N.min(64)]);
+    W([all[0], all[1], all[2]])
 }
 
-fn to_u4<const N: usize>(x: &Ibz<N>) -> U4 {
-    let mut all = [0u64; 32];
-    x.to_digits(&mut all[..N.min(32)]);
-    U4([all[0], all[1], all[2], all[3]])
+/// The low 384 bits of a non-negative `x`.
+fn to_u6<const N: usize>(x: &Ibz<N>) -> U6 {
+    let mut all = [0u64; 64];
+    x.to_digits(&mut all[..N.min(64)]);
+    U6(core::array::from_fn(|i| all[i]))
 }
 
 /// `x / 2^k` when `2^k` divides the non-negative `x`, else `None`.
@@ -414,10 +414,10 @@ pub fn compact_sign_stats<L: HdLevel, const N: usize>(
 
     let n = encode_signature::<L>(
         &a_com,
-        to_u128(&a) as i128,
-        to_u128(&b) as i128,
-        to_u128(&c_or_d) as i128,
-        &to_u4(&q),
+        to_w(&a),
+        to_w(&b),
+        to_w(&c_or_d),
+        &to_u6(&q),
         hp_com,
         hq_com,
         out,

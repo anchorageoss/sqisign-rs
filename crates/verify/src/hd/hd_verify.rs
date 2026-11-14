@@ -13,6 +13,7 @@ use sha3::Shake256;
 use crate::fp::{Fp2, FpBackend};
 
 use super::params::HdLevel;
+use super::wide::W;
 
 /// The largest challenge of the implemented levels, in bytes.
 pub const MAX_CHAL_BYTES: usize = 32;
@@ -66,66 +67,24 @@ pub enum HdReject {
     MalformedInput,
 }
 
-#[inline]
-fn mask_r(r: u32) -> u128 {
-    if r >= 128 {
-        u128::MAX
-    } else {
-        (1u128 << r) - 1
-    }
-}
-
-#[inline]
-fn red_i(x: i128, r: u32) -> u128 {
-    (x as u128) & mask_r(r)
-}
-
-#[inline]
-fn mul_r(x: u128, y: u128, r: u32) -> u128 {
-    x.wrapping_mul(y) & mask_r(r)
-}
-
-/// `a^-1 mod 2^r` for odd `a` (Newton).
-#[inline]
-fn inv_2r(a: u128, r: u32) -> u128 {
-    let m = mask_r(r);
-    let a = a & m;
-    debug_assert!(a & 1 == 1, "inverse mod 2^r requires odd input");
-    let mut inv = 1u128;
-    let mut prec = 1u32;
-    while prec < r {
-        inv = inv.wrapping_mul(2u128.wrapping_sub(a.wrapping_mul(inv))) & m;
-        prec *= 2;
-    }
-    inv & m
-}
-
 /// The dropped scalar from `a d − b c ≡ k q (mod 2^r)`: `(c, d)` with the
 /// transmitted one of them being `c_or_d` (`c` when `a` is odd, else `d`).
+/// The caller has rejected `a` and `b` both even, where neither inverse
+/// exists.
 #[inline]
-pub fn recover_response_cd(
-    a: i128,
-    b: i128,
-    c_or_d: i128,
-    q: u128,
-    k: u128,
-    r: u32,
-) -> (u128, u128) {
-    let a_r = red_i(a, r);
-    let b_r = red_i(b, r);
-    let cod = red_i(c_or_d, r);
-    let q_r = q & mask_r(r);
-    let k_r = k & mask_r(r);
-    let kq = mul_r(k_r, q_r, r);
-    if a_r & 1 == 1 {
+pub fn recover_response_cd(a: W, b: W, c_or_d: W, q: W, k: W, r: u32) -> (W, W) {
+    let m = W::mask(r);
+    let (a_r, b_r, cod) = (a & m, b & m, c_or_d & m);
+    let kq = (k & m).wrapping_mul(q & m) & m;
+    if a_r.is_odd() {
         let c = cod;
-        let bc = mul_r(b_r, c, r);
-        let d = mul_r(inv_2r(a_r, r), (kq.wrapping_add(bc)) & mask_r(r), r);
+        let bc = b_r.wrapping_mul(c) & m;
+        let d = a_r.inv_odd().wrapping_mul(kq.wrapping_add(bc)) & m;
         (c, d)
     } else {
         let d = cod;
-        let ad = mul_r(a_r, d, r);
-        let c = mul_r(inv_2r(b_r, r), ad.wrapping_sub(kq) & mask_r(r), r);
+        let ad = a_r.wrapping_mul(d) & m;
+        let c = b_r.inv_odd().wrapping_mul(ad.wrapping_sub(kq)) & m;
         (c, d)
     }
 }
