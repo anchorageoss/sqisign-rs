@@ -14,7 +14,10 @@
 //! On x86-64 the trait implementation lives in `p664_17_asm.rs` (saturated
 //! limbs; `mulx`/`adcx`/`adox` or portable kernels chosen at run time), and
 //! this module is compiled but unused; elsewhere it is the implementation.
-#![cfg_attr(target_arch = "x86_64", allow(dead_code, unused_imports))]
+#![cfg_attr(
+    all(target_arch = "x86_64", not(sqisign_portable)),
+    allow(dead_code, unused_imports)
+)]
 
 use super::FpBackend;
 use crate::params::P664_17;
@@ -1133,7 +1136,7 @@ fn as_arr_mut(a: &mut Limbs) -> &mut [u64; NLIMBS] {
     <&mut [u64; NLIMBS]>::try_from(&mut a[..]).expect("invariant: FpLimbs == NLIMBS")
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(not(target_arch = "x86_64"), sqisign_portable))]
 impl FpBackend for P664_17 {
     #[inline]
     fn set_zero(out: &mut Limbs) {

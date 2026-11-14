@@ -76,10 +76,10 @@ prime_set!(
 /// Limbs of a `P500_27` element: nine unsaturated 57-bit limbs in the
 /// generated radix backend (other architectures), eight saturated ones in
 /// the x86-64 backend.
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(not(target_arch = "x86_64"), sqisign_portable))]
 pub type P500_27Limbs = hybrid_array::sizes::U9;
 /// Limbs of a `P500_27` element on x86-64.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(sqisign_portable)))]
 pub type P500_27Limbs = hybrid_array::sizes::U8;
 
 prime_set!(

@@ -48,8 +48,8 @@
 // No unsafe code, except on x86-64: the field backends' `asm!` blocks and
 // the `cpuid` that decides whether to run them (`fp::dispatch`), the only
 // modules allowed to opt out.
-#![cfg_attr(not(target_arch = "x86_64"), forbid(unsafe_code))]
-#![cfg_attr(target_arch = "x86_64", deny(unsafe_code))]
+#![cfg_attr(any(not(target_arch = "x86_64"), sqisign_portable), forbid(unsafe_code))]
+#![cfg_attr(all(target_arch = "x86_64", not(sqisign_portable)), deny(unsafe_code))]
 #![warn(missing_docs)]
 
 #[cfg(feature = "compact")]
