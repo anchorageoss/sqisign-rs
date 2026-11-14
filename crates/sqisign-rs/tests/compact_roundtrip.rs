@@ -16,8 +16,8 @@ const N1: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
 const N3: usize = sqisign_rs::precomp::p500_27::IBZ_NLIMBS;
 const N5: usize = sqisign_rs::precomp::p664_17::IBZ_NLIMBS;
 
-/// Public key and signature, in bytes, with the byte-aligned layout.
-const SIZES: [(usize, usize); 3] = [(84, 142), (130, 214), (170, 280)];
+/// Public key and signature, in bytes: the exact sizes of the paper.
+const SIZES: [(usize, usize); 3] = [(84, 139), (130, 212), (170, 278)];
 
 #[test]
 fn sizes() {
@@ -46,13 +46,11 @@ fn round_trip<L: HdLevel, const N: usize>(params: &Params<N>, label: &[u8]) {
 
     // negatives
     assert!(hd_verify_bytes::<L>(&sig, &pkb, b"another message").is_err());
-    for (what, byte) in [
-        ("A_com", 0usize),
-        ("q", L::FP2_BYTES + 1),
-        ("a", L::FP2_BYTES + L::Q_BYTES + 1),
-    ] {
+    let q_bit = 2 * L::P_BITS as usize;
+    let a_bit = q_bit + L::E_EMBED as usize - 2;
+    for (what, bit) in [("A_com", 0usize), ("q", q_bit + 9), ("a", a_bit + 9)] {
         let mut t = sig.clone();
-        t[byte] ^= 1;
+        t[bit / 8] ^= 1 << (bit % 8);
         assert!(
             hd_verify_bytes::<L>(&t, &pkb, msg).is_err(),
             "tampered {what}"
@@ -62,6 +60,48 @@ fn round_trip<L: HdLevel, const N: usize>(params: &Params<N>, label: &[u8]) {
         hd_verify_bytes::<L>(&sig[..sig_len - 1], &pkb, msg),
         Err(HdReject::MalformedInput)
     );
+    // the decoder: every padding bit, and a coordinate not below p
+    let bits = sqisign_verify::hd::sig_wire_bits::<L>();
+    assert_eq!(bits.div_ceil(8), sig_len);
+    for bit in bits..8 * sig_len {
+        let mut t = sig.clone();
+        t[bit / 8] |= 1 << (bit % 8);
+        assert_eq!(
+            hd_verify_bytes::<L>(&t, &pkb, msg),
+            Err(HdReject::MalformedInput),
+            "padding bit {bit}"
+        );
+    }
+    for part in 0..2 {
+        // all ones in ⌈log2 p⌉ bits is at least p
+        let mut t = sig.clone();
+        let start = part * L::P_BITS as usize;
+        for bit in start..start + L::P_BITS as usize {
+            t[bit / 8] |= 1 << (bit % 8);
+        }
+        assert_eq!(
+            hd_verify_bytes::<L>(&t, &pkb, msg),
+            Err(HdReject::MalformedInput),
+            "coordinate {part} not below p"
+        );
+    }
+    // re-encoding the parsed signature gives the same bytes
+    let parsed = sqisign_verify::hd::parse_signature::<L>(&sig).unwrap();
+    let mut again = vec![0xffu8; sig_len];
+    assert_eq!(
+        sqisign_verify::hd::encode_signature::<L>(
+            &parsed.a_com,
+            parsed.a,
+            parsed.b,
+            parsed.c_or_d,
+            &parsed.q,
+            parsed.hint_com_p,
+            parsed.hint_com_q,
+            &mut again
+        ),
+        Some(sig_len)
+    );
+    assert_eq!(again, sig);
     let (pk2, _) = compact_keygen::<L, N>(params, &mut rng).expect("keygen 2");
     let mut pkb2 = vec![0u8; pk_len];
     compact_public_key_to_bytes(&pk2, &mut pkb2).unwrap();

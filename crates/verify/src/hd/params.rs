@@ -24,10 +24,8 @@ pub trait HdLevel: FpBackend + PrimePrecomp {
     const E1: u32;
     /// Bytes of one encoded `F_p^2` element (`2 FP`).
     const FP2_BYTES: usize;
-    /// Bytes of the response degree on the wire, `⌈e/8⌉`.
-    const Q_BYTES: usize;
-    /// Bytes of one response scalar on the wire, `⌈r/8⌉`.
-    const SCALAR_BYTES: usize;
+    /// `⌈log2 p⌉`, the bits of one coordinate of `A_com` on the wire.
+    const P_BITS: u32 = Self::TWO_ADIC_EXPONENT + Self::COFACTOR_BITLENGTH as u32;
     /// Bytes of the challenge, `λ/8`.
     const CHALLENGE_BYTES: usize;
     /// The twenty quadratic non-residues `x(P)` candidates are drawn from.
@@ -40,9 +38,14 @@ pub trait HdLevel: FpBackend + PrimePrecomp {
     }
 }
 
-/// The wire sizes of a level.
+/// The bits of a signature: `2 ⌈log2 p⌉ + (e − 2) + 3 r + 16`.
+pub const fn sig_wire_bits<L: HdLevel>() -> usize {
+    (2 * L::P_BITS + (L::E_EMBED - 2) + 3 * L::R + 16) as usize
+}
+
+/// The bytes of a signature: its bits padded once to a whole byte.
 pub const fn sig_wire_bytes<L: HdLevel>() -> usize {
-    L::FP2_BYTES + L::Q_BYTES + 3 * L::SCALAR_BYTES + 2
+    sig_wire_bits::<L>().div_ceil(8)
 }
 
 /// The public key: `A_pk` and two hint bytes.
@@ -67,8 +70,6 @@ impl HdLevel for P324_3 {
     const R: u32 = 89;
     const E1: u32 = 87;
     const FP2_BYTES: usize = 82;
-    const Q_BYTES: usize = 22;
-    const SCALAR_BYTES: usize = 12;
     const CHALLENGE_BYTES: usize = 16;
     fn nqr_table() -> [Fp2<Self>; 20] {
         decode_table(&NQR_TABLE_P324_3)
@@ -84,8 +85,6 @@ impl HdLevel for P500_27 {
     const R: u32 = 134;
     const E1: u32 = 132;
     const FP2_BYTES: usize = 128;
-    const Q_BYTES: usize = 33;
-    const SCALAR_BYTES: usize = 17;
     const CHALLENGE_BYTES: usize = 24;
     fn nqr_table() -> [Fp2<Self>; 20] {
         small_table(&NQR_RULE_P500_27)
@@ -101,8 +100,6 @@ impl HdLevel for P664_17 {
     const R: u32 = 175;
     const E1: u32 = 173;
     const FP2_BYTES: usize = 168;
-    const Q_BYTES: usize = 44;
-    const SCALAR_BYTES: usize = 22;
     const CHALLENGE_BYTES: usize = 32;
     fn nqr_table() -> [Fp2<Self>; 20] {
         small_table(&NQR_RULE_P664_17)
@@ -112,7 +109,16 @@ impl HdLevel for P664_17 {
     }
 }
 
+/// The largest encoded `F_p^2` element of the implemented levels.
+pub const MAX_FP2_BYTES: usize = <P664_17 as HdLevel>::FP2_BYTES;
 /// The largest signature of the implemented levels.
 pub const MAX_SIG_WIRE_BYTES: usize = sig_wire_bytes::<P664_17>();
 /// The largest public key of the implemented levels.
 pub const MAX_PK_WIRE_BYTES: usize = pk_wire_bytes::<P664_17>();
+
+const _: () = assert!(sig_wire_bits::<P324_3>() == 1107 && sig_wire_bytes::<P324_3>() == 139);
+const _: () = assert!(sig_wire_bits::<P500_27>() == 1690 && sig_wire_bytes::<P500_27>() == 212);
+const _: () = assert!(sig_wire_bits::<P664_17>() == 2223 && sig_wire_bytes::<P664_17>() == 278);
+const _: () = assert!(pk_wire_bytes::<P324_3>() == 84);
+const _: () = assert!(pk_wire_bytes::<P500_27>() == 130);
+const _: () = assert!(pk_wire_bytes::<P664_17>() == 170);

@@ -102,7 +102,10 @@ pub use kani::{
     inverse_mod_pow2, is_symplectic_dim4, kernel_matrix_f1, kernel_matrix_f2_dual, matrix_f,
     matrix_f_dual, norm_equation_2f_minus_q, starting_two_symplectic_matrices, sum_of_two_squares,
 };
-pub use params::{pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_PK_WIRE_BYTES, MAX_SIG_WIRE_BYTES};
+pub use params::{
+    pk_wire_bytes, sig_wire_bits, sig_wire_bytes, HdLevel, MAX_FP2_BYTES, MAX_PK_WIRE_BYTES,
+    MAX_SIG_WIRE_BYTES,
+};
 pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,

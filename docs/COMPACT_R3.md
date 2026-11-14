@@ -350,3 +350,11 @@ Predicted 142 bytes at level I (158 with the challenge on the wire)
 against the 200-byte criterion, 214 / 280 against 306 / 406: the
 format clears at every level with the parameters above. Level I is built
 and measured at 142 bytes; III and V are derived only.
+
+### The built format (2026-11)
+
+The format as built packs its fields at bit granularity and is built at
+the three levels: a signature is `2 ⌈log2 p⌉ + (e − 2) + 3 r + 16` bits,
+139 / 212 / 278 bytes at levels I / III / V, against the 142 / 214 / 280
+bytes of the whole-byte layout derived above; a public key is 84 / 130 /
+170 bytes. The layout is in the header of `crates/verify/src/hd/wire.rs`.

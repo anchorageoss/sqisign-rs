@@ -55,7 +55,7 @@ fn vectors_level1() {
         let mut pkb = [0u8; 84];
         compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
         let msg = format!("message {i}").into_bytes();
-        let mut sig = [0u8; 142];
+        let mut sig = [0u8; 139];
         compact_sign::<P324_3, N>(&params, &pk, &sk, &msg, &mut rng, &mut sig).expect("sign");
         assert_eq!(hd_verify_bytes::<P324_3>(&sig, &pkb, &msg), Ok(()));
         let s = parse_signature::<P324_3>(&sig).unwrap();

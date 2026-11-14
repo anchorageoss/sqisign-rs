@@ -119,13 +119,14 @@ commitment and challenge and SQIsignHD's response, a degree-`q` isogeny
 embedded in a `(2^174)^4`-isogeny the verifier computes in the theta
 model. The SQIsignHD authors have published parameters only for their own
 primes; ours are derived in [docs/COMPACT_R3.md](docs/COMPACT_R3.md).
-Signatures are **142 bytes** and public keys 84 bytes; a compact key is
+Signatures are **139 / 212 / 278 bytes** and public keys 84 / 130 / 170
+bytes at levels I, III and V (the fields packed at bit granularity); a compact key is
 not a round-3 key (its basis convention is the SQIsignHD library's), and
 its signatures verify only with `CompactPublicKey`.
 
 | level I, own run 2026-09-25 | compact | round-3 standard |
 |---|---|---|
-| signature | 142 B | 200 B |
+| signature | 139 B | 200 B |
 | verify (Mcycles) | 122 | 12.3 |
 | sign (Mcycles, mean) | 538 | 119 |
 | keygen (Mcycles) | 43 | 39 |
@@ -144,7 +145,7 @@ of both rounds and both dimensions is in [paper-dim4/](paper-dim4/).
 use sqisign_rs::{generate_compact, CompactPublicKey, CompactSignature, Verifier};
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
 let (pk, sk) = generate_compact::<sqisign_rs::Level1, N>(sqisign_rs::sqisign::level1(), &mut rng)?;
-let sig = sk.sign(b"hello world", &mut rng)?;      // 142 bytes
+let sig = sk.sign(b"hello world", &mut rng)?;      // 139 bytes
 pk.verify(b"hello world", &sig)?;
 ```
 

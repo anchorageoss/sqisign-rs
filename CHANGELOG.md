@@ -69,6 +69,11 @@ conversion of round-2 keys or signatures.
   (`hd::W`), the degree and the norm equation 384-bit (`hd::U6`), and the
   non-residue tables of the basis-from-hint convention at III and V follow
   the rule of `hd::nqr_rule`.
+- The compact signature is bit-packed: `A_com` as two `⌈log2 p⌉`-bit
+  integers, `(q − 3)/4` in `e − 2` bits, three scalars of `r` bits, two
+  hint bytes, least significant bit first, zero padding: 139 / 212 / 278
+  bytes at levels I / III / V (142 / 214 / 280 with whole bytes). The
+  decoder rejects a coordinate not below `p` and a nonzero padding bit.
 - The compact verifier's checks before the chain: the goodness test on `q`
   repeated before Cornacchia (`hd::is_good_degree`: `q < 2^e`, `2^e − q`
   congruent to 1 modulo 4 and passing forty Miller-Rabin rounds with the

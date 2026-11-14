@@ -6,7 +6,7 @@
 
 use core::marker::PhantomData;
 
-use hybrid_array::typenum::{Unsigned, U130, U142, U170, U214, U280, U84};
+use hybrid_array::typenum::{Unsigned, U130, U139, U170, U212, U278, U84};
 use hybrid_array::{Array, ArraySize};
 
 use crate::hd::{hd_verify_bytes, HdLevel};
@@ -23,27 +23,27 @@ pub trait CompactLevel: HdLevel {
 
 impl CompactLevel for P324_3 {
     type PkLen = U84;
-    type SigLen = U142;
+    type SigLen = U139;
 }
 
 impl CompactLevel for P500_27 {
     type PkLen = U130;
-    type SigLen = U214;
+    type SigLen = U212;
 }
 
 impl CompactLevel for P664_17 {
     type PkLen = U170;
-    type SigLen = U280;
+    type SigLen = U278;
 }
 
-/// A compact public key (84 bytes at level I).
+/// A compact public key (84, 130 and 170 bytes at levels I, III and V).
 #[derive(Clone, Debug)]
 pub struct CompactPublicKey<L: CompactLevel> {
     bytes: Array<u8, L::PkLen>,
     _level: PhantomData<L>,
 }
 
-/// A compact signature (142 bytes at level I).
+/// A compact signature (139, 212 and 278 bytes at levels I, III and V).
 #[derive(Clone, Debug)]
 pub struct CompactSignature<L: CompactLevel> {
     bytes: Array<u8, L::SigLen>,
@@ -80,8 +80,8 @@ impl<L: CompactLevel> CompactPublicKey<L> {
 }
 
 impl<L: CompactLevel> CompactSignature<L> {
-    /// Decode (strict: the length, a canonical curve coefficient, the
-    /// scalars' and the degree's ranges).
+    /// Decode (strict: the length, a canonical curve coefficient, zero
+    /// padding bits).
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != L::SigLen::USIZE {
             return Err(Error::InvalidLength);

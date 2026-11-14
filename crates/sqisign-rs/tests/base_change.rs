@@ -25,7 +25,7 @@ use sqisign_verify::{Fp, Fp2, P324_3};
 type F = Fp2<P324_3>;
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
 const PK_BYTES: usize = 84;
-const SIG_BYTES: usize = 142;
+const SIG_BYTES: usize = 139;
 
 // A pseudo-random field element from a seed (squarings and additions).
 fn elt(seed: u64) -> F {
