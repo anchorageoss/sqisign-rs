@@ -95,7 +95,7 @@ trap 'kill $VMSTAT 2>/dev/null' EXIT
 say "session start"
 pass 1
 pass 2
-if ! python3 "$HERE/paper_report.py" "$OUT" --check-noise >> "$LOG" 2>&1; then
+if ! other python3 "$HERE/paper_report.py" "$OUT" --check-noise >> "$LOG" 2>&1; then
   say "a median moved by more than $PAPER_NOISE between the two passes: third pass"
   pass 3
 fi
@@ -103,4 +103,4 @@ wait_quiet
 say "heap"
 run taskset -c "$CORE" "$HERE/target/release/paper_heap" --out "$OUT"
 say "session end"
-python3 "$HERE/paper_report.py" "$OUT" | tee -a "$LOG"
+other python3 "$HERE/paper_report.py" "$OUT" | tee -a "$LOG"
