@@ -73,7 +73,9 @@ depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify):
 
 No compiler flags are needed or wanted: `-C target-cpu=native` made this
 build slower. `SQISIGN_FORCE_PORTABLE=1` runs the portable kernels for
-testing ([PORT.md](PORT.md)).
+testing ([PORT.md](PORT.md)); `RUSTFLAGS="--cfg sqisign_portable"` builds an
+x86-64 binary on the generated radix backends, the code path of the other
+architectures (aarch64 among them), also for testing.
 
 ## Performance
 
@@ -98,6 +100,19 @@ to a verification. Signing is 1.1 to 1.5x the reference's.
 The numbers published for 0.4 were taken with `-C target-cpu=native` in
 `.cargo/config.toml` and against the C reference's `ref` build; neither
 holds here.
+
+## Running the bench on Apple Silicon
+
+```sh
+git clone https://github.com/anchorageoss/sqisign-rs && cd sqisign-rs
+git checkout agent/dim4-two-point
+scripts/bench-mac.sh            # add --with-c-reference for the C rows (needs cmake)
+```
+
+It needs rustup and the Xcode command line tools, installs nothing and needs no sudo.
+Two passes of the paper's run counts take roughly ten to twenty minutes (not measured on a Mac yet); close everything else and stay on mains power.
+The field arithmetic is the portable backend and times are wall-clock milliseconds; there is no cycle column on a Mac.
+The output lands in `results/<UTC>-m4/` (`TABLES.md`, `MACHINE.md`, raw logs) and in one `results/<UTC>-m4.tar.gz` to send back.
 
 ## Formats
 
