@@ -210,3 +210,50 @@ fn restart_on_a_fresh_commitment() {
         "a budget of two samples restarted at least once"
     );
 }
+
+/// The top bit of a transmitted scalar: flipping it changes the action by a
+/// map into the 2-torsion, and the signature can still verify. Twelve
+/// trials at level I (the top bit of `a` and of `b` on six signatures),
+/// and on one signature every other bit of the three scalars, none of
+/// which may verify.
+#[test]
+fn top_bit_of_a_scalar_level1() {
+    type L = P324_3;
+    let r = L::R as usize;
+    let q0 = 2 * L::P_BITS as usize;
+    let a0 = q0 + L::E_EMBED as usize - 2;
+    let flip = |sig: &[u8], bit: usize| {
+        let mut t = sig.to_vec();
+        t[bit / 8] ^= 1 << (bit % 8);
+        t
+    };
+    let params = level1();
+    let mut rng = ShakeRng::new(b"top bit", b"rej");
+    let (pk, sk) = compact_keygen::<L, N1>(&params, &mut rng).expect("keygen");
+    let mut pkb = vec![0u8; compact_public_key_bytes::<L>()];
+    compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
+    let (mut valid, mut trials) = (0, 0);
+    for n in 0..6u8 {
+        let msg = [n; 4];
+        let mut sig = vec![0u8; compact_signature_bytes::<L>()];
+        compact_sign::<L, N1>(&params, &pk, &sk, &msg, &mut rng, &mut sig).expect("sign");
+        for scalar in 0..2 {
+            let top = a0 + scalar * r + r - 1;
+            trials += 1;
+            valid += hd_verify_bytes::<L>(&flip(&sig, top), &pkb, &msg).is_ok() as usize;
+        }
+        if n == 0 {
+            for scalar in 0..3 {
+                for bit in 0..r - 1 {
+                    let t = flip(&sig, a0 + scalar * r + bit);
+                    assert!(
+                        hd_verify_bytes::<L>(&t, &pkb, &msg).is_err(),
+                        "scalar {scalar} bit {bit}"
+                    );
+                }
+            }
+        }
+    }
+    eprintln!("top bit of a or b: {valid} of {trials} flipped signatures verify; no other bit of a scalar does (264 flips on one signature)");
+    assert_eq!(trials, 12);
+}
