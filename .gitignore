@@ -69,3 +69,6 @@ scripts/precomp/deps/
 
 # Sage precomp logs
 scripts/precomp/logs/
+
+# bench-mac.sh output
+/results/
