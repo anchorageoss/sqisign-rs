@@ -12,9 +12,11 @@
 //! and the codomains are those of the four-point loop. The four-point loop
 //! stays the default; see `KernelPoints` in `self_contained`.
 //!
-//! In debug builds every codomain null point from the gluing codomain on is
-//! checked to be fixed by [`PI`] ([`null_fixed_by_pi`], six comparisons);
-//! release builds compile the check out.
+//! The checked entry tests, at the gluing, that the images of `g2`, `g3`
+//! are the permutations of those of `g0`, `g1` and that the gluing
+//! codomain's null point is fixed by [`PI`], and runs the four-point loop
+//! otherwise. In debug builds every later codomain null point is checked to
+//! be fixed too; release builds compile that out.
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -81,9 +83,11 @@ pub fn gluing_images_paired<L: FpBackend>(post: &[ThetaPointDim4<L>; 4]) -> bool
 }
 
 /// The two-point chain from the gluing images `post` of `g0` to `g3` when
-/// [`gluing_images_paired`] holds, and otherwise the four-point chain
-/// ([`run_strategy_chain`]) from the same images. The flag is `true` in the
-/// second case. Both chains are `l` plain steps from `start`.
+/// [`gluing_images_paired`] holds and the null point of `start`, the gluing
+/// codomain, is fixed by [`PI`] ([`null_fixed_by_pi`]): four evaluations
+/// through the gluing and six comparisons per half. Otherwise the
+/// four-point chain ([`run_strategy_chain`]) from the same images; the flag
+/// is `true` in that case. Both chains are `l` plain steps from `start`.
 pub fn run_strategy_chain_two_point_checked<L: FpBackend>(
     start: &ThetaStructureDim4<L>,
     post: &[ThetaPointDim4<L>; 4],
@@ -99,7 +103,7 @@ pub fn run_strategy_chain_two_point_checked_prof<L: FpBackend, P: Profiler>(
     l: usize,
     prof: &mut P,
 ) -> Option<(StrategyChain<L>, bool)> {
-    if gluing_images_paired(post) {
+    if gluing_images_paired(post) && null_fixed_by_pi(start.null_point()) {
         let pair = [post[0].clone(), post[1].clone()];
         Some((
             run_strategy_chain_two_point_prof(start, &pair, l, prof)?,

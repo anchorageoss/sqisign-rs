@@ -24,7 +24,7 @@ use sqisign_verify::hd::{
     challenge_limbs, gluing_images_paired, hd_codomains, hd_kernel_setup, hd_verify_bytes,
     hd_verify_bytes_with, null_fixed_by_pi, parse_public_key, parse_signature, run_strategy_chain,
     run_strategy_chain_two_point_checked, HdLevel, HdReject, HdSignature, HdVerifyOptions,
-    KernelPoints, ThetaStructureDim4,
+    KernelPoints, ThetaPointDim4, ThetaStructureDim4,
 };
 use sqisign_verify::{P324_3, P500_27, P664_17};
 
@@ -362,6 +362,18 @@ fn fall_back<L: HdLevel, const N: usize>(params: &Params<N>, roman: &str) {
                 .enumerate()
             {
                 assert!(a.projective_eq(b), "half {h} step {k}: fall-back codomain");
+            }
+
+            // a null point the permutation does not fix: one coordinate of
+            // a two-cycle doubled
+            let mut coords = c4.gluing[h].coords().clone();
+            coords[1] = coords[1].add(&coords[1]);
+            let skew = ThetaStructureDim4::new(ThetaPointDim4::new(coords));
+            assert!(!null_fixed_by_pi(skew.null_point()));
+            // the four-point chain it falls back to may fail on such a
+            // structure, which is a rejection; when it runs, the flag is set
+            if let Some((_, fell_back)) = run_strategy_chain_two_point_checked(&skew, &post, l) {
+                assert!(fell_back, "half {h}: the flag is set on a skew null point");
             }
         }
     });

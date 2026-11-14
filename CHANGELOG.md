@@ -69,6 +69,11 @@ conversion of round-2 keys or signatures.
   (`hd::W`), the degree and the norm equation 384-bit (`hd::U6`), and the
   non-residue tables of the basis-from-hint convention at III and V follow
   the rule of `hd::nqr_rule`.
+- The two-point compact verifier (`KernelPoints::TwoWithImageCheck`, not
+  the default) checks at the gluing that the images of `g2`, `g3` are the
+  permutations of those of `g0`, `g1` and that the gluing codomain's null
+  point is fixed by the permutation, in release builds too, and falls
+  back to four points otherwise.
 - The compact signature is bit-packed: `A_com` as two `⌈log2 p⌉`-bit
   integers, `(q − 3)/4` in `e − 2` bits, three scalars of `r` bits, two
   hint bytes, least significant bit first, zero padding: 139 / 212 / 278
