@@ -1,0 +1,17 @@
+    Finished `release` profile [optimized] target(s) in 8.82s
+     Running tests/paper_pairing_audit.rs (target/release/deps/paper_pairing_audit-8d8f5df553a02b73)
+
+running 1 test
+test timing_l1_kat0 ... ==================== TIMING: Level 1, KAT entry 0 (bt=0, trl=1, f=128, F=248), medians of 201 iterations ====================
+production Weil e_{2^f}(P,Q) on E_chall (two cubical ladders of 2^128 steps): 187.2 us
+single Tate ladder, m = f = 128 (order-2^f points): 104.6 us
+single Tate ladder, m = PAPER_TATE_M = 188 (order-2^f points): 143.2 us
+single Tate ladder, m = F = 248 (order-2^f points): 181.9 us
+single Tate ladder, m = F = 248 (order-2^F points R,S): 181.8 us
+variant c at m = PAPER_TATE_MC = 187: 61 doublings of the E_chall basis triple (P, Q, P-Q) alone: 72.4 us; doublings + x(P+Q) + one Tate ladder of 2^187 steps on E_chall: 224.3 us; same on both curves (four basis points R,S,R_aux,S_aux doubled, two ladders): 453.1 us
+production Weil on both curves (e_{2^f} on E_chall + e_{2^g} on E_aux, four ladders): 375.5 us
+production doublings alone (120 on the E_chall triple + 121 on the E_aux triple): 286.5 us; production pairing stage (those doublings + x(P+Q) + both Weil pairings): 689.5 us
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.59s
+

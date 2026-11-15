@@ -1,0 +1,13 @@
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running tests/paper_pairing_audit.rs (target/release/deps/paper_pairing_audit-788aa0e869119af5)
+
+running 1 test
+test timing_l1_kat0 ... ==================== TIMING: level I (p324_3), KAT entry 0, N = 198, g = 197, F = 324, m* = 261, medians of 200 iterations after 5 warm-ups, x86-64 assembly (mulx, adcx, adox) ====================
+Weil path (the verifier's): bases from the hints at 2^N on both curves (126 doublings per point after the cofactor): 215.8 us; one Weil pairing at 2^N (two ladders of 197 steps): 278.4 us; both Weil pairings: 565.6 us; stage (bases + both pairings): 783.7 us; discrete logarithm at 2^N: 170.0 us
+Tate path: bases from the hints at 2^m* on both curves (63 doublings per point after the cofactor): 130.2 us; one Tate ladder of 2^m* steps (260 steps, final exponentiation with 63 squarings): 194.5 us; both ladders: 391.6 us; stage (bases + both ladders): 523.0 us; value order 2^198 (2m* - F = 198), discrete logarithm at that order: 169.9 us; recovers det M mod 2^g on this vector: true
+Tate path, continued: bringing the two points of each basis from order 2^m* down to 2^N (63 doublings per point) and the difference point at 2^N, both curves: 123.3 us (gives the verifier's bases: true); stage with that reduction (bases at 2^m* + both ladders + reduction): 648.6 us
+stage ratio Tate / Weil: 0.667 without the reduction, 0.828 with it; pairings alone Tate / Weil: 0.692
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.87s
+

@@ -1,0 +1,9 @@
+rustc 1.99.0 (b940084d7 2026-09-28)
+cargo 1.99.0 (5f94df478 2026-08-27)
+CPU(s):                                  32
+Model name:                              Intel(R) Xeon(R) CPU @ 2.80GHz
+Model:                                   85
+Thread(s) per core:                      2
+Stepping:                                7
+Hypervisor vendor:                       KVM
+CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1, RUSTFLAGS unset (so .cargo/config.toml target-cpu=native applies) for the primary configuration

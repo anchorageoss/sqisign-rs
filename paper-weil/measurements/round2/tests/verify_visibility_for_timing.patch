@@ -1,0 +1,125 @@
+diff --git crates/verify/src/formats.rs crates/verify/src/formats.rs
+index 6c21b00..36e4ea2 100644
+--- crates/verify/src/formats.rs
++++ crates/verify/src/formats.rs
+@@ -272,7 +272,7 @@ impl<L: FpBackend> core::fmt::Display for ExpandedSignature<L> {
+ }
+ 
+ /// Compute a canonical 2ᶠ-torsion basis and its hint byte from a curve.
+-fn basis_to_hint<L: FpBackend + LevelPrecomp>(
++#[doc(hidden)] pub fn basis_to_hint<L: FpBackend + LevelPrecomp>(
+     curve: &mut crate::ec::EcCurve<L>,
+     f: u32,
+ ) -> Result<(EcBasis<L>, u8), Error> {
+@@ -289,7 +289,7 @@ fn basis_to_hint<L: FpBackend + LevelPrecomp>(
+ }
+ 
+ /// Multiply `a * b`, truncated to `out.len()` words, then mask to `mod_bits`.
+-fn mp_mul_mod(out: &mut [u64], a: &[u64], b: &[u64], mod_bits: usize) {
++#[doc(hidden)] pub fn mp_mul_mod(out: &mut [u64], a: &[u64], b: &[u64], mod_bits: usize) {
+     let n = out.len();
+     out.fill(0);
+     for i in 0..a.len().min(n) {
+@@ -304,7 +304,7 @@ fn mp_mul_mod(out: &mut [u64], a: &[u64], b: &[u64], mod_bits: usize) {
+ }
+ 
+ /// Right-shift a digit array by `shift` bits.
+-fn mp_shiftr(a: &mut [u64], shift: usize) {
++#[doc(hidden)] pub fn mp_shiftr(a: &mut [u64], shift: usize) {
+     let n = a.len();
+     let word_shift = shift / 64;
+     let bit_shift = shift % 64;
+@@ -328,7 +328,7 @@ fn mp_shiftr(a: &mut [u64], shift: usize) {
+ }
+ 
+ /// Mask a digit array to `e` bits.
+-fn mp_mod_2exp(a: &mut [u64], e: usize) {
++#[doc(hidden)] pub fn mp_mod_2exp(a: &mut [u64], e: usize) {
+     let q = e / 64;
+     let r = e % 64;
+     if q < a.len() {
+@@ -343,7 +343,7 @@ fn mp_mod_2exp(a: &mut [u64], e: usize) {
+ 
+ /// Compute a⁻¹ mod 2ᵉ via Newton/Hensel lifting.
+ /// Requires `a` to be odd.
+-fn hensel_inv_mod_2e(out: &mut [u64], a: &[u64], e: usize) {
++#[doc(hidden)] pub fn hensel_inv_mod_2e(out: &mut [u64], a: &[u64], e: usize) {
+     let n = out.len();
+     out.fill(0);
+     out[0] = 1;
+@@ -402,7 +402,7 @@ fn hensel_inv_mod_2e(out: &mut [u64], a: &[u64], e: usize) {
+ }
+ 
+ /// Set bits `[start_bit..start_bit+n_bits)` from a hint byte.
+-fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) {
++#[doc(hidden)] pub fn set_high_bits(digits: &mut [u64], hint: u8, start_bit: usize, n_bits: usize) {
+     for b in 0..n_bits {
+         if hint & (1u8 << b) != 0 {
+             let pos = start_bit + b;
+diff --git crates/verify/src/verify.rs crates/verify/src/verify.rs
+index fdf8251..03ff597 100644
+--- crates/verify/src/verify.rs
++++ crates/verify/src/verify.rs
+@@ -19,7 +19,7 @@ use crate::types::{PublicKey, Scalar, Signature};
+ // Multiprecision helpers operating on Scalar digit arrays.
+ // These deliberately avoid any dependency on num-bigint / GMP.
+ 
+-pub(crate) fn mp_compare<L: SecurityLevel>(a: &Scalar<L>, b: &Scalar<L>) -> i32 {
++#[doc(hidden)] pub fn mp_compare<L: SecurityLevel>(a: &Scalar<L>, b: &Scalar<L>) -> i32 {
+     let n = L::MpLimbs::USIZE;
+     for i in (0..n).rev() {
+         if a.digits[i] > b.digits[i] {
+@@ -31,7 +31,7 @@ pub(crate) fn mp_compare<L: SecurityLevel>(a: &Scalar<L>, b: &Scalar<L>) -> i32
+     0
+ }
+ 
+-pub(crate) fn mp_is_even<L: SecurityLevel>(s: &Scalar<L>) -> bool {
++#[doc(hidden)] pub fn mp_is_even<L: SecurityLevel>(s: &Scalar<L>) -> bool {
+     L::MpLimbs::USIZE != 0 && (s.digits[0] & 1) == 0
+ }
+ 
+@@ -105,7 +105,7 @@ pub fn basis_from_hint<L: FpBackend + LevelPrecomp>(
+     }
+ }
+ 
+-pub(crate) fn check_canonical_basis_change_matrix<L: FpBackend>(sig: &Signature<L>) -> Option<()> {
++#[doc(hidden)] pub fn check_canonical_basis_change_matrix<L: FpBackend>(sig: &Signature<L>) -> Option<()> {
+     let mut aux = Scalar::<L>::default();
+     aux.digits[0] = 1;
+ 
+@@ -248,7 +248,7 @@ fn compute_challenge_verify<L: FpBackend + LevelPrecomp>(
+     compute_challenge_curve(&sig.chall_coeff, sig.backtracking, e_pk, hint_pk)
+ }
+ 
+-pub(crate) fn matrix_scalar_application_even_basis<L: FpBackend>(
++#[doc(hidden)] pub fn matrix_scalar_application_even_basis<L: FpBackend>(
+     bas: &mut EcBasis<L>,
+     e: &EcCurve<L>,
+     mat: &[[Scalar<L>; 2]; 2],
+@@ -298,7 +298,7 @@ pub(crate) fn matrix_scalar_application_even_basis<L: FpBackend>(
+     Some(())
+ }
+ 
+-pub(crate) fn verify_canonical_hint<L: FpBackend + LevelPrecomp>(
++#[doc(hidden)] pub fn verify_canonical_hint<L: FpBackend + LevelPrecomp>(
+     curve: &mut EcCurve<L>,
+     hint: u8,
+ ) -> bool {
+@@ -346,7 +346,7 @@ fn challenge_and_aux_basis_verify<L: FpBackend + LevelPrecomp>(
+ ///
+ /// `kernel_is_q`: if true, the kernel generator is `b_chall_can.q`;
+ /// otherwise it is `b_chall_can.p`.
+-pub(crate) fn two_response_isogeny_verify_inner<L: FpBackend>(
++#[doc(hidden)] pub fn two_response_isogeny_verify_inner<L: FpBackend>(
+     e_chall: &mut EcCurve<L>,
+     b_chall_can: &mut EcBasis<L>,
+     kernel_is_q: bool,
+@@ -395,7 +395,7 @@ fn two_response_isogeny_verify<L: FpBackend>(
+     )
+ }
+ 
+-pub(crate) fn compute_commitment_curve_verify<L: FpBackend + LevelPrecomp>(
++#[doc(hidden)] pub fn compute_commitment_curve_verify<L: FpBackend + LevelPrecomp>(
+     b_chall_can: &EcBasis<L>,
+     b_aux_can: &EcBasis<L>,
+     e_chall: &EcCurve<L>,

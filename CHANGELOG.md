@@ -1,18 +1,55 @@
 # Changelog
 
-## 0.6 (unreleased)
+## 0.7.0 (unreleased)
 
-**The version number.** crates.io has `sqisign-rs` and `sqisign-verify` at
-0.5.0 (a round-2 release with the `kat-compat` and `sqisign-rk` features),
-while the manifest on `main` says 0.4.0 and the release tags stop at
-v0.4.31; the local branches assumed 0.5.0 for this work. This release is
-the next breaking bump from what is published: the 0.6 line, both crates
-together. The manifest carries 0.6.0 and the release workflow mints the
-patch number from the commit height on `main` (`scripts/auto-version.sh`),
-so the published version is 0.6.x. The workflow tags and makes the
-GitHub release but does not publish to crates.io; publishing is
-`cargo publish -p sqisign-verify` then `cargo publish -p sqisign-rs` from
-the tagged release commit, by a maintainer with the credentials.
+The compressed formats changed; nothing else did. A signature compressed
+by any earlier version must be recompressed from the standard format. No
+verification result of a signature that did decompress was affected.
+
+### Changed
+
+- Round 3: the compressed format is one bit string, each field at its
+  own width: the two coordinates of `A_aux` at `ceil(log2 p)` bits (326 /
+  505 / 669), the low `RESPONSE_BITS + 1` bits of three matrix entries
+  (197 / 303 / 401 each), three top bits (bit `RESPONSE_BITS + 1` of the
+  dropped entry and of the two transmitted entries other than the first
+  entry in wire order with a non-zero low part, whose top bit the
+  signer's normalisation fixes at zero), the challenge at `lambda` bits,
+  the two hints at 8 bits each, zero-padded to a byte: 174 / 267 / 352
+  bytes (`compressed_bits`, `compressed_bytes`; `entry_bits` replaces
+  `entry_bytes`, and `VerifyParams` gains `fp_bits`). The fourth entry
+  is recovered modulo `2^(RESPONSE_BITS + 1)` from the determinant, which
+  the two Weil pairings give to that modulus, and its top bit from the
+  string, so decompression returns the signer's signature exactly;
+  `Signature::compress` returns `Err` for a matrix the verifier's checks
+  reject. The decoder rejects a non-zero padding bit. Signatures
+  compressed by `sqisign-verify` and `sqisign-rs` 0.6.0 and 0.6.1 on
+  crates.io, and by the GitHub releases v0.6.34 to v0.6.38 (176 / 269 /
+  353 bytes, four bits in a byte), do not decode.
+- Round 2, on the `fix/compressed-nbt-round2` branch from tag v0.4.31
+  (the round-2 code is not in this tree): the metadata byte is
+  `[r:4 | h:1 | n_bt:3]`, the hint is one bit (the top bit of the dropped
+  entry; the pairings give the determinant modulo `2^(N - 1)`), and
+  `compress()` rejects `n_bt >= 8` and `r >= 16` instead of truncating.
+  Every published round-2 version, `sqisign-verify` and `sqisign-rs`
+  0.1.0 to 0.5.0, silently truncated `n_bt` to two bits and could not
+  decompress signatures with `n_bt >= 4`: one of the 300 round-2 KAT
+  vectors, level III entry 97. Those versions are deprecated.
+
+### Migration
+
+Recompress from the standard format; the standard and expanded formats
+and every key encoding are unchanged.
+
+## 0.6.0 and 0.6.1
+
+**The version number.** 0.6.0 and 0.6.1 are the round-3 release on
+crates.io, both crates together. The release workflow mints its tags from
+the commit height on `main` (`scripts/auto-version.sh`), so the GitHub
+releases of the same line are v0.6.34 to v0.6.38. The workflow tags and
+makes the GitHub release but does not publish to crates.io; publishing is
+`cargo publish -p sqisign-verify` then `cargo publish -p sqisign-rs`, by
+a maintainer with the credentials.
 
 SQIsign round 3 is the crate. The round-2 implementation, its formats and
 its extensions are removed; there is no compatibility layer and no
@@ -44,9 +81,9 @@ conversion of round-2 keys or signatures.
   reads in `paper-dim4/BENCH.md`.
   `compact_sign_stats` returns the signer's rejection-loop counts next to
   the signature length.
-- The compressed format for round 3 ([COMPRESSION.md](COMPRESSION.md)):
-  176 / 269 / 353 bytes, three matrix entries and four bits, the fourth
-  entry recovered from two Weil pairings. `Signature::compress`,
+- The compressed format for round 3: 176 / 269 / 353 bytes, three matrix
+  entries and four bits, the fourth entry recovered from two Weil
+  pairings (changed in 0.7.0 to a bit-packed 174 / 267 / 352 bytes). `Signature::compress`,
   `CompressedSignature::{from_bytes, to_bytes, decompress}`,
   `PublicKey::verify_compressed`, and the slice API in
   `sqisign_verify::compressed`. Not in the specification. Recovery costs

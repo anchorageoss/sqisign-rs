@@ -1,0 +1,66 @@
+config: portable (run 2): fat LTO + 1 CGU via env, RUSTFLAGS empty (no target-cpu=native)
+start 2026-10-22T22:32:19Z load: 0.87 4.07 3.02 6/1545 1445329
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running tests/paper_timing.rs (/tmp/claude-1000/-home-user-sqisign-rs/f14775d5-0441-4505-aadf-f508f743ea2b/scratchpad/target_portable/release/deps/paper_timing-2882f92de5a3086a)
+
+running 3 tests
+test paper_timing_level1_breakdown ... ==== Level 1: KAT entry 0, bt=0, trl=1, pow_dim2=125, N=f=128, g=127, det_precision=126, F_CHR=248, msg 33 bytes, sig 148 bytes, compressed 129 bytes, 200 iterations ====
+component                                                                      xS   xC   median us      min us        S us        C us
+decode standard signature (Signature::from_bytes)                               1    0         0.2         0.2         0.2         0.0
+decode compressed signature (CompressedSignature::from_bytes)                   0    1         0.2         0.2         0.0         0.2
+matrix range check + verify_a(A_pk)                                             1    1         0.1         0.1         0.1         0.1
+E_aux from A_aux (EcCurve::from_a)                                              1    2         0.1         0.1         0.1         0.3
+canonical basis to-hint on E_aux, hint check (verify_canonical_hint)            1    1        24.2        24.1        24.2        24.2
+canonical basis to-hint on E_aux, decompress (basis_to_hint)                    0    1        24.2        24.1         0.0        24.2
+challenge derivation E_pk -> E_chall (compute_challenge_curve)                  1    2      1000.7       997.0      1000.7      2001.3
+canonical basis to-hint on E_chall, hint check (verify_canonical_hint)          1    1        28.4        28.3        28.4        28.4
+canonical basis to-hint on E_chall, decompress (basis_to_hint)                  0    1        28.4        28.2         0.0        28.4
+canonical basis from-hint on E_chall (basis_from_hint)                          1    1        15.9        15.8        15.9        15.9
+basis doubling on E_chall, verify (ec_dbl_iter_basis, F_CHR-N)                  1    1       141.3       139.6       141.3       141.3
+basis doubling on E_chall, decompress (ec_dbl_iter_basis, F_CHR-f)              0    1       141.5       139.5         0.0       141.5
+canonical basis from-hint on E_aux (basis_from_hint)                            1    1        15.9        15.8        15.9        15.9
+basis doubling on E_aux, verify (ec_dbl_iter_basis, F_CHR-g)                    1    1       142.4       140.8       142.4       142.4
+basis doubling on E_aux, decompress (ec_dbl_iter_basis, F_CHR-g)                0    1       142.4       140.9         0.0       142.4
+P+Q (xadd), per curve                                                           0    2         0.5         0.5         0.0         1.0
+Weil pairing on E_chall, 2^f                                                    0    1       208.9       207.0         0.0       208.9
+Weil pairing on E_aux, 2^g                                                      0    1       207.4       205.4         0.0       207.4
+two Fp2 inversions of the pairing values                                        0    1         8.2         8.1         0.0         8.2
+discrete logarithm (fp2_dlog_2e) + mask                                         0    1        98.5        98.0         0.0        98.5
+modular-inverse entry recovery (Hensel + 2 products + hint bits)                0    1         0.4         0.4         0.0         0.4
+basis change, apply M (matrix_scalar_application_even_basis)                    1    1       585.9       577.0       585.9       585.9
+2^trl small isogeny chain (two_response_isogeny_verify_inner)                   1    1        52.2        51.4        52.2        52.2
+(2,2)-isogeny theta chain (compute_commitment_curve_verify)                     1    1      2311.4      2303.5      2311.4      2311.4
+final hash + compare (hash_to_challenge, mp_compare)                            1    1        62.3        61.7        62.3        62.3
+sum of component medians                                                                                            4381.1      6242.7
+sum of component minima                                                                                             4355.3      6204.9
+FULL verification from bytes, median                                                                                4394.0      6255.6
+FULL verification from bytes, min                                                                                   4371.4      6240.6
+residual (full median - component sum): standard 13.0 us (0.30%), compressed 12.9 us (0.21%)
+checkpoints (median/min us): protocols_verify on decoded Signature 4381.8/4368.6; decompress() alone 1867.7/1859.6; PublicKey::from_bytes (not part of verify) 48.6/48.4
+compressed - standard full medians: 1861.6 us; decompress() alone: 1867.7 us; sum of C-only component medians: 1861.7 us
+ok
+test paper_timing_level3_full ... ==== Level 3: KAT entry 0, bt=0, trl=4, sig 224 bytes, compressed 196 bytes, 200 iterations ====
+measurement                                          median us      min us
+FULL standard verification from bytes                  11902.4     11820.0
+FULL compressed verification from bytes                16976.1     16911.9
+protocols_verify on decoded Signature                  11854.3     11819.1
+decompress() alone                                      5104.3      5085.3
+Signature::from_bytes                                      0.5         0.5
+CompressedSignature::from_bytes                            0.5         0.5
+compressed - standard full medians: 5073.7 us; decompress() alone: 5104.3 us
+ok
+test paper_timing_level5_full ... ==== Level 5: KAT entry 0, bt=0, trl=2, sig 292 bytes, compressed 257 bytes, 200 iterations ====
+measurement                                          median us      min us
+FULL standard verification from bytes                  24870.2     24805.7
+FULL compressed verification from bytes                35473.3     35384.0
+protocols_verify on decoded Signature                  24837.8     24774.2
+decompress() alone                                     10619.9     10586.0
+Signature::from_bytes                                      0.8         0.7
+CompressedSignature::from_bytes                            0.7         0.7
+compressed - standard full medians: 10603.1 us; decompress() alone: 10619.9 us
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.85s
+
+exit=0
+end 2026-10-22T22:32:52Z load: 0.93 3.73 2.95 1/1531 1445386

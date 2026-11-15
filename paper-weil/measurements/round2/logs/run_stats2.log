@@ -1,0 +1,483 @@
+start 2026-10-22T22:20:08Z load: 1.61 0.87 0.58 5/1551 1441440
+   Compiling sqisign-kat v0.4.31 (/tmp/claude-1000/-home-user-sqisign-rs/f14775d5-0441-4505-aadf-f508f743ea2b/scratchpad/r2b/crates/kat)
+    Finished `release` profile [optimized] target(s) in 18.36s
+     Running tests/paper_stats.rs (target/release/deps/paper_stats-8ce22dc13db3b33f)
+
+running 3 tests
+test paper_stats_level1 ... ==== Level 1: 100 KAT vectors, E_RSP=126, HD_EXTRA_TORSION=2, LAMBDA=128, F_CHR=248 ====
+(a) M[0][0] parity: even=28 odd=72 of 100
+(b) det_hint histogram {0,1,2,3} = [35, 17, 25, 23]; chi-square vs uniform (3 dof) = 6.720
+    (compressor wire byte and direct recomputation from the dropped entry agree on all 100)
+    contingency det_hint (rows 0..3) x n_bt (cols 0..=3):
+      hint=0: [26, 7, 0, 2]
+      hint=1: [13, 4, 0, 0]
+      hint=2: [17, 7, 1, 0]
+      hint=3: [21, 2, 0, 0]
+    contingency det_hint (rows 0..3) x r' (cols 0..=7):
+      hint=0: [19, 6, 6, 0, 2, 0, 2, 0]
+      hint=1: [9, 3, 3, 1, 0, 0, 0, 1]
+      hint=2: [11, 5, 7, 1, 1, 0, 0, 0]
+      hint=3: [9, 10, 2, 2, 0, 0, 0, 0]
+    contingency det_hint (rows 0..3) x M[0][0] parity (cols [even, odd]):
+      hint=0: [12, 23]
+      hint=1: [4, 13]
+      hint=2: [5, 20]
+      hint=3: [7, 16]
+(c) n_bt histogram (0..=3) = [77, 20, 1, 2]
+    r'   histogram (0..=7) = [48, 24, 18, 4, 3, 0, 2, 1]
+    joint (n_bt rows 0..=3, r' cols 0..=7):
+      n_bt=0: [36, 19, 13, 3, 3, 0, 2, 1]
+      n_bt=1: [10, 4, 5, 1, 0, 0, 0, 0]
+      n_bt=2: [0, 1, 0, 0, 0, 0, 0, 0]
+      n_bt=3: [2, 0, 0, 0, 0, 0, 0, 0]
+(d) N = E_RSP + HD_EXTRA_TORSION - n_bt (verifier bound: every entry < 2^N); matrix entry wire width = 128 bits
+    n_bt=0: N=128 (77 vectors)
+    n_bt=1: N=127 (20 vectors)
+    n_bt=2: N=126 (1 vectors)
+    n_bt=3: N=125 (2 vectors)
+    bit N-1 of M[0][0] set: 49 of 100
+    bit N-1 of at least one entry set: 92 of 100
+    candidate position E_RSP+1 (fixed, = N-1 when n_bt=0): M[0][0] bit set in 40 of 100; any entry bit set in 70 of 100
+    candidate position E_RSP-1 (fixed): M[0][0] bit set in 55 of 100; any entry bit set in 93 of 100
+    candidate position E_RSP-2 (fixed): M[0][0] bit set in 53 of 100; any entry bit set in 93 of 100
+    candidate position N-1 (per vector, N = E_RSP+2-n_bt): M[0][0] bit set in 49 of 100; any entry bit set in 92 of 100
+    candidate position N-2 (per vector): M[0][0] bit set in 39 of 100; any entry bit set in 92 of 100
+    candidate position g-1 (per vector, g = pow_dim2+2 = E_RSP-r'-n_bt+2): M[0][0] bit set in 52 of 100; any entry bit set in 89 of 100
+    N - bitlen(M[0][0]) histogram [0,1,2,3,>=4] = [49, 21, 17, 8, 5]
+    N - max bitlen over 4 entries histogram [0,1,2,3,>=4] = [92, 8, 0, 0, 0]
+    entries exceeding 2^N (would be rejected): 0
+(e) consistent (n_bt, r') pairs per vector (n_bt 0..=3, r' 0..=15, consistent iff all entries < 2^(E_RSP+2-n_bt) and E_RSP-r'-n_bt > 1):
+    histogram {count: vectors} = {16: 70, 32: 26, 48: 2, 64: 2}
+    vectors with exactly one consistent pair: 0 of 100
+    consistent n_bt values per vector, histogram [0,1,2,3,4] = [0, 70, 26, 2, 2] (N does not depend on r', so pairs = 16 x this)
+    vectors whose n_bt alone is uniquely determined: 70 (all of them have n_bt=0: 70)
+(f) recomputed hint_aux matches transmitted: 100 of 100; recomputed hint_chall matches: 100 of 100
+(g) standard verifies: 100 of 100
+    n_bt fits the 2-bit metadata field: 100 of 100 (failing counts: []); r' fits the 4-bit field: 100 of 100 (failing counts: [])
+    compressed length == WIRE_BYTES == Fp2 + 3*entry + chall + 1: 100 of 100  (WIRE_BYTES=129, Fp2=64, entry=16, chall=16, meta=1)
+    decompressed matrix identical to original: 100 of 100 (failing counts: [])
+    decompressed signature byte-identical to original standard bytes: 100 of 100 (failing counts: [])
+    compressed verifies: 100 of 100 (failing counts: [])
+    expanded length == WIRE_BYTES (212): 100 of 100; expanded verifies after byte round trip: 100 of 100
+    per-vector: count bt trl N m00_even det_hint bitlen[m00,m01,m10,m11] consistent_bt
+        0 0 1 128 0 3 [125, 124, 126, 128] 1
+        1 1 2 127 0 1 [126, 127, 126, 126] 2
+        2 0 6 128 0 0 [128, 124, 128, 126] 1
+        3 0 1 128 0 1 [126, 125, 128, 127] 1
+        4 0 2 128 0 2 [127, 128, 128, 128] 1
+        5 0 2 128 1 2 [125, 128, 128, 128] 1
+        6 0 2 128 0 1 [126, 128, 124, 127] 1
+        7 0 0 128 0 2 [128, 128, 124, 128] 1
+        8 1 0 127 1 2 [124, 126, 127, 126] 2
+        9 2 1 126 0 2 [126, 124, 125, 126] 3
+       10 0 0 128 0 3 [122, 128, 127, 128] 1
+       11 0 0 128 0 3 [128, 127, 128, 128] 1
+       12 0 1 128 0 1 [128, 128, 126, 127] 1
+       13 0 3 128 0 3 [125, 125, 127, 128] 1
+       14 1 2 127 1 2 [123, 126, 127, 123] 2
+       15 0 4 128 1 0 [128, 128, 125, 126] 1
+       16 0 1 128 1 1 [128, 125, 127, 128] 1
+       17 0 0 128 0 0 [128, 128, 128, 126] 1
+       18 0 1 128 1 2 [127, 127, 128, 127] 1
+       19 1 0 127 1 0 [127, 127, 124, 127] 2
+       20 0 0 128 0 2 [128, 128, 125, 128] 1
+       21 0 2 128 0 3 [128, 128, 126, 128] 1
+       22 1 0 127 0 0 [126, 125, 126, 124] 3
+       23 0 0 128 1 1 [125, 128, 127, 124] 1
+       24 0 0 128 0 0 [126, 128, 119, 125] 1
+       25 0 0 128 0 2 [128, 128, 128, 128] 1
+       26 0 0 128 0 2 [127, 128, 128, 128] 1
+       27 0 0 128 0 3 [128, 128, 126, 128] 1
+       28 0 0 128 0 0 [128, 128, 128, 126] 1
+       29 1 0 127 0 2 [126, 126, 127, 127] 2
+       30 0 3 128 0 1 [126, 124, 128, 127] 1
+       31 0 2 128 0 1 [127, 128, 125, 127] 1
+       32 0 2 128 0 0 [127, 127, 128, 126] 1
+       33 0 1 128 1 0 [127, 128, 126, 128] 1
+       34 0 1 128 0 3 [126, 119, 125, 128] 1
+       35 0 1 128 0 0 [128, 128, 127, 126] 1
+       36 0 0 128 0 3 [128, 127, 124, 128] 1
+       37 0 0 128 0 1 [126, 126, 126, 127] 2
+       38 0 0 128 0 1 [126, 128, 126, 127] 1
+       39 0 1 128 0 2 [127, 128, 128, 128] 1
+       40 0 0 128 1 3 [128, 128, 128, 128] 1
+       41 0 0 128 1 0 [124, 126, 126, 128] 1
+       42 0 0 128 0 0 [127, 127, 126, 126] 2
+       43 1 1 127 0 2 [127, 126, 125, 127] 2
+       44 0 0 128 0 1 [127, 126, 127, 127] 2
+       45 0 2 128 1 0 [128, 128, 124, 128] 1
+       46 0 0 128 0 3 [127, 128, 128, 128] 1
+       47 0 4 128 0 2 [128, 128, 128, 128] 1
+       48 0 0 128 1 1 [128, 128, 127, 128] 1
+       49 0 6 128 1 0 [128, 128, 124, 125] 1
+       50 0 1 128 0 0 [126, 127, 128, 124] 1
+       51 0 2 128 0 2 [126, 128, 127, 128] 1
+       52 1 1 127 1 3 [125, 127, 127, 125] 2
+       53 3 0 125 1 0 [124, 125, 123, 124] 4
+       54 0 4 128 0 0 [125, 128, 125, 121] 1
+       55 0 0 128 0 0 [128, 128, 126, 125] 1
+       56 0 0 128 1 0 [128, 128, 126, 128] 1
+       57 3 0 125 1 0 [125, 125, 122, 123] 4
+       58 0 2 128 1 0 [126, 126, 125, 127] 2
+       59 0 1 128 0 3 [125, 127, 127, 128] 1
+       60 0 0 128 1 2 [128, 128, 128, 128] 1
+       61 0 0 128 0 2 [128, 124, 128, 128] 1
+       62 1 2 127 0 2 [125, 127, 127, 127] 2
+       63 1 0 127 0 1 [127, 127, 122, 126] 2
+       64 0 1 128 0 3 [128, 128, 126, 128] 1
+       65 0 0 128 0 0 [128, 128, 128, 126] 1
+       66 1 2 127 1 0 [127, 127, 123, 126] 2
+       67 1 1 127 1 3 [126, 126, 127, 125] 2
+       68 1 0 127 0 1 [126, 126, 127, 126] 2
+       69 1 0 127 0 1 [125, 127, 127, 126] 2
+       70 1 0 127 0 0 [124, 127, 127, 124] 2
+       71 0 1 128 0 0 [128, 128, 128, 126] 1
+       72 0 0 128 1 3 [127, 128, 128, 126] 1
+       73 1 3 127 0 2 [122, 127, 126, 127] 2
+       74 1 1 127 0 0 [127, 127, 126, 125] 2
+       75 0 0 128 1 3 [128, 128, 128, 128] 1
+       76 1 0 127 0 2 [127, 127, 125, 127] 2
+       77 0 0 128 0 0 [127, 126, 126, 125] 2
+       78 0 1 128 0 2 [128, 127, 128, 128] 1
+       79 0 1 128 0 3 [128, 128, 128, 128] 1
+       80 0 7 128 0 1 [126, 126, 128, 127] 1
+       81 1 2 127 0 0 [125, 127, 124, 125] 2
+       82 0 1 128 0 3 [128, 126, 127, 128] 1
+       83 0 0 128 0 0 [127, 125, 122, 126] 2
+       84 0 1 128 1 3 [128, 128, 128, 125] 1
+       85 0 0 128 0 0 [126, 125, 127, 125] 2
+       86 0 0 128 0 3 [128, 126, 127, 128] 1
+       87 0 0 128 0 2 [128, 128, 128, 128] 1
+       88 0 0 128 0 2 [128, 128, 128, 128] 1
+       89 0 2 128 0 2 [128, 128, 125, 128] 1
+       90 0 3 128 0 3 [122, 128, 127, 128] 1
+       91 1 0 127 0 0 [127, 126, 126, 122] 2
+       92 0 2 128 0 2 [126, 128, 126, 128] 1
+       93 0 1 128 1 3 [128, 128, 128, 126] 1
+       94 0 1 128 0 0 [128, 128, 125, 126] 1
+       95 0 0 128 1 1 [127, 128, 127, 128] 1
+       96 0 2 128 0 3 [127, 126, 128, 128] 1
+       97 0 2 128 0 0 [128, 128, 124, 123] 1
+       98 0 0 128 1 0 [128, 128, 125, 126] 1
+       99 0 0 128 0 0 [128, 128, 128, 126] 1
+ok
+test paper_stats_level3 ... ==== Level 3: 100 KAT vectors, E_RSP=192, HD_EXTRA_TORSION=2, LAMBDA=192, F_CHR=376 ====
+(a) M[0][0] parity: even=37 odd=63 of 100
+(b) det_hint histogram {0,1,2,3} = [29, 21, 24, 26]; chi-square vs uniform (3 dof) = 1.360
+    (compressor wire byte and direct recomputation from the dropped entry agree on all 100)
+    contingency det_hint (rows 0..3) x n_bt (cols 0..=4):
+      hint=0: [20, 6, 2, 0, 1]
+      hint=1: [13, 8, 0, 0, 0]
+      hint=2: [19, 4, 1, 0, 0]
+      hint=3: [16, 7, 2, 1, 0]
+    contingency det_hint (rows 0..3) x r' (cols 0..=8):
+      hint=0: [9, 10, 5, 4, 1, 0, 0, 0, 0]
+      hint=1: [5, 6, 7, 2, 1, 0, 0, 0, 0]
+      hint=2: [15, 4, 1, 2, 2, 0, 0, 0, 0]
+      hint=3: [10, 5, 5, 2, 2, 0, 1, 0, 1]
+    contingency det_hint (rows 0..3) x M[0][0] parity (cols [even, odd]):
+      hint=0: [10, 19]
+      hint=1: [9, 12]
+      hint=2: [8, 16]
+      hint=3: [10, 16]
+(c) n_bt histogram (0..=4) = [68, 25, 5, 1, 1]
+    r'   histogram (0..=8) = [39, 25, 18, 10, 6, 0, 1, 0, 1]
+    joint (n_bt rows 0..=4, r' cols 0..=8):
+      n_bt=0: [25, 15, 13, 9, 4, 0, 1, 0, 1]
+      n_bt=1: [11, 7, 5, 1, 1, 0, 0, 0, 0]
+      n_bt=2: [3, 2, 0, 0, 0, 0, 0, 0, 0]
+      n_bt=3: [0, 1, 0, 0, 0, 0, 0, 0, 0]
+      n_bt=4: [0, 0, 0, 0, 1, 0, 0, 0, 0]
+(d) N = E_RSP + HD_EXTRA_TORSION - n_bt (verifier bound: every entry < 2^N); matrix entry wire width = 200 bits
+    n_bt=0: N=194 (68 vectors)
+    n_bt=1: N=193 (25 vectors)
+    n_bt=2: N=192 (5 vectors)
+    n_bt=3: N=191 (1 vectors)
+    n_bt=4: N=190 (1 vectors)
+    bit N-1 of M[0][0] set: 52 of 100
+    bit N-1 of at least one entry set: 89 of 100
+    candidate position E_RSP+1 (fixed, = N-1 when n_bt=0): M[0][0] bit set in 36 of 100; any entry bit set in 61 of 100
+    candidate position E_RSP-1 (fixed): M[0][0] bit set in 45 of 100; any entry bit set in 87 of 100
+    candidate position E_RSP-2 (fixed): M[0][0] bit set in 44 of 100; any entry bit set in 94 of 100
+    candidate position N-1 (per vector, N = E_RSP+2-n_bt): M[0][0] bit set in 52 of 100; any entry bit set in 89 of 100
+    candidate position N-2 (per vector): M[0][0] bit set in 59 of 100; any entry bit set in 93 of 100
+    candidate position g-1 (per vector, g = pow_dim2+2 = E_RSP-r'-n_bt+2): M[0][0] bit set in 54 of 100; any entry bit set in 93 of 100
+    N - bitlen(M[0][0]) histogram [0,1,2,3,>=4] = [52, 30, 11, 3, 4]
+    N - max bitlen over 4 entries histogram [0,1,2,3,>=4] = [89, 10, 1, 0, 0]
+    entries exceeding 2^N (would be rejected): 0
+(e) consistent (n_bt, r') pairs per vector (n_bt 0..=3, r' 0..=15, consistent iff all entries < 2^(E_RSP+2-n_bt) and E_RSP-r'-n_bt > 1):
+    histogram {count: vectors} = {16: 61, 32: 29, 48: 6, 64: 4}
+    vectors with exactly one consistent pair: 0 of 100
+    consistent n_bt values per vector, histogram [0,1,2,3,4] = [0, 61, 29, 6, 4] (N does not depend on r', so pairs = 16 x this)
+    vectors whose n_bt alone is uniquely determined: 61 (all of them have n_bt=0: 61)
+(f) recomputed hint_aux matches transmitted: 100 of 100; recomputed hint_chall matches: 100 of 100
+(g) standard verifies: 100 of 100
+    n_bt fits the 2-bit metadata field: 99 of 100 (failing counts: [97]); r' fits the 4-bit field: 100 of 100 (failing counts: [])
+    compressed length == WIRE_BYTES == Fp2 + 3*entry + chall + 1: 100 of 100  (WIRE_BYTES=196, Fp2=96, entry=25, chall=24, meta=1)
+    decompressed matrix identical to original: 99 of 100 (failing counts: [97])
+    decompressed signature byte-identical to original standard bytes: 99 of 100 (failing counts: [97])
+    compressed verifies: 99 of 100 (failing counts: [97])
+    expanded length == WIRE_BYTES (316): 100 of 100; expanded verifies after byte round trip: 100 of 100
+    per-vector: count bt trl N m00_even det_hint bitlen[m00,m01,m10,m11] consistent_bt
+        0 0 4 194 1 2 [194, 194, 194, 193] 1
+        1 0 2 194 0 3 [194, 193, 193, 194] 1
+        2 1 1 193 1 1 [190, 193, 192, 190] 2
+        3 0 2 194 0 1 [193, 192, 193, 193] 2
+        4 0 0 194 1 0 [194, 194, 192, 193] 1
+        5 1 0 193 0 3 [192, 193, 189, 193] 2
+        6 0 0 194 0 3 [194, 191, 194, 194] 1
+        7 0 0 194 1 0 [194, 194, 192, 194] 1
+        8 1 3 193 0 3 [191, 193, 191, 193] 2
+        9 2 0 192 0 0 [191, 191, 191, 190] 4
+       10 0 1 194 1 0 [194, 194, 187, 194] 1
+       11 0 0 194 0 1 [194, 194, 194, 193] 1
+       12 0 0 194 1 2 [193, 194, 194, 194] 1
+       13 0 1 194 1 3 [194, 193, 194, 194] 1
+       14 1 0 193 0 2 [193, 192, 192, 193] 2
+       15 1 1 193 0 0 [191, 193, 193, 188] 2
+       16 0 2 194 1 1 [194, 194, 193, 194] 1
+       17 1 0 193 0 2 [192, 193, 193, 193] 2
+       18 0 2 194 0 3 [193, 193, 193, 194] 1
+       19 0 3 194 0 0 [193, 192, 194, 192] 1
+       20 0 3 194 1 1 [193, 193, 193, 191] 2
+       21 0 1 194 0 1 [194, 192, 194, 193] 1
+       22 1 2 193 0 1 [193, 190, 193, 192] 2
+       23 0 2 194 0 3 [193, 194, 194, 194] 1
+       24 1 2 193 1 1 [193, 190, 192, 193] 2
+       25 2 0 192 1 3 [191, 191, 192, 191] 3
+       26 0 2 194 1 3 [193, 194, 194, 194] 1
+       27 0 0 194 0 2 [194, 194, 194, 194] 1
+       28 0 0 194 0 1 [194, 193, 193, 193] 1
+       29 0 3 194 0 2 [193, 193, 193, 194] 1
+       30 0 1 194 0 1 [189, 192, 193, 193] 2
+       31 0 4 194 1 3 [194, 193, 194, 194] 1
+       32 0 3 194 0 3 [193, 194, 194, 194] 1
+       33 0 2 194 0 1 [194, 186, 194, 193] 1
+       34 1 1 193 0 1 [193, 190, 189, 192] 2
+       35 0 0 194 0 2 [194, 194, 191, 194] 1
+       36 0 1 194 1 1 [193, 192, 193, 191] 2
+       37 0 0 194 1 0 [194, 190, 192, 190] 1
+       38 0 0 194 0 2 [194, 189, 194, 194] 1
+       39 1 0 193 0 0 [191, 191, 191, 191] 4
+       40 0 0 194 1 2 [193, 194, 194, 192] 1
+       41 0 0 194 1 2 [192, 192, 194, 193] 1
+       42 0 1 194 0 0 [193, 193, 193, 192] 2
+       43 0 0 194 0 3 [194, 194, 191, 194] 1
+       44 2 1 192 0 0 [192, 191, 192, 190] 3
+       45 1 0 193 1 2 [193, 193, 193, 193] 2
+       46 0 3 194 0 0 [189, 193, 194, 192] 1
+       47 0 2 194 0 0 [194, 194, 193, 192] 1
+       48 1 0 193 1 3 [187, 193, 193, 193] 2
+       49 0 2 194 1 0 [193, 194, 191, 192] 1
+       50 0 1 194 0 0 [194, 194, 190, 191] 1
+       51 2 0 192 0 2 [191, 192, 190, 192] 3
+       52 1 2 193 0 1 [193, 193, 193, 192] 2
+       53 1 0 193 1 0 [192, 191, 189, 193] 2
+       54 0 1 194 0 1 [192, 192, 194, 193] 1
+       55 0 3 194 0 0 [194, 194, 194, 188] 1
+       56 0 1 194 1 2 [193, 193, 194, 191] 1
+       57 1 0 193 1 0 [193, 193, 188, 193] 2
+       58 0 0 194 0 2 [193, 194, 190, 194] 1
+       59 0 1 194 1 2 [193, 194, 194, 194] 1
+       60 0 0 194 1 0 [194, 194, 189, 194] 1
+       61 1 1 193 0 0 [193, 191, 193, 191] 2
+       62 1 1 193 0 3 [193, 193, 193, 193] 2
+       63 0 0 194 0 2 [193, 194, 191, 194] 1
+       64 1 0 193 0 3 [193, 192, 193, 193] 2
+       65 0 0 194 0 2 [194, 193, 194, 194] 1
+       66 0 2 194 0 0 [194, 191, 193, 192] 1
+       67 0 6 194 0 3 [193, 194, 194, 194] 1
+       68 0 0 194 0 3 [194, 194, 194, 194] 1
+       69 1 0 193 1 2 [193, 192, 193, 193] 2
+       70 0 0 194 0 1 [192, 192, 194, 193] 1
+       71 0 2 194 0 0 [194, 194, 192, 191] 1
+       72 0 2 194 0 2 [193, 192, 194, 194] 1
+       73 0 1 194 0 2 [194, 194, 194, 194] 1
+       74 0 0 194 1 3 [192, 193, 194, 194] 1
+       75 0 0 194 0 0 [191, 193, 193, 192] 2
+       76 0 3 194 1 1 [193, 193, 193, 192] 2
+       77 1 4 193 1 1 [190, 192, 192, 192] 3
+       78 0 4 194 1 3 [190, 194, 194, 194] 1
+       79 3 1 191 0 3 [191, 191, 191, 191] 4
+       80 0 3 194 0 0 [192, 194, 192, 191] 1
+       81 0 4 194 0 2 [193, 191, 193, 194] 1
+       82 0 1 194 0 0 [194, 193, 194, 192] 1
+       83 0 1 194 0 0 [194, 194, 193, 192] 1
+       84 1 2 193 1 1 [191, 192, 192, 192] 3
+       85 0 3 194 0 2 [194, 194, 194, 194] 1
+       86 0 0 194 0 2 [194, 193, 194, 194] 1
+       87 2 1 192 0 3 [190, 188, 189, 192] 3
+       88 0 8 194 1 3 [194, 193, 194, 194] 1
+       89 1 1 193 0 0 [193, 192, 193, 191] 2
+       90 0 1 194 1 0 [194, 193, 190, 193] 1
+       91 1 1 193 0 3 [192, 193, 191, 193] 2
+       92 0 0 194 1 3 [194, 193, 194, 193] 1
+       93 0 0 194 0 3 [193, 193, 191, 194] 1
+       94 1 0 193 0 1 [191, 193, 192, 192] 2
+       95 0 2 194 1 0 [194, 190, 191, 194] 1
+       96 1 2 193 1 3 [193, 186, 193, 193] 2
+       97 4 4 190 0 0 [190, 190, 188, 188] 4
+       98 0 0 194 1 1 [193, 194, 193, 193] 1
+       99 0 1 194 0 2 [194, 194, 194, 194] 1
+ok
+test paper_stats_level5 ... ==== Level 5: 100 KAT vectors, E_RSP=253, HD_EXTRA_TORSION=2, LAMBDA=256, F_CHR=500 ====
+(a) M[0][0] parity: even=36 odd=64 of 100
+(b) det_hint histogram {0,1,2,3} = [32, 20, 21, 27]; chi-square vs uniform (3 dof) = 3.760
+    (compressor wire byte and direct recomputation from the dropped entry agree on all 100)
+    contingency det_hint (rows 0..3) x n_bt (cols 0..=3):
+      hint=0: [22, 7, 1, 2]
+      hint=1: [13, 5, 2, 0]
+      hint=2: [14, 4, 3, 0]
+      hint=3: [25, 1, 1, 0]
+    contingency det_hint (rows 0..3) x r' (cols 0..=5):
+      hint=0: [15, 9, 7, 1, 0, 0]
+      hint=1: [8, 5, 4, 1, 0, 2]
+      hint=2: [9, 7, 3, 1, 1, 0]
+      hint=3: [15, 9, 0, 2, 1, 0]
+    contingency det_hint (rows 0..3) x M[0][0] parity (cols [even, odd]):
+      hint=0: [13, 19]
+      hint=1: [9, 11]
+      hint=2: [7, 14]
+      hint=3: [7, 20]
+(c) n_bt histogram (0..=3) = [74, 17, 7, 2]
+    r'   histogram (0..=5) = [47, 30, 14, 5, 2, 2]
+    joint (n_bt rows 0..=3, r' cols 0..=5):
+      n_bt=0: [33, 23, 11, 4, 2, 1]
+      n_bt=1: [9, 5, 1, 1, 0, 1]
+      n_bt=2: [5, 0, 2, 0, 0, 0]
+      n_bt=3: [0, 2, 0, 0, 0, 0]
+(d) N = E_RSP + HD_EXTRA_TORSION - n_bt (verifier bound: every entry < 2^N); matrix entry wire width = 256 bits
+    n_bt=0: N=255 (74 vectors)
+    n_bt=1: N=254 (17 vectors)
+    n_bt=2: N=253 (7 vectors)
+    n_bt=3: N=252 (2 vectors)
+    bit N-1 of M[0][0] set: 58 of 100
+    bit N-1 of at least one entry set: 88 of 100
+    candidate position E_RSP+1 (fixed, = N-1 when n_bt=0): M[0][0] bit set in 46 of 100; any entry bit set in 67 of 100
+    candidate position E_RSP-1 (fixed): M[0][0] bit set in 49 of 100; any entry bit set in 89 of 100
+    candidate position E_RSP-2 (fixed): M[0][0] bit set in 43 of 100; any entry bit set in 92 of 100
+    candidate position N-1 (per vector, N = E_RSP+2-n_bt): M[0][0] bit set in 58 of 100; any entry bit set in 88 of 100
+    candidate position N-2 (per vector): M[0][0] bit set in 45 of 100; any entry bit set in 94 of 100
+    candidate position g-1 (per vector, g = pow_dim2+2 = E_RSP-r'-n_bt+2): M[0][0] bit set in 56 of 100; any entry bit set in 91 of 100
+    N - bitlen(M[0][0]) histogram [0,1,2,3,>=4] = [58, 16, 13, 6, 7]
+    N - max bitlen over 4 entries histogram [0,1,2,3,>=4] = [88, 11, 1, 0, 0]
+    entries exceeding 2^N (would be rejected): 0
+(e) consistent (n_bt, r') pairs per vector (n_bt 0..=3, r' 0..=15, consistent iff all entries < 2^(E_RSP+2-n_bt) and E_RSP-r'-n_bt > 1):
+    histogram {count: vectors} = {16: 67, 32: 21, 48: 8, 64: 4}
+    vectors with exactly one consistent pair: 0 of 100
+    consistent n_bt values per vector, histogram [0,1,2,3,4] = [0, 67, 21, 8, 4] (N does not depend on r', so pairs = 16 x this)
+    vectors whose n_bt alone is uniquely determined: 67 (all of them have n_bt=0: 67)
+(f) recomputed hint_aux matches transmitted: 100 of 100; recomputed hint_chall matches: 100 of 100
+(g) standard verifies: 100 of 100
+    n_bt fits the 2-bit metadata field: 100 of 100 (failing counts: []); r' fits the 4-bit field: 100 of 100 (failing counts: [])
+    compressed length == WIRE_BYTES == Fp2 + 3*entry + chall + 1: 100 of 100  (WIRE_BYTES=257, Fp2=128, entry=32, chall=32, meta=1)
+    decompressed matrix identical to original: 100 of 100 (failing counts: [])
+    decompressed signature byte-identical to original standard bytes: 100 of 100 (failing counts: [])
+    compressed verifies: 100 of 100 (failing counts: [])
+    expanded length == WIRE_BYTES (420): 100 of 100; expanded verifies after byte round trip: 100 of 100
+    per-vector: count bt trl N m00_even det_hint bitlen[m00,m01,m10,m11] consistent_bt
+        0 0 2 255 0 0 [254, 253, 255, 251] 1
+        1 1 1 254 0 0 [253, 254, 252, 250] 2
+        2 0 0 255 1 1 [255, 255, 254, 254] 1
+        3 0 0 255 0 2 [255, 253, 254, 255] 1
+        4 0 5 255 1 1 [254, 252, 254, 250] 2
+        5 0 1 255 1 1 [253, 254, 254, 254] 2
+        6 0 2 255 0 2 [255, 254, 255, 255] 1
+        7 0 0 255 0 3 [252, 254, 254, 255] 1
+        8 0 0 255 1 0 [255, 254, 251, 250] 1
+        9 2 0 253 0 1 [251, 252, 251, 252] 4
+       10 0 2 255 1 1 [255, 255, 254, 255] 1
+       11 0 0 255 0 3 [255, 254, 255, 255] 1
+       12 0 0 255 0 3 [255, 253, 254, 255] 1
+       13 1 1 254 1 2 [249, 253, 254, 251] 2
+       14 0 1 255 0 0 [253, 254, 254, 253] 2
+       15 0 1 255 0 0 [255, 254, 254, 250] 1
+       16 0 2 255 1 0 [255, 253, 252, 255] 1
+       17 0 1 255 0 2 [255, 254, 255, 255] 1
+       18 0 3 255 0 3 [255, 254, 254, 255] 1
+       19 0 1 255 0 1 [255, 255, 253, 254] 1
+       20 0 0 255 0 0 [255, 255, 255, 253] 1
+       21 1 0 254 0 0 [249, 253, 252, 248] 3
+       22 1 0 254 1 2 [254, 253, 254, 254] 2
+       23 0 0 255 0 3 [254, 252, 254, 255] 1
+       24 0 0 255 0 0 [255, 255, 255, 253] 1
+       25 0 0 255 1 0 [255, 254, 253, 255] 1
+       26 1 1 254 0 0 [252, 254, 251, 251] 2
+       27 0 1 255 1 1 [251, 255, 254, 255] 1
+       28 0 0 255 0 3 [250, 255, 255, 255] 1
+       29 1 0 254 0 2 [254, 254, 253, 254] 2
+       30 0 0 255 0 1 [253, 254, 255, 254] 1
+       31 1 0 254 1 0 [254, 253, 251, 253] 2
+       32 0 2 255 0 1 [255, 255, 255, 254] 1
+       33 3 1 252 1 0 [252, 251, 249, 251] 4
+       34 0 2 255 0 2 [251, 255, 255, 255] 1
+       35 0 0 255 0 3 [255, 255, 252, 255] 1
+       36 0 2 255 1 0 [254, 253, 253, 255] 1
+       37 0 0 255 1 2 [253, 255, 255, 255] 1
+       38 0 0 255 1 3 [255, 253, 255, 255] 1
+       39 0 0 255 0 1 [255, 255, 255, 254] 1
+       40 0 0 255 0 0 [255, 253, 254, 253] 1
+       41 0 1 255 1 3 [254, 255, 255, 255] 1
+       42 0 1 255 1 3 [255, 255, 255, 255] 1
+       43 2 0 253 0 0 [253, 253, 251, 251] 3
+       44 0 1 255 0 3 [250, 255, 255, 255] 1
+       45 0 1 255 0 0 [255, 254, 255, 251] 1
+       46 0 2 255 0 0 [254, 255, 254, 253] 1
+       47 0 2 255 0 0 [253, 252, 253, 253] 3
+       48 1 0 254 0 1 [251, 254, 248, 253] 2
+       49 0 1 255 0 3 [255, 255, 255, 255] 1
+       50 1 1 254 1 0 [254, 253, 252, 254] 2
+       51 0 1 255 1 2 [255, 255, 255, 255] 1
+       52 0 1 255 0 3 [255, 252, 255, 255] 1
+       53 0 1 255 0 3 [255, 251, 255, 255] 1
+       54 0 0 255 0 3 [255, 254, 253, 255] 1
+       55 1 0 254 0 1 [253, 252, 253, 253] 3
+       56 0 0 255 1 3 [255, 255, 255, 255] 1
+       57 1 1 254 0 1 [254, 253, 253, 253] 2
+       58 2 0 253 1 2 [253, 253, 253, 252] 3
+       59 0 0 255 0 0 [254, 255, 254, 251] 1
+       60 1 0 254 0 2 [250, 253, 250, 254] 2
+       61 0 0 255 0 3 [253, 254, 255, 255] 1
+       62 0 1 255 0 2 [255, 255, 255, 255] 1
+       63 1 0 254 1 0 [254, 254, 252, 253] 2
+       64 0 1 255 1 3 [255, 253, 255, 255] 1
+       65 1 0 254 1 1 [253, 254, 253, 252] 2
+       66 1 5 254 1 1 [253, 251, 253, 254] 2
+       67 0 0 255 1 0 [255, 253, 250, 253] 1
+       68 0 4 255 0 3 [255, 254, 255, 255] 1
+       69 0 3 255 0 0 [255, 253, 255, 252] 1
+       70 0 1 255 0 2 [255, 252, 255, 255] 1
+       71 0 3 255 0 1 [252, 254, 248, 254] 2
+       72 0 0 255 1 0 [253, 253, 253, 254] 2
+       73 1 2 254 1 0 [254, 254, 252, 253] 2
+       74 0 0 255 0 3 [253, 255, 255, 255] 1
+       75 0 1 255 1 0 [252, 253, 251, 255] 1
+       76 2 0 253 0 3 [253, 251, 253, 253] 3
+       77 2 2 253 0 2 [252, 251, 248, 253] 3
+       78 0 0 255 1 2 [255, 255, 255, 254] 1
+       79 0 1 255 0 2 [255, 254, 255, 255] 1
+       80 0 0 255 1 1 [253, 248, 254, 253] 2
+       81 0 0 255 0 3 [255, 253, 254, 255] 1
+       82 0 0 255 0 2 [255, 252, 255, 255] 1
+       83 0 0 255 0 0 [253, 255, 254, 253] 1
+       84 0 4 255 0 2 [254, 254, 255, 255] 1
+       85 0 0 255 1 3 [254, 254, 255, 255] 1
+       86 1 3 254 0 3 [252, 254, 254, 254] 2
+       87 0 2 255 1 1 [252, 255, 254, 251] 1
+       88 0 2 255 0 0 [255, 255, 255, 251] 1
+       89 0 1 255 0 2 [255, 254, 255, 255] 1
+       90 0 0 255 1 3 [255, 255, 255, 252] 1
+       91 0 1 255 0 1 [255, 254, 254, 254] 1
+       92 0 3 255 1 2 [255, 253, 255, 254] 1
+       93 0 1 255 0 3 [255, 255, 252, 255] 1
+       94 0 0 255 1 0 [254, 255, 252, 255] 1
+       95 0 1 255 0 3 [255, 253, 253, 255] 1
+       96 3 1 252 0 0 [251, 248, 248, 250] 4
+       97 2 2 253 0 1 [250, 251, 252, 252] 4
+       98 0 0 255 0 0 [255, 254, 253, 253] 1
+       99 2 0 253 0 2 [253, 253, 252, 253] 3
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+paper_stats exit=0
