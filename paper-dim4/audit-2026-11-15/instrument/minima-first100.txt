@@ -1,0 +1,15 @@
+commitments: 100 (signatures 0 to 99)
+nu1: median 2^-0.96, min 2^-4.99, max 2^0.05
+nu2: median 2^-0.04, min 2^-3.68, max 2^1.21
+nu3: median 2^0.40, min 2^-0.47, max 2^1.93
+nu4: median 2^1.06, min 2^0.30, max 2^8.51
+max nu3 = 2^1.93, that is N3 = 2^-10.3 X
+tail of nu3 over 1.40 <= y <= 2.31 (between 38 and 6 points above y):
+  y^4 Pr[nu3 > y]: min 1.38, median 1.61, max 1.91; fitted exponent -3.50
+Pr[nu1 <= x] / x^2 over 2^-5 <= x <= 2^-1: 10.24 (2 pts at 2^-4.5), 5.12 (2 pts at 2^-4.0), 3.84 (3 pts at 2^-3.5), 3.84 (6 pts at 2^-3.0), 3.84 (12 pts at 2^-2.5), 3.04 (19 pts at 2^-2.0), 2.64 (33 pts at 2^-1.5), 2.00 (50 pts at 2^-1.0)
+  Siegel: pi^2/4 = 2.467
+probabilities from Pr[N3 > X/2] = c (X/sqrt p)^-4 with c = 1.61 (and with the extremes 1.38, 1.91):
+  level I: y = 2^11.21; 2^-44.1 (2^-44.4 to 2^-43.9); random-lattice bound 690 y^-4 = 2^-35.4
+  level III: y = 2^11.62; 2^-45.8 (2^-46.0 to 2^-45.6); random-lattice bound 690 y^-4 = 2^-37.1
+  level V: y = 2^11.96; 2^-47.1 (2^-47.4 to 2^-46.9); random-lattice bound 690 y^-4 = 2^-38.4
+level I: a signature restarts with probability about 2^-44.1; 64 commitments in a row fail with probability 2^-2825

@@ -154,6 +154,10 @@ def main():
     slope = sum((a - mxx) * (b - myy) for a, b in zip(lx, ly)) / sum((a - mxx) ** 2 for a in lx)
     print(f"tail of nu3 over {min(ys):.2f} <= y <= {max(ys):.2f} (between {hi_k} and {lo_k} points above y):")
     print(f"  y^4 Pr[nu3 > y]: min {ps[0]:.2f}, median {c_med:.2f}, max {ps[-1]:.2f}; fitted exponent {slope:.2f}")
+    for kmin in (20, 50, 100):
+        sub = sorted(p[2] for p in prods if p[1] >= kmin)
+        if sub:
+            print(f"  with at least {kmin} points above y (y <= {max(p[0] for p in prods if p[1] >= kmin):.2f}): min {sub[0]:.2f}, max {sub[-1]:.2f}")
     # the first minimum
     nu1 = sorted(v[0] for v in nus)
     rat = []

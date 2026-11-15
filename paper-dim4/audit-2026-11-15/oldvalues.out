@@ -1,0 +1,9 @@
+'3\\.3 ' line 1658: Rust, dimension 2, compressed verify & I & & & 13.3 & \\
+'6\\.9 ' line 1654: C reference, dimension 2 & V   & 216.9 & 679.6 & 75.3 & \\
+'8\\.4' line 1543: degree~\cite[Section 8.4.2]{AAA+26}; it says nothing about dimension 4.
+'3\\.1 ' line 1653: C reference, dimension 2 & III & 106.2 & 323.1 & 29.0 & \\
+'9\\.8 ' line 1656: Rust, dimension 2 & III & 109.0 & 375.4 & 29.8 & \\
+'9\\.8 ' line 1663: Rust, dimension 4 (compact) & V & 249.8 & 1714.5 & 482.2 & 6.0 \\
+'107' line 1515: 1107, 1690 and 2223 bits, or 139, 212 and 278 bytes at levels I, III and V
+'four times' line 1299: kernel-lift columns is exact because four times a kernel lift lies in
+hits outside comments: 8 of 99 patterns

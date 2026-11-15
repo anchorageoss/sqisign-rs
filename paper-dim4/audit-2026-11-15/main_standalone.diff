@@ -1,5 +1,5 @@
---- main_standalone.tex
-+++ paper-2026-11-14-standalone.tex
+--- main_standalone.2026-11-04.orig.tex
++++ main_standalone.tex
 @@ -45,14 +45,14 @@
  
      % Plain-text abstract, required by iacrcc for the final version.
@@ -26,7 +26,85 @@
          III and V (Section~\ref{sec:twopoint} and
          Appendix~\ref{app:symmetry}).
          \item \emph{The change of basis at the gluing.} We prove that the
-@@ -524,13 +524,13 @@
+@@ -431,11 +431,17 @@
+     \subsection{The verifier}
+     \label{sec:verif}
+     The verifier decodes the key and the signature, recomputes the challenge,
+-    and checks that the basis hints are the canonical ones of their curves. From the hints it builds a basis $(R_0, S_0)$ of $\Ecom[2^f]$,
++    and checks that the basis hints are the canonical ones of their curves. From the hints it builds a basis of the $2^f$-torsion of the public-key curve,
+     where $2^f$ is the largest power of 2 dividing $p + 1$, as in the
+-    specification, and a basis of $\Echl[2^f]$; their multiples by $2^{f-r}$
+-    are the bases of the $2^r$-torsion in which the action is written, and the
+-    verifier checks that both pair to roots of unity of exact order $2^r$. It
++    specification, and a basis $(R_0, S_0)$ of $\Ecom[2^f]$. No basis of
++    $\Echl[2^f]$ is built: the challenge isogeny, of degree $2^\lambda$, maps
++    the multiples by $2^{f - \lambda - r}$ of the public-key basis to a basis
++    $(P, Q)$ of $\Echl[2^r]$, and $(R, S) = ([2^{f-r}]R_0, [2^{f-r}]S_0)$ is
++    the basis of $\Ecom[2^r]$; the action is written in these two bases. The
++    verifier checks, in this order, that $e(P, Q)$ has exact order $2^r$, that
++    the transmitted $a$ and $b$ are not both even, and that $e(R, S)$ has
++    exact order $2^r$, which it does by computing the integer $k$ with $e(R,
++    S) = e(P, Q)^k$ and requiring that it exist and be odd. It
+     then completes the dropped scalar by the rule of Section~\ref{sec:wire},
+     repeats the goodness test on $q$, writes $2^e - q = a_1^2 + a_2^2$ by
+     Cornacchia's algorithm, and builds the kernel of the dimension-4 isogeny
+@@ -443,7 +449,9 @@
+     action~\cite[Lemma 4 and Section 4.4]{DLRW24}. Finally, it computes the two
+     half-chains of $\lceil e/2 \rceil$ steps from both ends, and accepts when
+     two conditions hold: the two middle codomains have the same theta null
+-    point, projectively, and the chain maps $(R_0, 0, 0, 0)$ to $(\pm[a_1]R_0,
++    point, projectively (our code compares the null point of the first with
++    the Hadamard transform of that of the second, since it evaluates the
++    second half-chain through its dual), and the chain maps $(R_0, 0, 0, 0)$ to $(\pm[a_1]R_0,
+     \pm[a_2]R_0, \ast, 0)$, the first two components being compared by their
+     $x$-coordinates. These are the two conditions of SQIsignHD's Section 4.5
+     in the form in which its library checks them. Their Algorithm 5 fixes the
+@@ -453,10 +461,13 @@
+     holds for the condition with free signs, since its proof uses only the
+     degrees $a_1^2$ and $a_2^2$. The component marked $\ast$, on which the
+     transmitted action acts, need not be compared either. A signature thus
+-    fails on any decoding error, on a hint that is not canonical or a basis
+-    that does not pair to a root of unity of exact order $2^r$, on a degree
+-    that is not good, on a chain that lands on a product of curves where it
+-    should not, or on either condition.
++    fails on any decoding error, on a curve coefficient that is not that of a
++    curve, on a hint that is not canonical, on a pairing that does not have
++    exact order $2^r$, on transmitted $a$ and $b$ that are both even, on a
++    degree that is not good, on a failure of Cornacchia's algorithm or a
++    value $m > 40$ (Appendix~\ref{app:remains}), on a step that would divide
++    by a vanishing value, as when the chain lands on a product of curves
++    where it should not, or on either condition.
+ 
+     \begin{proposition}[Soundness of the image check]
+         \label{prop:soundness}
+@@ -480,16 +491,18 @@
+             \Ensure accept or reject
+             \State decode the key and the signature, rejecting malformed input
+             \State $\Ecom \gets$ the curve with coefficient $A_{\mathrm{com}}$;
+-            $\Echl \gets$ the challenge curve, recomputed from the public key,
+-            $\Ecom$ and $\mu$
+-            \State reject unless the hints of the public-key curve and of $\Ecom$
++            reject unless the hints of the public-key curve and of $\Ecom$
+             are canonical
+-            \State bases of $\Ecom[2^f]$ and $\Echl[2^f]$ from the hints, and of
+-            the $2^r$-torsion from them; reject unless both pair to roots of unity
+-            of exact order $2^r$
++            \State $\Echl \gets$ the challenge curve, recomputed from the public
++            key, $\Ecom$ and $\mu$; $(P, Q) \gets$ the basis of $\Echl[2^r]$ that
++            is the image, under the challenge isogeny, of the hinted basis of
++            the public-key curve; reject unless $e(P, Q)$ has exact order $2^r$
++            \State reject if $a$ and $b$ are both even
++            \State $(R, S) \gets$ the basis of $\Ecom[2^r]$ from the hinted
++            basis $(R_0, S_0)$ of $\Ecom[2^f]$; reject unless $e(R, S)$ has
++            exact order $2^r$
+             \State complete $M = \left(\begin{smallmatrix} a & b \\ c & d
+-            \end{smallmatrix}\right)$ by the rule of Section~\ref{sec:wire};
+-            reject if $a$ and $b$ are both even
++            \end{smallmatrix}\right)$ by the rule of Section~\ref{sec:wire}
+             \If{$q \ge 2^e$ or $2^e - q$ is not a probable prime congruent to
+             1 modulo 4}
+                 \State reject
+@@ -524,13 +537,13 @@
      \paragraph{Where the verifier's time goes.}
      The verifier pays for the smaller signature. Its chain of dimension-4
      isogeny steps, 87 from each end at level I, works on sixteen theta
@@ -45,7 +123,7 @@
      computing each step's codomain and its constants from those four points;
      the dimension-2 steps, the gluing and the final checks take the rest. A
      substantial saving must therefore reduce the work spent on kernel points,
-@@ -1177,7 +1177,7 @@
+@@ -1177,7 +1190,7 @@
      coordinates; it then computes exactly the isogenies and codomains of the
      four-point verifier (Theorem~\ref{thm:conditional}). This removes half of
      the doublings and evaluations of kernel points, and in our measurements
@@ -54,7 +132,7 @@
      the same signature (Section~\ref{sec:scope}).
  
      The symmetry also shortens the computation of each step's codomain. Since
-@@ -1189,15 +1189,16 @@
+@@ -1189,15 +1202,18 @@
      null point, its inverse and the next step's doubling constants, are
      determined by their values on the ten orbits of $\pi$. MIKE's reference
      implementation exploits the same structure~\cite{BDD+26}, and we adopt two
@@ -68,40 +146,103 @@
 +    Hadamard transform of a vector fixed by $\pi$ takes 32 additions and 4
 +    doublings instead of 64 additions. Like MIKE's, this computation uses
      the symmetry without checking it: it rests on Theorem~\ref{thm:base}, which
-     applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero, since a vanishing
-     coordinate sends the verifier back to the full computation. Finally, as in
+-    applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero, since a vanishing
+-    coordinate sends the verifier back to the full computation. Finally, as in
++    applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero: a vanishing
++    coordinate among those the codomain formula reads sends the step back to
++    the full computation, and a vanishing coordinate among the doubling
++    constants makes the verifier reject, as it does with four points. Finally, as in
      MIKE's implementation, a codomain's doubling constants are computed only
 -    when a doubling follows, which happens after about 42\,\% of the steps of an
 +    when a doubling follows, which happens after about 43\,\% of the steps of an
      optimal strategy at level I. All of them are included in the measurements of
      Table~\ref{tab:cycles}.
  
-@@ -1375,9 +1376,11 @@
+@@ -1337,7 +1353,8 @@
+     The exponent $e$ also governs the signer's search for a good degree. The
+     signer samples vectors of the response ideal below $2^e$ and keeps the
+     first whose norm $q$ is odd, congruent to 3 modulo 4, and has $2^e - q$ a
+-    probable prime (40 Miller--Rabin rounds). The sampled norms are odd, so one
++    probable prime (40 Miller--Rabin rounds), and for which the verifier's
++    Cornacchia step succeeds with $m \le 40$ (Appendix~\ref{app:remains}). The sampled norms are odd, so one
+     candidate in two passes the congruence; if $2^e - q$ behaves as a random
+     $e$-bit integer, the density of good $q$ is then $1/(e \ln 2)$: one
+     candidate in 121 at level I, of which 60 reach a primality test.
+@@ -1370,26 +1387,29 @@
+     $2^{18.6}$, $2^{19.4}$ and $2^{20.1}$ at levels I, III and V. The norm
+     form of a maximal order has no local obstruction at 2, so if about half
+     of these norms are odd and the odd ones behave like random odd integers,
+-    about $2^{9.7}$ of them are good at level I, and the chance that none is is about $\exp(-2^{9.7})$. A degenerate class
++    about $2^{9.7}$ of them are good at level I, counting $v$ and $-v$, which have the same norm, once, and the chance that none is is about $\exp(-2^{9.7})$. A degenerate class
+     therefore essentially requires $N_3 > X/2$, in which case all short
      vectors lie in $L_2$, as for $\mathcal{O}_0$ above, where $N_1 = N_2 =
      1$ and $N_3 \ge p/4$.
  
-+    % TODO(author): every measured figure of this paragraph (4 180 commitments, the medians and maxima of the minima, the tail constant 1.6 and its range, the 1.9 to 2.8 of the first minimum) comes from an earlier version of the crate and was not re-measured; the instrumentation is not in the crate at the head of agent/dim4-two-point. The probabilities 2^-44, 2^-46, 2^-47 here, the 2^44 of the introduction, the 2^-44 of the conclusion and the 2^40 of the restart paragraph are computed from that 1.6.
      To estimate the probability of $N_3 > X/2$, we instrumented our signer to
      record the Gram matrix of the response lattice of each fresh commitment
 -    and computed its successive minima for 4\,180 commitments at level I.
-+    and computed its successive minima for 4\,180 commitments at level I
-+    (with an earlier version of the crate; not re-measured for this one).
++    and computed its successive minima for 4\,180 commitments at level I,
++    those of the 100 signatures of Table~\ref{tab:loop} and of 4\,080 further
++    signatures of the same key.
      Normalized by $\sqrt{p}/2$, the fourth root of the determinant, the third
-     minimum has median $2^{0.39}$ and maximum $2^{3.66}$, that is, $2^{-8.6}X$,
-     and its tail follows $\Pr[N_3 > y\sqrt{p}/2] \approx 1.6\,y^{-4}$ closely
-@@ -1494,8 +1497,10 @@
+-    minimum has median $2^{0.39}$ and maximum $2^{3.66}$, that is, $2^{-8.6}X$,
+-    and its tail follows $\Pr[N_3 > y\sqrt{p}/2] \approx 1.6\,y^{-4}$ closely
+-    over $1.4 \le y \le 5.7$, the range in which the sample has between 1\,600
+-    and 6 points: the product $y^4 \Pr$ stays between 1.5 and 1.8. This is
++    minimum has median $2^{0.39}$ and maximum $2^{3.65}$, that is, $2^{-8.6}X$,
++    and its tail follows $\Pr[N_3 > y\sqrt{p}/2] \approx 1.5\,y^{-4}$
++    over $1.4 \le y \le 4.8$, the range in which the sample has between 1\,588
++    and 6 points: the product $y^4 \Pr$ has median 1.53 there and stays between
++    1.3 and 1.6 while at least 50 points remain, falling to 0.8 at the last 6. This is
+     the behavior expected of a random lattice. Scale the form to determinant
+     1, so that $\nu_i = N_i/(\sqrt p/2)$ are its successive minima. For a
+     lattice drawn from the invariant probability measure on lattices of
+     determinant 1, Siegel's mean value theorem~\cite{Sie45} gives
+     $\Pr[\nu_1 \le x] \le \pi^2 x^2/4 \approx 2.47\,x^2$, nearly with
+-    equality for small $x$; our sample gives between $1.9\,x^2$ and
+-    $2.8\,x^2$ over $2^{-5} \le x \le 2^{-1}$, within sampling error. For the third
++    equality for small $x$; our sample gives between $1.8\,x^2$ and
++    $3.0\,x^2$ over $2^{-5} \le x \le 2^{-1}$, within sampling error. For the third
+     minimum, Minkowski's theorem gives $\nu_1 \nu_2 < 1024/(\pi^4 y^2)$
+     when $\nu_3 > y$, so the primitive rank-2 sublattice containing the first
+     two minimal vectors has determinant less than $32/(\pi^2 y)$. Kim's
+@@ -1415,9 +1435,15 @@
+     not prove.
+ 
+     Our signer gives up on a commitment after 4096 samples without a good
+-    degree and starts over with a fresh one, so that signing always ends with
+-    a valid signature; by the estimate above, this happens in fewer than one
+-    signature in $2^{40}$. The restart changes the distribution of the
++    degree and starts over with a fresh one, and it stops with an error after
++    64 commitments. A commitment is given up when its class is degenerate,
++    with probability about $2^{-44}$ at level I by the estimate above, or when
++    4096 samples of a class that is not degenerate contain no good degree,
++    with probability $(1 - 1/109)^{4096} \approx 2^{-54}$ at the measured
++    density of one good degree in 109 samples (Table~\ref{tab:loop}). A
++    restart thus happens in fewer than one signature in $2^{40}$, and the
++    error, which takes 64 such commitments in a row, with probability about
++    $2^{-2800}$. The restart changes the distribution of the
+     published commitments by at most the same probability in statistical
+     distance.
+ 
+@@ -1494,9 +1520,13 @@
      which are those the signer sends. Without this check any other hint that
      gives a basis would do: anyone could re-express the transmitted action in
      that basis, by discrete logarithms of order $2^r$, and obtain a second
-+    % TODO(author): "over two hundred hint pairs per signature" comes from an earlier version of the crate and was not re-measured; no test at the head of agent/dim4-two-point counts re-encodings with the hint check off.
-     valid encoding of the same signature, which in our tests happened for
+-    valid encoding of the same signature, which in our tests happened for
 -    over two hundred hint pairs per signature at level I. With it, each
-+    over two hundred hint pairs per signature at level I (with an earlier
-+    version of the crate; not re-measured for this one). With it, each
-     signature has a single encoding, and unpacking costs a few hundred
+-    signature has a single encoding, and unpacking costs a few hundred
++    valid encoding of the same signature. With the check switched off, 97 of
++    the 399 other pairs of table entries gave such an encoding per signature
++    on average at level I, over the 100 signatures of
++    Table~\ref{tab:loop} (median 95, between 39 and 224), and the verifier
++    rejected every one of them with the check on. With it, the hints
++    leave a signature a single encoding (the top bit of a scalar, discussed
++    below, is a separate matter), and unpacking costs a few hundred
      cycles, which is negligible compared to a verification. Since the canonical hints are a deterministic function of their curves, and
      the verifier already computes them to check them, the signature could omit
-@@ -1533,9 +1538,10 @@
+     them at no further cost to the verifier, for 137, 210 and 276 bytes; we
+@@ -1533,9 +1563,10 @@
      \subsection{Setup}
      \label{sec:setup}
      All measurements come from one session on one machine, a virtual machine
@@ -115,7 +256,7 @@
      flag; the code chooses its assembly field kernels at run time from CPUID.
      Each operation is timed with \texttt{rdtsc} and the wall clock around the
      call. The tables report medians: for dimension 2, over 52 key generations,
-@@ -1547,14 +1553,13 @@
+@@ -1547,14 +1578,17 @@
      \texttt{nist-v3}, built with CMake in \texttt{Release} mode and
      \texttt{-DSQISIGN\_BUILD\_TYPE=broadwell}, the assembly-backed field
      arithmetic, and measured by its own benchmark
@@ -133,10 +274,14 @@
 +    (Section~\ref{sec:wire}) and its goodness test, which together cost
 +    1.2, 3.2 and 5.5 megacycles per verification at levels I, III and V, under
 +    2\,\% of a four-point verification and under 3\,\% of a two-point one.
++    The verifier's tests of its divisors (Remark~\ref{rem:conformance}(j))
++    were added after this session; one further pass on the same core with
++    them moved no verification row by more than 0.6\,\%, and the tables are
++    those of the session.
  
      \subsection{Results}
      \label{sec:results}
-@@ -1586,19 +1591,19 @@
+@@ -1586,19 +1620,19 @@
      \end{table}
  
      These savings come at a cost in time, which Table~\ref{tab:cycles} gives in
@@ -166,7 +311,7 @@
      verification. Figure~\ref{fig:trade} sets these costs against signature
      size at level I: the compact format has the smallest signature and the
      costliest verification, and the compressed format lies between the other
-@@ -1615,19 +1620,19 @@
+@@ -1615,19 +1649,19 @@
              \toprule
              implementation & level & keygen & sign & verify & $\times$ dim.\ 2 \\
              \midrule
@@ -199,7 +344,7 @@
              \bottomrule
          \end{tabular}
      \end{table}
-@@ -1637,21 +1642,21 @@
+@@ -1637,21 +1671,21 @@
          \begin{tikzpicture}
              \begin{axis}[
                  width=8cm, height=5.5cm,
@@ -230,7 +375,7 @@
              \end{axis}
          \end{tikzpicture}
          \caption{The trade at level I on the round-3 prime: signature bytes
-@@ -1676,15 +1681,15 @@
+@@ -1676,15 +1710,15 @@
              \toprule
              format & operation & ms \\
              \midrule
@@ -254,7 +399,7 @@
              \bottomrule
          \end{tabular}
      \end{table}
-@@ -1694,8 +1699,8 @@
+@@ -1694,8 +1728,8 @@
      with the expectation of Section~\ref{sec:params}. A candidate costs one
      norm computation; one in two reaches a Miller--Rabin test on an $e$-bit
      number, and composites fail at the first round. The loop also accounts for
@@ -265,7 +410,7 @@
  
      \begin{table}[t]
          \centering
-@@ -1709,19 +1714,19 @@
+@@ -1709,19 +1743,19 @@
              & measured & expected \\
              \midrule
              signatures measured & 100 & \\
@@ -292,7 +437,7 @@
      with four points at levels III and V; the dimension-2 verifier allocates
      nothing.
  
-@@ -1771,12 +1776,12 @@
+@@ -1771,15 +1805,16 @@
      smallest level-I
      combination we are aware of at parameters that stand after
      Wesolowski's attack. The price is verification: a dimension-4
@@ -309,19 +454,102 @@
 +    the two-point verifier takes 0.63, 0.62 and 0.60 times the cycles of
      the four-point one (Section~\ref{sec:bench}). The compact format therefore suits settings
      where bandwidth or storage dominates and a verification of a few tens of
-     milliseconds is acceptable, while the specification's dimension-2 format
-@@ -1794,8 +1799,9 @@
+-    milliseconds is acceptable, while the specification's dimension-2 format
++    milliseconds at level I (Table~\ref{tab:ms}), and of 43 to 172
++    milliseconds at levels III and V on the same machine, is acceptable, while the specification's dimension-2 format
+     remains the better general-purpose choice.
+ 
+     Apart from the image check, the security argument is SQIsignHD's with our
+@@ -1794,10 +1829,13 @@
  
      The main bottleneck remains the dimension-4 arithmetic itself, and
      narrowing it decides whether the 61 bytes saved at level I are worth
-+    % TODO(author): the next two sentences set our megacycles per step, measured on this session's Xeon, against MIKE's 0.07, measured on another processor (and over F_p, in constant-time C). Megacycles from two machines do not compare. The audit of 2026-11-15 left the wording alone; an earlier pass had already replaced the original's "about 0.16 for ours (28.5 megacycles" by this session's 0.28 and 48.0.
-     having; there is reason to expect room. MIKE's chain costs about 0.07 megacycles per step
+-    having; there is reason to expect room. MIKE's chain costs about 0.07 megacycles per step
 -    at level I, against about 0.16 for ours (28.5 megacycles over $2 \cdot
-+    at level I, against about 0.28 for ours (48.0 megacycles over $2 \cdot
++    having; there is reason to expect room. On the core of
++    Section~\ref{sec:setup}, MIKE's Rust implementation~\cite{BDD+26} computes a
++    level-I shared secret, a chain of 228 steps, in 20.9 megacycles (median of
++    200 runs), about 0.09 megacycles per step,
++    against about 0.28 for ours (48.0 megacycles over $2 \cdot
      87$ steps, with two points). The comparison is loose, since MIKE works over $\mathbb{F}_p$
-     on a different processor and our verifier also evaluates a point for its
+-    on a different processor and our verifier also evaluates a point for its
++    at a prime of 318 bits, in constant time, and our verifier also evaluates a point for its
      image check, but it suggests that much of our fourfold penalty lies in the
-@@ -2439,7 +2445,7 @@
+     implementation rather than in the dimension. Doubling on the quotient by
+     the automorphism would save more, but it needs efficient image formulas
+@@ -1811,6 +1849,7 @@
+     numbers describe code as it stood at the time of writing, not a settled design.
+ 
+ \section*{AI disclosure}
++    % TODO(author): confirm the model name and version in the next sentence.
+     While the authors observed the opportunities for improving 4-dimensional {\SQIsign} (notably the symmetry of the chain) on their own by reviewing the literature on the subject and designing exploratory tests, the final software prototype and test suites were developed on top of existing implementations of the signature scheme with the assistance of Anthropic's Claude Opus 5.5, which also drafted parts of the quantitative analysis and helped in carefully checking the proofs and references.
+     The authors have reviewed the material and take full responsibility for the programs, the tests and their results, the measurements, and every claim in the paper.
+ 
+@@ -2377,11 +2416,15 @@
+             of Lemma~\ref{lem:basepoints} with $\lambda \equiv q^{-1}$, and
+             recovers the dropped entry by the rule of Section~\ref{sec:wire},
+             rejecting a signature whose transmitted $a$ and $b$ are both even,
+-            where the rule is not defined. Before that, it rejects hints that
+-            are not the canonical ones of their curves, and it rejects unless
+-            $e(P, Q)$ has exact order $2^r$ and the discrete logarithm $k$ of
+-            $e(R, S)$ to that base exists and is odd, that is, unless both
+-            pairings have exact order $2^r$. Every input that reaches our
++            where the rule is not defined. In order, it rejects hints that
++            are not the canonical ones of their curves, then rejects unless
++            $e(P, Q)$ has exact order $2^r$, then rejects $a$ and $b$ both
++            even, then rejects unless the discrete logarithm $k$ of
++            $e(R, S)$ to the base $e(P, Q)$ exists and is odd, that is, unless both
++            pairings have exact order $2^r$; the entry is recovered last.
++            The basis $(P, Q)$ is the image under the challenge isogeny of
++            the hinted basis of the public-key curve, and $e(P, Q)$ is
++            computed from the pairing of that basis. Every input that reaches our
+             half-chains therefore satisfies the hypotheses of
+             Lemma~\ref{lem:basepoints}.
+             \item \emph{The change of basis at the gluing.} For both half-chains,
+@@ -2402,7 +2445,9 @@
+             pairs of copies, whose images are combined in the order of
+             Proposition~\ref{prop:gluingbasis}. Its kernel points are those of
+             that proposition, and it starts from the change of coordinates
+-            of~\cite[Theorem 12]{Dar24}, computed as in (a) and (b), for the
++            of~\cite[Theorem 12]{Dar24}, computed as in (a) and (b) except that
++            its four candidates for $\mathbf i_0$ are tried in the order $0, 2, 1,
++            3$, for the
+             matrices of Proposition~\ref{prop:gluingbasis}(i) modulo 4. Its plain
+             steps are the algorithms of (g) in dimension 2, and its gluing
+             evaluates by~\cite[Eqs.~(20), (24) and (25)]{Dar24} with one translate,
+@@ -2413,13 +2458,20 @@
+             by~\cite[Algorithm 5]{Dar24} with two translates, computed on the
+             elliptic curves~\cite[Remarks 19 and 20]{Dar24}.
+             \item \emph{Undefined cases.} Wherever these algorithms would divide by
+-            a vanishing value, our crate rejects the signature.
++            a vanishing value, our crate rejects the signature: it tests every
++            divisor of the dimension-2 chain, of the two gluings, of the plain
++            steps and of the image check before using it, and a test per site
++            exercises the reject.
+             \item \emph{The image check.} Our crate evaluates the chain at
+             $(R_0, 0, 0, 0)$, for the first point $R_0$ of the hinted basis of
+             $\Ecom[2^f]$, the point from which it derives $R$; it compares the
+             $x$-coordinates of the first two components of the image with
+             those of $[a_1]R_0$ and $[a_2]R_0$, and requires the fourth to be the
+             point at infinity, as Proposition~\ref{prop:soundness} assumes.
++            \item \emph{The middle comparison.} Our crate evaluates the second
++            half-chain through its dual, and compares the null point of the
++            first half-chain's last codomain with the Hadamard transform of
++            that of the second's, projectively.
+         \end{enumerate}
+         So our crate computes the theta structures of
+         Definition~\ref{def:structures} on every fourfold $A_{h,k}$ with $k \ge
+@@ -2432,14 +2484,15 @@
+     The two-point verifier checks on each signature that the gluing images of
+     $g_2, g_3$ are the $\pi$-permutations of those of $g_0, g_1$ and that the
+     gluing codomain's null point is fixed by $\pi$, at the cost of four
+-    evaluations through the gluing and six comparisons, and falls back to four
+-    points otherwise. These checks would make the two-point chain correct even
++    evaluations through the gluing, two projective comparisons of points for
++    the images and six comparisons of coordinates for the null point, and
++    falls back to four points otherwise. These checks would make the two-point chain correct even
+     without the conformance above: every plain step consists of coordinatewise
+     operations, Hadamard transforms and products with constants fixed by $\pi$,
      so it commutes with $\pi$, and by induction from the gluing the two-point
      chain computes what the four-point chain computes. Only the direct codomain
      formula of Section~\ref{sec:twopoint} needs more, the consistency of the
@@ -330,11 +558,16 @@
      conformance above provides. The
      fallback has not occurred on any honest signature tested. In the tests, the
      codomain computation of Section~\ref{sec:twopoint}, which assumes that each
-@@ -2451,7 +2457,7 @@
-     the crate was checked more directly: $\theta(Dx) = \pi(\theta(x))$ held at
-     every step of both half-chains of 32 honest and 72 forged signatures
-     (17\,790 steps). At levels III and V, the same tests give the same codomain at all
+@@ -2447,11 +2500,8 @@
+     which does not, produce the same codomain, projectively, at all 844
+     plain steps of both half-chains of five level-I test vectors, in both
+     modes of the two-point verifier, with and without the check at the gluing, and the same
+-    verdict on those vectors and on 70 tampered variants. An earlier version of
+-    the crate was checked more directly: $\theta(Dx) = \pi(\theta(x))$ held at
+-    every step of both half-chains of 32 honest and 72 forged signatures
+-    (17\,790 steps). At levels III and V, the same tests give the same codomain at all
 -    1\,282 and 1\,708 plain steps of five vectors each, and the same verdict on 75 and 70 tampered variants.
++    verdict on those vectors and on 70 tampered variants. At levels III and V, the same tests give the same codomain at all
 +    1\,274 and 1\,706 plain steps of five vectors each, and the same verdict on 75 and 70 tampered variants.
  
      \section{Beyond two-point evaluation}

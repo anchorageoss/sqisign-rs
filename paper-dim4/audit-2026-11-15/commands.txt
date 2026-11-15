@@ -1,0 +1,6 @@
+2026-11-15T08:36:48Z SIGSTOP to the language server pids: 3773648 3773859 3773860 
+2026-11-15T08:36:48Z sudo service cron stop
+2026-11-15T08:36:48Z affinity: 192 processes moved off CPUs 13 and 29, 49 could not be moved
+2026-11-15T08:36:48Z PASSES=1 QUIET=1 QUIET_RULE=samples QUIET_LOAD=0.10 OTHER_CPUS=0-7,16-23 MIKE_STEP=mike-step/target/release/mike-step taskset -c 0-7,16-23 ./paper_session.sh /home/user/work/results/20261115T081239Z-SECENG-2636-close/session 13
+2026-11-15T08:57:49Z the strict quiet wait before the MIKE run was cut short at the human's word (load 0.30 0.53 0.58); mike-step run directly: taskset -c 13 mike-step session/mike-step.csv 200, CPUs 13 and 29 still cleared of other processes
+2026-11-15T08:57:49Z restore: SIGCONT to the language server, sudo service cron start, affinities back to 0-31

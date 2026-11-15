@@ -21,7 +21,9 @@ warning: unused workspace dependency `sqisign-verify`
    |
 help: consider removing the workspace dependency `sqisign-verify`
 warning: workspace (manifest) generated 3 warnings
-    Finished `release` profile [optimized] target(s) in 0.05s
+   Compiling sqisign-verify v0.6.0 (/home/user/sqisign-rs-two-point/crates/verify)
+   Compiling sqisign-rs v0.6.0 (/home/user/sqisign-rs-two-point/crates/sqisign-rs)
+    Finished `release` profile [optimized] target(s) in 45.68s
      Running unittests src/lib.rs (target/release/build/sqisign-rs/f3d089e6cb65f2b5/out/sqisign_rs-f3d089e6cb65f2b5)
 
 running 0 tests
@@ -42,7 +44,7 @@ running 2 tests
 test random_matrices_of_each_shape_and_the_fall_back ... ok
 test the_vectors_matrices ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
 
      Running tests/compact_rejections.rs (target/release/build/sqisign-rs/63110f9dd985d5ad/out/compact_rejections-63110f9dd985d5ad)
 
@@ -55,7 +57,7 @@ test restart_on_a_fresh_commitment ... ok
 top bit of a or b: 2 of 12 flipped signatures verify; no other bit of a scalar does (264 flips on one signature)
 test top_bit_of_a_scalar_level1 ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.53s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.49s
 
      Running tests/compact_roundtrip.rs (target/release/build/sqisign-rs/c1556ddff5a3b32e/out/compact_roundtrip-c1556ddff5a3b32e)
 
@@ -66,14 +68,14 @@ test keygen_sign_verify_level3 ... ok
 test keygen_sign_verify_level5 ... ok
 test typed_api ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
 
      Running tests/compact_vectors.rs (target/release/build/sqisign-rs/c3593e59b7a1a4f2/out/compact_vectors-c3593e59b7a1a4f2)
 
 running 1 test
 test vectors_level1 ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
 
      Running tests/compressed.rs (target/release/build/sqisign-rs/3f238b48f5b8664d/out/compressed-3f238b48f5b8664d)
 
@@ -96,8 +98,8 @@ test p324_3::failure_rate ... ignored, long: failure-rate measurement over many 
 test p500_27::failure_rate ... ignored, long: failure-rate measurement over many ideals
 test p664_17::failure_rate ... ignored, long: failure-rate measurement over many ideals
 test p324_3::kernel_to_ideal ... ok
-test p500_27::kernel_to_ideal ... ok
 test p664_17::kernel_to_ideal ... ok
+test p500_27::kernel_to_ideal ... ok
 test p324_3::change_of_basis ... ok
 test p500_27::change_of_basis ... ok
 test p324_3::isogeny ... ok
@@ -159,14 +161,21 @@ test twenty_four_signatures_level1 ... ok
 level V: 5 vectors accepted in the three modes with no fall-back; 70 tampered variants rejected with the same reason in the three modes; 5 flips of a scalar's top bit, 0 of them valid, the same in the three modes; 1706 plain steps with the same codomain in both two-point modes
 test conformance_level5 ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.47s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.72s
 
      Running unittests src/lib.rs (target/release/build/sqisign-verify/13c146e6926e4bc0/out/sqisign_verify-13c146e6926e4bc0)
 
-running 12 tests
+running 19 tests
+test hd::dim2::zero_divisor_tests::gluing_codomain_rejects_a_vanishing_divisor ... ok
+test hd::dim2::zero_divisor_tests::gluing_image_rejects_an_undefined_factor ... ok
+test hd::dim2::zero_divisor_tests::plain_step_rejects_a_vanishing_divisor ... ok
+test hd::gluing::zero_divisor_tests::special_image_rejects_when_every_divisor_vanishes ... ok
+test hd::dim2::zero_divisor_tests::precompute_reports_a_vanishing_divisor ... ok
+test hd::isogeny::zero_divisor_tests::stored_weights_with_a_zero_are_rejected ... ok
 test hd::two_point::tests::along_tree_has_the_edge_ratios ... ok
-test hd::two_point::tests::orbit_tables_are_consistent ... ok
 test hd::goodness::tests::goodness_rejects_what_the_paper_lists ... ok
+test hd::self_contained::zero_divisor_tests::a_vanishing_pairing_value_is_a_reject ... ok
+test hd::two_point::tests::orbit_tables_are_consistent ... ok
 test hd::uint::tests::arithmetic_small_values ... ok
 test hd::two_point::tests::hadamard_of_a_fixed_vector ... ok
 test hd::wide::tests::agrees_with_u128_below_128_bits ... ok
@@ -177,7 +186,7 @@ test hd::nqr_rule::tests::rule_tables_are_the_rule ... ok
 test hd::goodness::tests::small_numbers_against_trial_division ... ok
 test hd::uint::tests::montgomery_matches_the_bit_serial_reference ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.72s
 
      Running tests/ec_props.rs (target/release/build/sqisign-verify/a898ca32cf994f3d/out/ec_props-a898ca32cf994f3d)
 
@@ -189,32 +198,32 @@ test p500_27::chain_rejects_bad_kernels ... ok
 test p500_27::e0_precomputed_basis_is_a_basis ... ok
 test p500_27::bary_coordinates ... ok
 test p324_3::chain_lands_on_canonical_model_with_basis_and_hint ... ok
-test p664_17::chain_rejects_bad_kernels ... ok
 test p324_3::pairings_and_dlog ... ok
-test p324_3::ladders_agree ... ok
-test p664_17::e0_precomputed_basis_is_a_basis ... ok
 test p324_3::full_rational_basis ... ok
-test p500_27::chain_lands_on_canonical_model_with_basis_and_hint ... ok
-test p500_27::pairings_and_dlog ... ok
-test p500_27::ladders_agree ... ok
+test p324_3::ladders_agree ... ok
+test p664_17::chain_rejects_bad_kernels ... ok
 test p664_17::bary_coordinates ... ok
+test p664_17::e0_precomputed_basis_is_a_basis ... ok
+test p500_27::pairings_and_dlog ... ok
 test p500_27::full_rational_basis ... ok
+test p500_27::ladders_agree ... ok
+test p500_27::chain_lands_on_canonical_model_with_basis_and_hint ... ok
 test p664_17::chain_lands_on_canonical_model_with_basis_and_hint ... ok
 test p664_17::ladders_agree ... ok
 test p664_17::pairings_and_dlog ... ok
 test p664_17::full_rational_basis ... ok
 
-test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running tests/fp_backends_differential.rs (target/release/build/sqisign-verify/62e8061700d80532/out/fp_backends_differential-62e8061700d80532)
 
 running 3 tests
 326 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
 test p324_3_matches_big_integers_on_both_paths ... ok
-505 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
-test p500_27_matches_big_integers_on_both_paths ... ok
 669 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
 test p664_17_matches_big_integers_on_both_paths ... ok
+505 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
+test p500_27_matches_big_integers_on_both_paths ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
 
@@ -223,35 +232,35 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 39 tests
 test p324_3::constants_are_consistent ... ok
 test p324_3::add_sub_neg ... ok
-test p324_3::encode_decode ... ok
 test p324_3::constant_time_helpers ... ok
+test p324_3::encode_decode ... ok
 test p324_3::fp2_batched_inverse_and_pow ... ok
 test p324_3::fp2_encode_decode ... ok
-test p324_3::mul_sqr ... ok
-test p324_3::small_multipliers ... ok
 test p324_3::fp2_helpers ... ok
-test p500_27::constant_time_helpers ... ok
-test p324_3::fp2_arithmetic ... ok
+test p324_3::small_multipliers ... ok
+test p324_3::mul_sqr ... ok
 test p500_27::constants_are_consistent ... ok
 test p500_27::add_sub_neg ... ok
+test p324_3::fp2_arithmetic ... ok
+test p500_27::constant_time_helpers ... ok
 test p500_27::encode_decode ... ok
 test p500_27::fp2_batched_inverse_and_pow ... ok
 test p500_27::fp2_encode_decode ... ok
-test p500_27::mul_sqr ... ok
 test p500_27::small_multipliers ... ok
+test p500_27::mul_sqr ... ok
 test p664_17::constants_are_consistent ... ok
 test p664_17::add_sub_neg ... ok
-test p500_27::fp2_helpers ... ok
 test p664_17::constant_time_helpers ... ok
-test p324_3::inverse ... ok
+test p500_27::fp2_helpers ... ok
 test p664_17::encode_decode ... ok
-test p664_17::fp2_batched_inverse_and_pow ... ok
 test p664_17::fp2_encode_decode ... ok
+test p324_3::inverse ... ok
+test p664_17::fp2_batched_inverse_and_pow ... ok
 test p664_17::small_multipliers ... ok
 test p664_17::mul_sqr ... ok
 test p664_17::fp2_helpers ... ok
-test p500_27::fp2_arithmetic ... ok
 test p324_3::square_roots ... ok
+test p500_27::fp2_arithmetic ... ok
 test p324_3::fp2_square_roots ... ok
 test p664_17::fp2_arithmetic ... ok
 test p500_27::inverse ... ok
@@ -277,16 +286,12 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test crates/sqisign-rs/src/lib.rs - (line 19) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.08s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
 
    Doc-tests sqisign_verify
 
 running 1 test
 test crates/verify/src/lib.rs - (line 27) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.65s
 
-
-real	0m54.823s
-user	1m46.703s
-sys	0m1.043s
