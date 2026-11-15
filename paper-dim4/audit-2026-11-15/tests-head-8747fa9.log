@@ -1,0 +1,292 @@
+warning: unused workspace dependency `sha2`
+  --> Cargo.toml:47:1
+   |
+47 | sha2 = { version = "0.10", default-features = false }
+   | ^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `sha2`
+warning: unused workspace dependency `sqisign-rs`
+  --> Cargo.toml:60:1
+   |
+60 | sqisign-rs = { path = "crates/sqisign-rs" }
+   | ^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `sqisign-rs`
+warning: unused workspace dependency `sqisign-verify`
+  --> Cargo.toml:59:1
+   |
+59 | sqisign-verify = { path = "crates/verify" }
+   | ^^^^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `sqisign-verify`
+warning: workspace (manifest) generated 3 warnings
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running unittests src/lib.rs (target/release/build/sqisign-rs/f3d089e6cb65f2b5/out/sqisign_rs-f3d089e6cb65f2b5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/api_roundtrip.rs (target/release/build/sqisign-rs/db4e7321f9d50201/out/api_roundtrip-db4e7321f9d50201)
+
+running 2 tests
+test negated_matrix_is_rejected ... ok
+test generate_sign_verify_and_codecs ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/base_change.rs (target/release/build/sqisign-rs/cfaea0e36eb93695/out/base_change-cfaea0e36eb93695)
+
+running 2 tests
+test random_matrices_of_each_shape_and_the_fall_back ... ok
+test the_vectors_matrices ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+
+     Running tests/compact_rejections.rs (target/release/build/sqisign-rs/63110f9dd985d5ad/out/compact_rejections-63110f9dd985d5ad)
+
+running 6 tests
+test rejections_level1 ... ok
+test pairing_of_small_order_is_reported ... ok
+test rejections_level3 ... ok
+test rejections_level5 ... ok
+test restart_on_a_fresh_commitment ... ok
+top bit of a or b: 2 of 12 flipped signatures verify; no other bit of a scalar does (264 flips on one signature)
+test top_bit_of_a_scalar_level1 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.53s
+
+     Running tests/compact_roundtrip.rs (target/release/build/sqisign-rs/c1556ddff5a3b32e/out/compact_roundtrip-c1556ddff5a3b32e)
+
+running 5 tests
+test sizes ... ok
+test keygen_sign_verify_level1 ... ok
+test keygen_sign_verify_level3 ... ok
+test keygen_sign_verify_level5 ... ok
+test typed_api ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
+
+     Running tests/compact_vectors.rs (target/release/build/sqisign-rs/c3593e59b7a1a4f2/out/compact_vectors-c3593e59b7a1a4f2)
+
+running 1 test
+test vectors_level1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+
+     Running tests/compressed.rs (target/release/build/sqisign-rs/3f238b48f5b8664d/out/compressed-3f238b48f5b8664d)
+
+running 5 tests
+test roundtrip_level1 ... ok
+level I (p324_3): 3 signatures compressed, verified compressed, decompressed to standard signatures the standard verifier accepts; the four transmitted bits' histogram [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1]
+test survey_level1 ... ok
+level III (p500_27): 3 signatures compressed, verified compressed, decompressed to standard signatures the standard verifier accepts; the four transmitted bits' histogram [0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+test roundtrip_levels_3_and_5 ... ok
+level V (p664_17): 3 signatures compressed, verified compressed, decompressed to standard signatures the standard verifier accepts; the four transmitted bits' histogram [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1]
+test survey_levels_3_and_5 ... ok
+test decoder_and_tampering ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.21s
+
+     Running tests/id2iso_props.rs (target/release/build/sqisign-rs/f036e83d88b15928/out/id2iso_props-f036e83d88b15928)
+
+running 12 tests
+test p324_3::failure_rate ... ignored, long: failure-rate measurement over many ideals
+test p500_27::failure_rate ... ignored, long: failure-rate measurement over many ideals
+test p664_17::failure_rate ... ignored, long: failure-rate measurement over many ideals
+test p324_3::kernel_to_ideal ... ok
+test p500_27::kernel_to_ideal ... ok
+test p664_17::kernel_to_ideal ... ok
+test p324_3::change_of_basis ... ok
+test p500_27::change_of_basis ... ok
+test p324_3::isogeny ... ok
+test p664_17::change_of_basis ... ok
+test p500_27::isogeny ... ok
+test p664_17::isogeny ... ok
+
+test result: ok. 9 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/mp_props.rs (target/release/build/sqisign-rs/b464f7cba93784eb/out/mp_props-b464f7cba93784eb)
+
+running 4 tests
+test constants ... ok
+test props_30 ... ok
+test props_55 ... ok
+test props_40 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/quat_props.rs (target/release/build/sqisign-rs/bc9a0ec06c5f9186/out/quat_props-bc9a0ec06c5f9186)
+
+running 3 tests
+test level1 ... ok
+test level3 ... ok
+test level5 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/theta_chain.rs (target/release/build/sqisign-rs/8268be44a7179717/out/theta_chain-8268be44a7179717)
+
+running 12 tests
+test p324_3::rejections ... ok
+test p324_3::length_min ... ok
+test p324_3::length_max ... ok
+test p324_3::length_mid ... ok
+test p500_27::length_min ... ok
+test p500_27::length_mid ... ok
+test p664_17::length_min ... ok
+test p500_27::rejections ... ok
+test p664_17::length_mid ... ok
+test p664_17::rejections ... ok
+test p500_27::length_max ... ok
+test p664_17::length_max ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+
+     Running tests/two_point.rs (target/release/build/sqisign-rs/77180fdc50a68c8d/out/two_point-77180fdc50a68c8d)
+
+running 6 tests
+flags: 33 tampered variants rejected after the half-chains, flags equal to the diagnostic's
+test fall_back_flags_through_rejections ... ok
+test fall_back_on_unpaired_inputs ... ok
+level I: 5 vectors accepted in the three modes with no fall-back; 70 tampered variants rejected with the same reason in the three modes; 5 flips of a scalar's top bit, 0 of them valid, the same in the three modes; 844 plain steps with the same codomain in both two-point modes
+test conformance_level1 ... ok
+level III: 5 vectors accepted in the three modes with no fall-back; 75 tampered variants rejected with the same reason in the three modes; 0 flips of a scalar's top bit, 0 of them valid, the same in the three modes; 1274 plain steps with the same codomain in both two-point modes
+test conformance_level3 ... ok
+level I, 24 signatures: 24 accepted, 336 tampered variants rejected, 24 top-bit flips (5 valid), 4022 plain steps
+test twenty_four_signatures_level1 ... ok
+level V: 5 vectors accepted in the three modes with no fall-back; 70 tampered variants rejected with the same reason in the three modes; 5 flips of a scalar's top bit, 0 of them valid, the same in the three modes; 1706 plain steps with the same codomain in both two-point modes
+test conformance_level5 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.47s
+
+     Running unittests src/lib.rs (target/release/build/sqisign-verify/13c146e6926e4bc0/out/sqisign_verify-13c146e6926e4bc0)
+
+running 12 tests
+test hd::two_point::tests::along_tree_has_the_edge_ratios ... ok
+test hd::two_point::tests::orbit_tables_are_consistent ... ok
+test hd::goodness::tests::goodness_rejects_what_the_paper_lists ... ok
+test hd::uint::tests::arithmetic_small_values ... ok
+test hd::two_point::tests::hadamard_of_a_fixed_vector ... ok
+test hd::wide::tests::agrees_with_u128_below_128_bits ... ok
+test hd::uint::tests::jacobi_matches_eulers_criterion_on_small_primes ... ok
+test hd::goodness::tests::known_primes_and_composites_at_the_three_sizes ... ok
+test hd::uint::tests::division_matches_the_bit_serial_reference ... ok
+test hd::nqr_rule::tests::rule_tables_are_the_rule ... ok
+test hd::goodness::tests::small_numbers_against_trial_division ... ok
+test hd::uint::tests::montgomery_matches_the_bit_serial_reference ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
+
+     Running tests/ec_props.rs (target/release/build/sqisign-verify/a898ca32cf994f3d/out/ec_props-a898ca32cf994f3d)
+
+running 21 tests
+test p324_3::chain_rejects_bad_kernels ... ok
+test p324_3::e0_precomputed_basis_is_a_basis ... ok
+test p324_3::bary_coordinates ... ok
+test p500_27::chain_rejects_bad_kernels ... ok
+test p500_27::e0_precomputed_basis_is_a_basis ... ok
+test p500_27::bary_coordinates ... ok
+test p324_3::chain_lands_on_canonical_model_with_basis_and_hint ... ok
+test p664_17::chain_rejects_bad_kernels ... ok
+test p324_3::pairings_and_dlog ... ok
+test p324_3::ladders_agree ... ok
+test p664_17::e0_precomputed_basis_is_a_basis ... ok
+test p324_3::full_rational_basis ... ok
+test p500_27::chain_lands_on_canonical_model_with_basis_and_hint ... ok
+test p500_27::pairings_and_dlog ... ok
+test p500_27::ladders_agree ... ok
+test p664_17::bary_coordinates ... ok
+test p500_27::full_rational_basis ... ok
+test p664_17::chain_lands_on_canonical_model_with_basis_and_hint ... ok
+test p664_17::ladders_agree ... ok
+test p664_17::pairings_and_dlog ... ok
+test p664_17::full_rational_basis ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/fp_backends_differential.rs (target/release/build/sqisign-verify/62e8061700d80532/out/fp_backends_differential-62e8061700d80532)
+
+running 3 tests
+326 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
+test p324_3_matches_big_integers_on_both_paths ... ok
+505 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
+test p500_27_matches_big_integers_on_both_paths ... ok
+669 bits: detected x86-64 assembly (mulx, adcx, adox); portable path agrees limb for limb
+test p664_17_matches_big_integers_on_both_paths ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+     Running tests/fp_props.rs (target/release/build/sqisign-verify/ea096f20887b77a2/out/fp_props-ea096f20887b77a2)
+
+running 39 tests
+test p324_3::constants_are_consistent ... ok
+test p324_3::add_sub_neg ... ok
+test p324_3::encode_decode ... ok
+test p324_3::constant_time_helpers ... ok
+test p324_3::fp2_batched_inverse_and_pow ... ok
+test p324_3::fp2_encode_decode ... ok
+test p324_3::mul_sqr ... ok
+test p324_3::small_multipliers ... ok
+test p324_3::fp2_helpers ... ok
+test p500_27::constant_time_helpers ... ok
+test p324_3::fp2_arithmetic ... ok
+test p500_27::constants_are_consistent ... ok
+test p500_27::add_sub_neg ... ok
+test p500_27::encode_decode ... ok
+test p500_27::fp2_batched_inverse_and_pow ... ok
+test p500_27::fp2_encode_decode ... ok
+test p500_27::mul_sqr ... ok
+test p500_27::small_multipliers ... ok
+test p664_17::constants_are_consistent ... ok
+test p664_17::add_sub_neg ... ok
+test p500_27::fp2_helpers ... ok
+test p664_17::constant_time_helpers ... ok
+test p324_3::inverse ... ok
+test p664_17::encode_decode ... ok
+test p664_17::fp2_batched_inverse_and_pow ... ok
+test p664_17::fp2_encode_decode ... ok
+test p664_17::small_multipliers ... ok
+test p664_17::mul_sqr ... ok
+test p664_17::fp2_helpers ... ok
+test p500_27::fp2_arithmetic ... ok
+test p324_3::square_roots ... ok
+test p324_3::fp2_square_roots ... ok
+test p664_17::fp2_arithmetic ... ok
+test p500_27::inverse ... ok
+test p500_27::square_roots ... ok
+test p664_17::inverse ... ok
+test p500_27::fp2_square_roots ... ok
+test p664_17::square_roots ... ok
+test p664_17::fp2_square_roots ... ok
+
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/theta_props.rs (target/release/build/sqisign-verify/245664de634133e2/out/theta_props-245664de634133e2)
+
+running 3 tests
+test p324_3 ... ok
+test p500_27 ... ok
+test p664_17 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests sqisign_rs
+
+running 1 test
+test crates/sqisign-rs/src/lib.rs - (line 19) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.08s
+
+   Doc-tests sqisign_verify
+
+running 1 test
+test crates/verify/src/lib.rs - (line 27) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
+
+
+real	0m54.823s
+user	1m46.703s
+sys	0m1.043s
