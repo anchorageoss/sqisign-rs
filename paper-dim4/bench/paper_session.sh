@@ -31,6 +31,10 @@ LOG="$OUT/session.log"
 say() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" | tee -a "$LOG"; }
 run() { say "+ $*"; "$@"; }
 
+# RESUME_FROM=<n>: continue a session in <out-dir> at pass n with the
+# binaries already built (their hashes are checked against binaries.sha256).
+RESUME_FROM="${RESUME_FROM:-0}"
+if [ "$RESUME_FROM" = 0 ]; then
 {
   echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "host kernel: $(uname -srm)"
@@ -55,12 +59,32 @@ run() { say "+ $*"; "$@"; }
 say "build from clean: release, lto fat, codegen-units 1 (Cargo.toml), no target-cpu"
 ( cd "$HERE" && run other cargo clean && run other cargo build --release --bin paper --bin paper_heap ) >> "$LOG" 2>&1 || { say "build failed"; exit 1; }
 sha256sum "$HERE/target/release/paper" "$HERE/target/release/paper_heap" "$REF"/build/apps/benchmark_p* | tee -a "$LOG" > "$OUT/binaries.sha256"
+else
+  say "resume at pass $RESUME_FROM with the binaries of binaries.sha256"
+  sha256sum -c "$OUT/binaries.sha256" >> "$LOG" 2>&1 || { say "the binaries changed since the session began"; exit 1; }
+fi
 
 # Wait until the 1-minute load average has been under the bound for five
 # minutes straight; exit 3 after thirty minutes without that.
 wait_quiet() {
   [ "${QUIET:-0}" = 1 ] || return 0
   local bound="${QUIET_LOAD:-0.10}" ok=0 waited=0
+  if [ "${QUIET_RULE:-samples}" = avg ]; then
+    # the averaged form of the same rule: the 1-minute and the 5-minute
+    # load averages both under the bound (thirty consecutive 10-second
+    # samples of the 1-minute average is the strict form)
+    say "waiting for quiet: 1-minute and 5-minute load averages under $bound"
+    while ! awk -v b="$bound" '{exit !($1 < b && $2 < b)}' /proc/loadavg; do
+      waited=$((waited + 10))
+      if [ $waited -gt 1800 ]; then
+        say "not quiet after 30 minutes: load $(cat /proc/loadavg)"
+        exit 3
+      fi
+      sleep 10
+    done
+    say "quiet: load $(cat /proc/loadavg) after ${waited} s"
+    return 0
+  fi
   say "waiting for quiet: 1-minute load under $bound for 300 s"
   while [ $ok -lt 30 ]; do
     if awk -v b="$bound" '{exit !($1 < b)}' /proc/loadavg; then ok=$((ok + 1)); else ok=0; fi
@@ -92,12 +116,14 @@ pass() {
 other vmstat -t 5 > "$OUT/vmstat.log" 2>&1 &
 VMSTAT=$!
 trap 'kill $VMSTAT 2>/dev/null' EXIT
-say "session start"
-pass 1
-pass 2
+if [ "$RESUME_FROM" -le 1 ]; then
+  say "session start"
+  pass 1
+fi
+if [ "$RESUME_FROM" -le 2 ]; then pass 2; fi
 if ! other python3 "$HERE/paper_report.py" "$OUT" --check-noise >> "$LOG" 2>&1; then
   say "a median moved by more than $PAPER_NOISE between the two passes: third pass"
-  pass 3
+  [ -d "$OUT/pass3/raw" ] || pass 3
 fi
 wait_quiet
 say "heap"

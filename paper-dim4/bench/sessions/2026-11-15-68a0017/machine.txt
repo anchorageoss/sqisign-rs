@@ -1,0 +1,107 @@
+date: 2026-11-14T23:46:46Z
+host kernel: Linux 6.12.110+ x86_64
+rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
+RUSTFLAGS: '' CARGO_BUILD_RUSTFLAGS: ''
+machine type: n2-standard-32
+pinned core: 13 (siblings: 13,29)
+governor: none exposed
+load before: 0.12 0.09 0.52 2/2202 3791591
+--- lscpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           46 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  32
+On-line CPU(s) list:                     0-31
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) CPU @ 2.80GHz
+CPU family:                              6
+Model:                                   85
+Thread(s) per core:                      2
+Core(s) per socket:                      8
+Socket(s):                               2
+Stepping:                                7
+BogoMIPS:                                5600.49
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch ssbd ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves arat avx512_vnni md_clear arch_capabilities
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               512 KiB (16 instances)
+L1i cache:                               512 KiB (16 instances)
+L2 cache:                                16 MiB (16 instances)
+L3 cache:                                66 MiB (2 instances)
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-7,16-23
+NUMA node1 CPU(s):                       8-15,24-31
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Mitigation; Aligned branch/return thunks
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Mitigation; Enhanced IBRS
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+Vulnerability Vmscape:                   Not affected
+--- /proc/meminfo (head)
+MemTotal:       132002464 kB
+MemFree:         7418064 kB
+MemAvailable:   120894756 kB
+Buffers:         4393456 kB
+Cached:         101899628 kB
+--- repository
+68a0017a5133e011bb1aeb25c01a1f72ea4c013a
+--- C reference
+nist-v3
+6d017708db403bf83977fa70770fc4f7f9e9ff21
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
+SQISIGN_BUILD_TYPE:UNINITIALIZED=broadwell
+--- busiest processes
+%CPU PSR COMMAND
+ 100   2 ps
+ 5.5   0 bash
+ 1.3  23 claude
+ 0.5  25 claude
+ 0.4  14 claude
+ 0.3  23 claude
+ 0.3   4 MainThread
+load before pass 1: 0.06 0.06 0.27 1/2209 3793784
+load after pass 1: 1.00 0.67 0.49 1/2204 3794333
+--- not quiet at 2026-11-15T00:35:35Z: load 0.03 0.04 0.10 1/2211 3797906
+%CPU PSR     PID     ELAPSED COMMAND
+ 1.2   8 3741426    03:28:03 /home/user/.vscode-server/extensions/anthropic.claude-code-2.1.325-linux-x64/resources/native-binary/claude --output-format stream-json --verbose --input-format stream-json --max-thinking-tokens=31999 --permission-prompt-tool=stdio --resume=ccb0a3dd-ec49-4976-bef3-962b22d1174d --setting-sources=user,project,local --debug --debug-to-stderr --enable-auth-status --no-chrome --replay-user-messages
+ 0.5  14 3240993  4-17:00:50 claude --permission-mode auto
+ 0.4  27 2462557 14-00:49:43 claude
+ 0.3   5 1904188 18-05:05:29 claude
+ 0.2  16 3737396    03:28:45 /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/node --dns-result-order=ipv4first /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=false
+ 0.1  20 1524991 20-04:06:34 /home/user/.vscode/cli/serve-web/e646868227c3e3a9e3f24277c8c7220be42c0be7/node /home/user/.vscode/cli/serve-web/e646868227c3e3a9e3f24277c8c7220be42c0be7/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261025T202852
+ 0.1   5 3555683  1-03:22:29 /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/node /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261113T211302
+ 0.1   4    2559 32-06:55:22 /usr/bin/python3 -m anchorid_workstation_agent run --relay-url wss://anchorid-relay-token.anchorage.services/v1/workstation --canonical-workstation-resource projects/508279026870/locations/us-west1/workstationClusters/cw-us-west1/workstationConfigs/us-west-power/workstations/w-dustinray-mv6y6065 --broker-origin https://anchorid.anchorage.services --relay-origin https://anchorid-relay-token.anchorage.services --broker-jwks /etc/anchorid/broker-jwks.json --broker-allowed-kid broker-protocol-v1 --state-directory /home/user/.local/state/anchorid-workstation-agent --control-socket /home/user/.local/state/anchorid-workstation-agent/control.sock --socket /run/user/1000/anchorid-agent.sock
+ 0.1  14 2330764 14-16:59:01 /home/user/.vscode/cli/serve-web/2c33b50b16c472efe58357d1d2a8a5414bc23fbf/node /home/user/.vscode/cli/serve-web/2c33b50b16c472efe58357d1d2a8a5414bc23fbf/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261031T073630
+ 0.1   5 3211923  5-01:41:43 /home/user/.vscode/cli/serve-web/c4453f8ea430795f941c1b2ff6c9321135a74a02/node /home/user/.vscode/cli/serve-web/c4453f8ea430795f941c1b2ff6c9321135a74a02/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261109T225348
+ 0.1  24 3773648    01:48:20 /home/user/.vscode-server/extensions/rust-lang.rust-analyzer-0.3.3113-linux-x64/server/rust-analyzer
+ 0.1  20 3555658  1-03:22:30 /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/node /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/out/bootstrap-fork --type=agentHost --logsPath /home/user/.vscode-server/data/logs/20261113T211302 --user-data-dir /home/user/.vscode-server/data --telemetry-level all
+ 0.0   7 2889190 10-00:31:08 /home/user/.vscode/cli/serve-web/a717861c07586a53d83b80d742cd3f59b20a6273/node /home/user/.vscode/cli/serve-web/a717861c07586a53d83b80d742cd3f59b20a6273/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261105T000422
+ 0.0  20 2715935 12-02:38:35 /home/user/.vscode/cli/serve-web/261c84cb1eddf11235f9e2c921425e9663fbe556/node /home/user/.vscode/cli/serve-web/261c84cb1eddf11235f9e2c921425e9663fbe556/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261102T215656
+ 0.0   4  768946 30-02:04:38 /home/user/.vscode/cli/serve-web/6d62b1d5dace93a33b3a6d3eca1317bd5e15bcb1/node /home/user/.vscode/cli/serve-web/6d62b1d5dace93a33b3a6d3eca1317bd5e15bcb1/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261015T223052
+ 0.0  22    3343 32-06:53:07 /home/user/.vscode/cli/serve-web/7baac39ec3ca969dab74ac12c097f6a486e46593/node /home/user/.vscode/cli/serve-web/7baac39ec3ca969dab74ac12c097f6a486e46593/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261013T174134
+ 0.0   1 1074108 24-09:45:09 /home/user/.vscode/cli/serve-web/2d0b7506a36c1d6db9a466440131a8e01eab2289/node /home/user/.vscode/cli/serve-web/2d0b7506a36c1d6db9a466440131a8e01eab2289/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261021T145018
+ 0.0  12  758951 30-06:36:23 /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/node_modules/@github/copilot-sdk-linux-x64/prebuilds/linux-x64/copilot-runtime --headless --no-auto-update --log-level info --stdio --no-auto-login
+ 0.0  15  445354 31-05:46:56 /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/node /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261014T184833
+ 0.0  15  445128 31-05:46:57 /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/node_modules/@github/copilot-sdk-linux-x64/prebuilds/linux-x64/copilot-runtime --headless --no-auto-update --log-level info --stdio --no-auto-login
+ 0.0   0    2675 32-06:53:58 /home/user/.vscode/cli/serve-web/7baac39ec3ca969dab74ac12c097f6a486e46593/node_modules/@github/copilot-sdk-linux-x64/prebuilds/linux-x64/copilot-runtime --headless --no-auto-update --log-level info --stdio --no-auto-login
+ 0.0  18 3555627  1-03:22:33 /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/node /home/user/.vscode/cli/serve-web/69047191fc427f2f92828279aae1d90d8eeda7ab/out/server-main.js --socket-path /tmp/code-11277443-b0c1-4b4f-8ac9-91e156525bc9 --accept-server-license-terms --without-connection-token
+ 0.0   3  759072 30-06:36:21 /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/node /home/user/.vscode/cli/serve-web/16507d91be0dc1ce4f94c04d4d0430210b8685d9/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261015T175908
+ 0.0  23 1017874 25-05:32:38 /home/user/.vscode/cli/serve-web/6d62b1d5dace93a33b3a6d3eca1317bd5e15bcb1/node /home/user/.vscode/cli/serve-web/6d62b1d5dace93a33b3a6d3eca1317bd5e15bcb1/out/bootstrap-fork --type=ptyHost --logsPath /home/user/.vscode-server/data/logs/20261020T190252
+load before pass 2: 0.01 0.03 0.09 1/2204 3798044
+load after pass 2: 1.16 0.75 0.40 1/2196 3798679
+load before pass 3: 0.00 0.09 0.19 1/2197 3799902
+load after pass 3: 1.00 0.70 0.43 1/2197 3800456
