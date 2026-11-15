@@ -1,10 +1,11 @@
-\documentclass[version=preprint,notanonymous]{iacrcc}
+\documentclass[version=submission]{iacrcc}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
 \usepackage{microtype}
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{float}
+\usepackage{comment}
 
 \newcommand{\Fp}{\mathbb{F}_p}
 \newcommand{\Fpq}{\mathbb{F}_{p^2}}
@@ -19,7 +20,7 @@
 \newcommand{\SQIsign}{{SQI}\textsc{sign}}
 \newcommand{\Z}{\mathbb{Z}}
 
-\title{A note on signature compression for {SQIsign} via Weil pairing recovery}
+\title{Compressing {SQIsign} signatures with the {Weil} pairing}
 
 \addauthor[inst     = {1},
            email    = {dustin@anchorage.com},
@@ -47,55 +48,128 @@
 
 \maketitle
 
+\keywords[SQIsign, signature compression, Weil pairing, isogeny-based cryptography]{{\SQIsign}, signature compression, {Weil} pairing, isogeny-based cryptography}
+
 \begin{abstract}
-{\SQIsign} round 3 transmits the full change-of-basis matrix of the
-response. This note states and proves, from the specification's own
-definitions, the Weil pairing relation that recovers one dropped entry of
-that matrix. It gives the pivot rule and a bit-packed layout, and says
-which pairing works and why. Sizes on the NIST known-answer vectors:
-200 to 174 bytes at level~I,
-306 to 267 at level~III,
-and 406 to 353 at level~V,
-13\%; the recovery adds 18\% to a level~I verification.
+{\SQIsign} has the most compact combined public key and signature among
+post-quantum signature schemes, yet its round-3 specification, enlarged
+after Wesolowski's attack on the supersingular isogeny problem, transmits
+all four entries of a change-of-basis matrix in every signature. We prove
+that two Weil pairings on bases the verifier already computes yield all
+but one bit of the matrix's determinant, so one entry can be dropped and
+recovered from the other three. With three extra bits, decompression
+returns the signer's exact signature, leaving verification and its
+security reduction unchanged. Signatures shrink by 13\%: from 200 to 174
+bytes at level~I, half the growth over the round-2 specification, 306 to 267 at
+level~III, and 406 to 352 at level~V. In our implementation,
+decompression slows level-I verification by 18\%, or 15\% with one Tate
+pairing per curve. All claims are checked on the 300 NIST known-answer
+vectors. The change affects only the encoding and could be adopted in a
+future revision of the specification without altering the scheme.
 \end{abstract}
 
 \begin{textabstract}
-SQIsign round 3 transmits the full change-of-basis matrix of the
-response. This note states and proves, from the specification's own
-definitions, the Weil pairing relation that recovers one dropped entry of
-that matrix. It gives the pivot rule and a bit-packed layout, and says
-which pairing works and why. Sizes on the NIST known-answer vectors:
-200 to 174 bytes at level I,
-306 to 267 at level III,
-and 406 to 353 at level V,
-13 percent; the recovery adds 18 percent to a level I verification.
+SQIsign has the most compact combined public key and signature among
+post-quantum signature schemes, yet its round-3 specification, enlarged
+after Wesolowski's attack on the supersingular isogeny problem, transmits
+all four entries of a change-of-basis matrix in every signature. We prove
+that two Weil pairings on bases the verifier already computes yield all
+but one bit of the matrix's determinant, so one entry can be dropped and
+recovered from the other three. With three extra bits, decompression
+returns the signer's exact signature, leaving verification and its
+security reduction unchanged. Signatures shrink by 13 percent: from 200
+to 174 bytes at level I, half the growth over the round-2 specification, 306 to
+267 at level III, and 406 to 352 at level V. In our implementation,
+decompression slows level-I verification by 18 percent, or 15 percent
+with one Tate pairing per curve. All claims are checked on the 300 NIST
+known-answer vectors. The change affects only the encoding and could be
+adopted in a future revision of the specification without altering the
+scheme.
 \end{textabstract}
 
 %% ============================================================
-\section{Purpose}
-\label{sec:purpose}
+\section{Introduction}
+\label{sec:intro}
 %% ============================================================
 
-Dropping one entry of a torsion-basis matrix and recovering it from the
-Weil pairing was introduced by Basso, Maino and Pope for
-FESTA~\cite{festa}. It is used in QFESTA~\cite{qfesta} and in
-{\SQIsign}HD~\cite{sqisignhd}. The SIDH key-compression literature
-recovers scalars from pairings in the same
-way~\cite{costello-compression,zanon2018,pereira-barreto}. The round-3
-specification of {\SQIsign}~\cite{sqisign-spec-r3} transmits all four
-entries of $\Mm_{\mathrm{chl}}$ (Chapter~6).
-The formula for its two-dimensional response~\cite{sqisign2d-west} does not appear to have ever been stated explicitly in the literature.
+Large-scale quantum computers would break all RSA and elliptic-curve signatures in use today, and the move to post-quantum signatures is under way.
+NIST has standardized the lattice-based ML-DSA~\cite{fips204} and the hash-based SLH-DSA~\cite{fips205} signature schemes, and has selected the lattice-based Falcon scheme for standardization as FN-DSA.
+It has also opened a separate process for additional signature
+schemes~\cite{nist-onramp}, seeking further post-quantum schemes that rely on other security assumptions or that offer a different performance profile, short signatures in particular.
+Indeed, size is the price of the current standards: at its smallest parameter set an ML-DSA signature takes 2420 bytes and its public key 1312~\cite{fips204}, against 64 and 32 bytes for the quantum-vulnerable Ed25519.
+Wherever signatures are transmitted or stored many times over, as in certificate chains, firmware updates, constrained links and public ledgers that keep every signature indefinitely, that difference is paid in bandwidth and storage.
 
-We wrote it down for the maintainers on 8~July 2026, during round 2, as
-issue~19 of the reference repository~\cite{issue19}. Luca De~Feo replied
-for the team that ``we may introduce some compression in round 3,
-depending on performance''. On 7~October 2026 he added that ``we will give
-a closer look at compression for the next round''. This note proves the
-formula from the specification's definitions and records what follows
-from it. That is a pivot rule, a bit-packed layout, the choice of pairing,
-and the sizes and costs measured with our Rust
-implementation~\cite{sqisign-rs} on the NIST known-answer vectors.
-% source: github.com/SQISign/the-sqisign/issues/19, read 2026-10-22.
+{\SQIsign}~\cite{sqisign-spec-r3}, a candidate in that process, makes
+the opposite trade-off.
+Its security rests on the hardness of computing the endomorphism ring of a supersingular elliptic curve, a number-theoretic problem unrelated to lattices and hash functions, and according to its designers it has the smallest combined public key and signature of any post-quantum signature scheme~\cite[Section~1.1]{sqisign-spec-r3}: in version 3.0 of its specification, submitted to the third round of NIST's process and called v3.0 below, it takes 83 and 200 bytes at level~I, 283 bytes together against 1563 for Falcon-512 (897 and 666~\cite{falcon}) and 3732 for ML-DSA-44 (category 2).
+% source: Falcon-512 public key 897 and signature 666 bytes (Falcon
+% specification v1.2, parameter table; the FN-DSA drafts list the same);
+% ML-DSA-44 1312 and 2420 (FIPS 204, Table 2); SQIsign 83 and 200 (spec
+% v3.0, Table 1); 897 + 666 = 1563, 1312 + 2420 = 3732, 83 + 200 = 283.
+Its historical drawback was speed.
+To address that, {\SQIsign}HD~\cite{sqisignhd} introduced higher-dimensional representations of the response isogeny, and {\SQIsign}2D-West~\cite{sqisign2d-west} brought them down to dimension two (with better security properties), turning verification into the evaluation of a chain of $(2,2)$-isogenies; that design became the basis of version 2.0 of the specification~\cite{sqisign-spec-r2}, submitted to the second round and called v2.0 below.
+Version 3.0 adds a redesigned quaternion arithmetic, a new ideal-to-isogeny algorithm and improved isogeny formulas~\cite[Section~1.4]{sqisign-spec-r3}, and its optimized implementation signs in about 27.6~ms and verifies in about 3.6~ms at level~I on an Intel Core i7-13700K~\cite[Section~1.1]{sqisign-spec-r3}.
+
+Those sizes are now under pressure. Wesolowski's algorithm for the
+supersingular isogeny problem in time and memory $p^{1/3 + o(1)}$~\cite{wes26} led v3.0 to enlarge its primes, at level~I from $5 \cdot 2^{248} - 1$ to $3 \cdot 2^{324} - 1$, at the cost of a $1.5$ to $2\times$ slow-down in
+verification~\cite[Section~1.4]{sqisign-spec-r3}.
+Together with a new distribution of responses, which adds $\lambda / 8$ bytes, this grows the level-I signature from 148 bytes in v2.0 to 200 in v3.0.
+For a scheme whose case rests on size, every byte counts.
+Yet the specification transmits in full the change-of-basis matrix $\Mm_{\mathrm{chl}}$ that links the response to the challenge curve, all four of its entries~\cite[Chapter~6]{sqisign-spec-r3}, although a pairing relation determines all but one bit of one of them from the other three.
+Dropping one entry of a torsion-basis matrix and recovering it from the Weil pairing was introduced by Basso, Maino and Pope for FESTA~\cite{festa}, and is used in QFESTA~\cite{qfesta} and in {\SQIsign}HD~\cite{sqisignhd}; the SIDH key-compression literature recovers scalars from pairings in the same way~\cite{costello-compression,zanon2018,pereira-barreto}.
+The relation for the two-dimensional response of {\SQIsign}, however, does not appear to have been stated explicitly in the literature.
+\begin{comment}
+We sent it to the maintainers on 8~July 2026, during round 2, as issue~19 of the reference
+repository~\cite{issue19}.
+Luca De~Feo replied for the team that ``we may introduce some compression in round 3, depending on performance'', and on 7~October 2026 added that ``we will give a closer look at compression for
+the next round''.
+\end{comment}
+
+% source: github.com/SQISign/the-sqisign/issues/19, read 2026-10-22;
+% sqisign-spec-r3 Sections 1.1 (sizes, ratios, timings) and 1.4 (Wes26,
+% slow-down, lambda/8 bytes).
+
+\paragraph{Contributions.}
+We fill that gap for v3.0. In short, one of the four matrix entries can be dropped at the price of three bits, shrinking signatures by 13\% with no change to how signatures are computed, to the verifier's checks, or to the security argument.
+Our contributions are the following:
+\begin{itemize}
+  \item A proof, from the specification's own definitions, that two Weil
+  pairings on the verifier's bases determine $\det \Mm_{\mathrm{chl}}$
+  modulo $2^{\ers + 1}$, leaving exactly one bit free (Theorem~\ref{thm:main}); the statement covers v2.0 as well.
+  \item A pivot rule that selects the entry to drop, and its recovery
+  from the other three; with three extra bits (the free bit and two top bits that the normal form does not fix), decompression returns the signer's signature, so the standard security reduction
+  applies unchanged.
+  \item A bit-packed format of 174, 267 and 352 bytes at levels I, III
+  and V, against 200, 306 and 406, a saving of 13\%; at level~I it
+  recovers half of the growth from v2.0 to v3.0.
+  \item The choice of pairing: no Tate pairing on the verifier's bases
+  can recover the entry, whereas one Tate ladder per curve on the
+  full-order bases can, from a proven threshold that is tight on the
+  test vectors, making the pairing stage 16\% cheaper than with the Weil
+  pairing.
+  \item The observation that the inputs the verifier passes to the
+  $(2,2)$-chain are not isotropic at full level, contrary to the
+  specification's description, and why this is harmless.
+  %\item An implementation in Rust~\cite{artifact}, with costs (the recovery adds 18\% to a level-I verification, 15\% with the Tate  ladder) and checks on all 300 NIST known-answer vectors.
+\end{itemize}
+We also implemented compression with the above techniques in Rust~\cite{artifact}, measured its costs
+%(namely, that the recovery adds 18\% to a level-I verification, 15\% with the Tate  ladder)
+and checked it on all 300 NIST known-answer vectors.
+% numbers to recheck after the rerun with the new format: 18% and 15%
+% (Section 7), and the round-trip claim (Section 8).
+
+The remainder of this paper is organized as follows.
+Section~\ref{sec:notation} fixes notation and the parameters of v3.0.
+Section~\ref{sec:formula} states and proves the pairing relation, discusses the isotropy of the chain's inputs, and accounts for the one bit the pairings cannot reach.
+Section~\ref{sec:recover} gives the pivot rule and the recovery of the dropped entry, and
+Section~\ref{sec:format} explores the compressed format and its sizes.
+Section~\ref{sec:pairing} compares the Weil and Tate pairings for the
+recovery and derives the Tate threshold.
+In Section~\ref{sec:cost} we measure
+the cost of decompression within verification, and
+Section~\ref{sec:checked} lists the checks run on the known-answer
+vectors.
+We conclude in Section~\ref{sec:conc}.
 
 %% ============================================================
 \section{Notation}
@@ -103,10 +177,10 @@ implementation~\cite{sqisign-rs} on the NIST known-answer vectors.
 %% ============================================================
 
 Curves, isogenies, the deterministic torsion bases and the Tate pairing
-are those of Chapters 3 and 4 of the round-3
+are those of Chapters 3 and 4 of the v3.0
 specification~\cite{sqisign-spec-r3}, which writes $f$ for the 2-adic
 valuation of $p + 1$; we write $F$. The Weil pairing on an elliptic curve,
-which the round-3 specification uses only on abelian surfaces
+which the v3.0 specification uses only on abelian surfaces
 (Definition~4.5.3), is that of Section~2.2.5.1 of the v2.0
 specification~\cite{sqisign-spec-r2} and of~\cite[III.8]{silverman}. Per
 level: $\lambda = 128, 192, 256$; $c = 3, 27, 17$; $F = 324, 500, 664$;
@@ -120,17 +194,17 @@ $\ers = 196, 302, 400$.
 \toprule
 \textbf{Symbol} & \textbf{Meaning} \\
 \midrule
-$p$, $F$, $c$ & $p = c \cdot 2^F - 1$ with $c$ odd, $F = v_2(p + 1)$; Section~5.2. \\
-$\lambda$ & The security parameter and the bit length of the challenge; Table~5. \\
-$\ers$ & $\lceil \log_2 (p) / 2 \rceil + \lambda / 4 + 1$, the response exponent; Table~5. \\
-$\nbt$, $\rrs$ & Zero in round 3. In v2.0, the backtracking count and $v_2(\deg \varphi_{\mathrm{rsp}})$, both in the signature (\cite{sqisign-spec-r2}, Section~4.4.3); kept so that Theorem~\ref{thm:main} covers both rounds. \\
-$N$ & $\ers - \nbt + 2$, the bit width of a matrix entry; Algorithm~3.24, line~3. Round 3: $\ers + 2$. \\
-$g$ & $N - 1 = \ers - \nbt + 1$, the number of bits of $\det \Mm$ the pairings determine (Theorem~\ref{thm:main}). Round 3: $\ers + 1$. \\
-$(P_0, Q_0)$ & The fixed basis of $E_0[2^F]$; Section~3.2. \\
+$p$, $F$, $c$ & $p = c \cdot 2^F - 1$ with $c$ odd, $F = v_2(p + 1)$; \cite[Section~5.2]{sqisign-spec-r3}. \\
+$\lambda$ & The security parameter and the bit length of the challenge; \cite[Table~5]{sqisign-spec-r3}. \\
+$\ers$ & $\lceil \log_2 (p) / 2 \rceil + \lambda / 4 + 1$, the response exponent; \cite[Table~5]{sqisign-spec-r3}. \\
+$\nbt$, $\rrs$ & Zero in v3.0. In v2.0, the backtracking count and $v_2(\deg \varphi_{\mathrm{rsp}})$, both in the signature (\cite{sqisign-spec-r2}, Section~4.4.3); kept so that Theorem~\ref{thm:main} covers both versions. \\
+$N$ & $\ers - \nbt + 2$, the bit width of a matrix entry; Algorithm~3.24, line~3. In v3.0: $\ers + 2$. \\
+$g$ & $N - 1 = \ers - \nbt + 1$, the number of bits of $\det \Mm$ the pairings determine (Theorem~\ref{thm:main}). In v3.0: $\ers + 1$. \\
+$(P_0, Q_0)$ & The fixed basis of $E_0[2^F]$; \cite[Section~3.2]{sqisign-spec-r3}. \\
 $\Epk, \Ecom, \Echl, \Eaux$ & Public-key, commitment, challenge and auxiliary curves. \\
 $(A, B)$ & $\mathrm{TorsionBasisFromHint}(\Echl, \ers + 2, \mathsf{hint}_{\mathrm{chl}})$, the deterministic basis of $\Echl[2^N]$; Algorithm~3.24, line~10. \\
 $(C, D)$ & The same on $\Eaux$ (line~9), of order $2^N$; in v2.0 of order $2^{N - \rrs}$. \\
-$\Mm$ & $\Mm_{\mathrm{chl}}$, entries $M_{00}, M_{01}, M_{10}, M_{11}$ in wire order, in $[0, 2^N)$ and normalised (lines 3 and 4). \\
+$\Mm$ & $\Mm_{\mathrm{chl}}$, entries $M_{00}, M_{01}, M_{10}, M_{11}$ in wire order, in $[0, 2^N)$ and normalized (lines 3 and 4). \\
 $P$, $Q$ & $(A, B) \cdot \Mm = ([M_{00}] A + [M_{10}] B,\; [M_{01}] A + [M_{11}] B)$; Algorithm~3.7 (ActOnBasis), called at line~11. \\
 $e_n$, $\mu_n$ & The Weil pairing of order $n$; the $n$-th roots of unity in $\Fpq^*$. \\
 $\omega$, $\eta$ & $e_{2^N}(A, B)$ and $e_{2^{N - \rrs}}(C, D)$, both of exact order. \\
@@ -138,20 +212,19 @@ $\omega$, $\eta$ & $e_{2^N}(A, B)$ and $e_{2^{N - \rrs}}(C, D)$, both of exact o
 \end{tabular}
 \end{center}
 
-ActOnBasis takes the matrix columns as the coefficients of the new
-points, which is the reference implementation's convention; Section~1.4
+ActOnBasis takes the matrix columns as the coefficients of the new points, which is the convention of Equation~(1) of the v3.0 specification; Section~1.4
 of the v2.0 specification writes the same product with $(A, B)$ as a column
 vector, which transposes the index names and changes nothing else.
 
 %% ============================================================
-\section{The formula and its proof}
+\section{The determinant relation}
 \label{sec:formula}
 %% ============================================================
 
 \paragraph{What the matrix records.}
 The signer (Algorithm~3.23 of~\cite{sqisign-spec-r3}, lines 15 to 19)
 produces a response $\varphi_{\mathrm{rsp}} : \Ecom \to \Echl$ of odd
-degree $q$ (Algorithm~3.18; Section~9.5) and an auxiliary isogeny
+degree $q$ (Algorithm~3.18; \cite[Section~9.5]{sqisign-spec-r3}) and an auxiliary isogeny
 $\varphi_{\mathrm{aux}} : \Ecom \to \Eaux$ of degree $2^{\ers} - q$
 (Algorithm~3.21, line~3). Algorithm~3.21 (lines 10 to 12) scales the
 commitment basis to $(P_{\mathrm{com}}, Q_{\mathrm{com}}) = [2^{F - N}]
@@ -171,11 +244,11 @@ $\Mm_{\mathrm{chl}}$ with $B_{\mathrm{chl}} \cdot \Mm_1^{-1} = (A, B)
 degree $2^{\rrs}$ and $\nbt$ backtracking steps, and the auxiliary basis
 is scaled to order $2^{N - \rrs}$ (\cite{sqisign-spec-r2}, Algorithms 4.2,
 4.8 and 4.9); we carry $\rrs$ and $\nbt$ through so that the statements
-below hold there too. In round 3 both are zero.
+below hold there too. In v3.0 both are zero.
 
 \begin{lemma}
 \label{lem:records}
-For a signature the signer produced there is a basis $(R, S)$ of
+For an honestly generated signature there is a basis $(R, S)$ of
 $\Ecom[2^N]$ with $P = \varphi_{\mathrm{rsp}}(R)$, $Q =
 \varphi_{\mathrm{rsp}}(S)$, $C = \varphi_{\mathrm{aux}}([2^{\rrs}] R)$
 and $D = \varphi_{\mathrm{aux}}([2^{\rrs}] S)$.
@@ -194,10 +267,9 @@ of $\varphi_{\mathrm{aux}}(R, S)$.
 \end{proof}
 
 \paragraph{Pairing facts.}
-For $n$ coprime to $p$, $T, U \in E[n]$ and an isogeny $\varphi$
-\cite[III.8.1 and III.8.2]{silverman}, the following properties hold:
+For $n$ coprime to $p$, $T, U \in E[n]$ and an isogeny $\varphi$, the following properties hold~\cite[III.8.1 and III.8.2]{silverman}:
 \begin{itemize}
-    \item[(W1)] bilinearity: $e([\alpha]T,U) = e(T,[\alpha]U) = e(T,U)^{\alpha}$, $\forall\alpha \in \Z/n$;
+    \item[(W1)] bilinearity: $e_n([\alpha]T,U) = e_n(T,[\alpha]U) = e_n(T,U)^{\alpha}$, $\forall\alpha \in \Z/n$;
     \item[(W2)] alternation: $e_n(T, T) = 1$, hence $e_n(T, U) = e_n(U, T)^{-1}$;
     \item[(W3)] $e_n(\varphi(T), \varphi(U)) = e_n(T, U)^{\deg \varphi}$;
     \item[(W4)] for $T \in E[mn]$ and $U \in E[n]$, $e_{mn}(T, U) = e_n([m] T, U)$;
@@ -206,15 +278,13 @@ For $n$ coprime to $p$, $T, U \in E[n]$ and an isogeny $\varphi$
 
 \begin{theorem}[Weil pairing determinant recovery]
 \label{thm:main}
-For a signature the signer produced, $\omega^{\det \Mm} \cdot \eta$ is a
+For an honestly generated signature, $\omega^{\det \Mm} \cdot \eta$ is a
 primitive fourth root of unity. Consequently, with $\log_\omega$ the
 discrete logarithm in $\mu_{2^N} = \langle \omega \rangle$,
 \[
   \det \Mm \;\equiv\; \log_{\omega}\bigl(\eta^{-1}\bigr) + 2^{g - 1}
   \pmod{2^{g}}, \qquad g = N - 1 = \ers - \nbt + 1.
 \]
-The modulus is $2^g$, the base is $\omega = e_{2^N}(A, B)$, and the
-argument is $\eta^{-1}$, not $\eta$.
 \end{theorem}
 
 \begin{proof}
@@ -243,7 +313,7 @@ $m = 2^{\rrs}$, $n = 2^{N - \rrs}$, and then (W1),
 \zeta$; the sum of the degrees is the Kani condition of
 Algorithm~3.20~\cite{kani}. Since $\rho$ has order $2^N$, $\zeta$ has
 order exactly $4$.
-\emph{Step 5.} $\eta^{-1} \in \mu_{2^N} = \langle \omega \rangle$, so $y
+\emph{Step 5.} $\eta$ has order dividing $2^{N - \rrs}$, and $\omega$ generates $\mu_{2^N}$ by (W5), so $\eta^{-1} \in \langle \omega \rangle$ and $y
 = \log_\omega(\eta^{-1}) \in \mathbb{Z}/2^N\mathbb{Z}$ is defined, and
 $\zeta = \omega^{2^{N - 2} u}$ for some $u \in \{1, 3\}$. Step~4 reads
 \begin{equation}
@@ -254,9 +324,11 @@ Since $u$ is odd, $2^{N - 2} u \equiv 2^{N - 2} \pmod{2^{N - 1}}$, and
 reducing modulo $2^{N - 1} = 2^g$ gives the formula.
 \end{proof}
 
-\begin{remark}[Inputs to the 2D-isogeny chain are not isotropic at full level]
+In an implementation, note that the logarithm is of $\eta^{-1}$, not $\eta$, to the base $\omega = e_{2^N}(A, B)$.
+
+\begin{remark}[Inputs to the $(2,2)$-chain are not isotropic at full level]
 \label{rem:isotropy}
-In round 3 the verifier passes $T_1 = (P, C)$ and $T_2 = (Q, D)$ to the
+In v3.0 the verifier passes $T_1 = (P, C)$ and $T_2 = (Q, D)$ to the
 $(2,2)$-chain (Algorithm~3.24, line~12, and Algorithm~4.133, lines 1
 and 2, of the {\SQIsign} specification).
 The Weil pairing on $\Echl \times \Eaux$
@@ -267,15 +339,13 @@ is the product of the two curves' pairings, so
 \]
 a primitive fourth root of unity by Theorem~\ref{thm:main}, whereas
 Section~4.5.4.1 of the specification asks for
-$w_{2^{e+2}}(T_1, T_2) = 1$, with $e + 2 = N$. This does not affect the
+$w_{2^{e+2}}(T_1, T_2) = 1$, with the specification's $e = \ers$. This does not affect the
 chain: its kernel $\langle [4] T_1, [4] T_2 \rangle$ is isotropic, since
 (W4) and (W1), applied componentwise, give
 $w_{2^{N-2}}([4] T_1, [4] T_2) = w_{2^N}(T_1, T_2)^4 = \zeta^4 = 1$.
 The order-4 value is forced: by Lemma~\ref{lem:records}, $T_1$ and $T_2$
 are the images of $R$ and $S$ under
-$x \mapsto (\varphi_{\mathrm{rsp}}(x), \varphi_{\mathrm{aux}}(x))$, which
-multiplies the pairing by
-$\deg \varphi_{\mathrm{rsp}} + \deg \varphi_{\mathrm{aux}} = 2^{N-2}$.
+$x \mapsto (\varphi_{\mathrm{rsp}}(x), \varphi_{\mathrm{aux}}(x))$, which raises the pairing to the power $\deg \varphi_{\mathrm{rsp}} + \deg \varphi_{\mathrm{aux}} = 2^{N-2}$.
 Inputs of the form of Equation~(28) of the specification are isotropic
 at full level because of a correction factor $1 - \nu_2 2^e$ that the
 verifier does not apply. The value $\zeta$ is confirmed on all 300
@@ -285,7 +355,7 @@ vectors, all of which verify (Table~\ref{tab:checked}).
 \begin{corollary}
 \label{cor:valuation}
 $v_2(\det \Mm) = \rrs$; in particular $\det \Mm$ is odd if and only if
-$\rrs = 0$, which is always the case in the round 3 version of {\SQIsign}.
+$\rrs = 0$, which is always the case in v3.0.
 \end{corollary}
 
 \begin{proof}
@@ -313,7 +383,7 @@ $u = 1$ or $u = 3$.
 
 \begin{proposition}
 \label{prop:pivot}
-For a signature the signer produced in round 3, $M_{00}$ and $M_{01}$ are
+For an honestly generated signature under v3.0, $M_{00}$ and $M_{01}$ are
 not both even.
 \end{proposition}
 
@@ -322,7 +392,7 @@ $\det \Mm = M_{00} M_{11} - M_{01} M_{10}$ is odd by
 Corollary~\ref{cor:valuation} with $\rrs = 0$.
 \end{proof}
 
-With $\det \Mm \bmod 2^g = y + 2^{g - 1}$ from Theorem~\ref{thm:main}
+With $\det \Mm \equiv y + 2^{g - 1} \pmod{2^g}$ from Theorem~\ref{thm:main}
 and three entries, the fourth follows modulo $2^g$. If $M_{00}$ is odd
 the compressor drops $M_{11}$ and the decompressor computes
 \begin{equation}
@@ -345,18 +415,18 @@ The top bit of the dropped entry, bit $N - 1 = \ers + 1$, is outside the recover
 \label{sec:format}
 %% ============================================================
 
-The round-3 specification~\cite{sqisign-spec-r3} has primes $3 \cdot
+The v3.0 specification~\cite{sqisign-spec-r3} has primes $3 \cdot
 2^{324} - 1$, $27 \cdot 2^{500} - 1$, $17 \cdot 2^{664} - 1$
-(Section~5.2, after~\cite{wes26}), a response of odd degree with no even
-part and no backtracking count (Algorithm~3.18; Section~9.5), $\ers =
-196, 302, 400$ (Table~5), both bases of order $2^{\ers + 2}$
-(Algorithm~3.24, lines 9 and 10), and the matrix normalised to the
+(\cite[Section~5.2]{sqisign-spec-r3}, after~\cite{wes26}), a response of odd degree with no even
+part and no backtracking count (Algorithm~3.18; \cite[Section~9.5]{sqisign-spec-r3}), $\ers =
+196, 302, 400$ (\cite[Table~5]{sqisign-spec-r3}), both bases of order $2^{\ers + 2}$
+(Algorithm~3.24, lines 9 and 10), and the matrix normalized to the
 lexicographically smaller of $\Mm$ and $-\Mm$ (Algorithm~3.10, checked at
 line~4 of Algorithm~3.24; the sign freedom of~\cite{aux-freedom}). The
 signature is $(\mathsf{chl}, \Eaux, \Mm_{\mathrm{chl}},
 \mathsf{hint}_{\mathrm{aux}}, \mathsf{hint}_{\mathrm{chl}})$ in $2 \cdot
 \texttt{FP} + 4 \lceil (\ers + 2)/8 \rceil + \lambda / 8 + 2$ bytes
-(Chapter~6, Table~11), with $\texttt{FP} = \lceil \log_2 (p) / 8 \rceil =
+(\cite[Chapter~6, Table~11]{sqisign-spec-r3}), with $\texttt{FP} = \lceil \log_2 (p) / 8 \rceil =
 41, 64, 84$. Theorem~\ref{thm:main} applies with $N = \ers + 2$ and $g =
 \ers + 1$.
 % source: sqisign-spec-r3 Section 5.2, Table 5, Algorithms 3.10, 3.18,
@@ -365,21 +435,18 @@ signature is $(\mathsf{chl}, \Eaux, \Mm_{\mathrm{chl}},
 \paragraph{The compressed signature.}
 Table~\ref{tab:layout3} is the compressed signature: one bit string, bit $i$ of the string being bit $i \bmod 8$ of byte $\lfloor i / 8 \rfloor$, each field the low bits of its little-endian integer.
 The two coordinates of $A_{\mathrm{aux}}$ take $\lceil \log_2 p \rceil$ bits each,
-the three transmitted matrix entries $\ers + 2$ bits each,
-the top bit of the dropped entry one bit,
-the challenge $\lambda$ bits, the two hints 8 bits each,
-and the string is padded with zero bits to a byte boundary.
+the three transmitted matrix entries their low $\ers + 1$ bits each, and three top bits: bit $\ers + 1$ of the dropped entry and of two of the transmitted entries; the challenge takes $\lambda$ bits and the two hints 8 bits each, and the string is padded with zero bits to a byte boundary.
+The third transmitted entry's top bit need not be sent: it is the first entry in wire order whose low $\ers + 1$ bits are not all zero, which the signer's normalization (Algorithm~3.10) leaves with top bit zero, and the decoder identifies it the same way.
 The decoder rejects a wrong length, a coordinate at or above $p$, a non-zero padding bit, and
 $M_{00}$ and $M_{01}$ both even.
-% source: crates/verify/src/compressed.rs at sqisign-rs 0.7 (branch
-% fix/compressed-nbt): compressed_bits() = 2 fp_bits + 3 (rb + 1) + lambda
-% + 16 with fp_bits = 326 / 505 / 669, rb = 196 / 302 / 400, lambda = 128 /
-% 192 / 256; compressed_bytes() rounds up to 174 / 266 / 352.
+% source: compressed.rs in the artifact: compressed_bits() = 2 fp_bits + 3 (rb + 1) + 3 +
+% lambda + 16 with fp_bits = 326 / 505 / 669, rb = 196 / 302 / 400, lambda
+% = 128 / 192 / 256; compressed_bytes() rounds up to 174 / 267 / 352.
 
 \begin{table}[H]
 \centering
-\caption{The round-3 compressed signature: $2 \lceil \log_2 p \rceil + 3
-(\ers + 2) + 1 + \lambda + 16$ bits, zero-padded to 174 / 267 / 353 bytes.}
+\caption{The v3.0 compressed signature: $2 \lceil \log_2 p \rceil + 3
+(\ers + 1) + 3 + \lambda + 16$ bits, zero-padded to 174 / 267 / 352 bytes.}
 \label{tab:layout3}
 \footnotesize
 \begin{tabular}{l r p{5.6cm}}
@@ -387,13 +454,13 @@ $M_{00}$ and $M_{01}$ both even.
 \textbf{Field} & \textbf{Bits (I / III / V)} & \textbf{Content} \\
 \midrule
 $A_{\mathrm{aux}}$ & $2 \times$ 326 / 505 / 669 & real then imaginary part of the Montgomery coefficient, each in $[0, p)$ \\
-$M_{00}$, $M_{01}$, $M_{\mathrm{var}}$ & $3 \times$ 198 / 304 / 402 & the full entries; $M_{\mathrm{var}} = M_{10}$ if $M_{00}$ is odd, else $M_{11}$ \\
-$\mathsf{top}$ & 1 & bit $\ers + 1$ of the dropped entry \\
+$M_{00}$, $M_{01}$, $M_{\mathrm{var}}$ & $3 \times$ 197 / 303 / 401 & the low $\ers + 1$ bits; $M_{\mathrm{var}} = M_{10}$ if $M_{00}$ is odd, else $M_{11}$ \\
+top bits & 3 & bit $\ers + 1$ of the dropped entry, then of the two transmitted entries other than the normalizing one, in wire order \\
 $\mathsf{chl}$ & 128 / 192 / 256 & the challenge, as in the standard format \\
 $\mathsf{hint}_{\mathrm{aux}}$, $\mathsf{hint}_{\mathrm{chl}}$ & $8 + 8$ & as in the standard format \\
-padding & 1 / 5 / 7 & zero \\
+padding & 2 / 6 / 0 & zero \\
 \midrule
-total & 1392 / 2136 / 2824 & 174 / 267 / 353 bytes \\
+total & 1392 / 2136 / 2816 & 174 / 267 / 352 bytes \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -404,13 +471,13 @@ bit is transmitted, so the decompressed matrix is the signer's, and the verifier
 \paragraph{Sizes.}
 Table~\ref{tab:sizes} gives the standard and compressed sizes.
 Decompression is a deterministic public map that returns the signer's signature, so the compressed verifier accepts exactly when the standard verifier accepts that signature, and the security reduction for the standard format~\cite{sqisign-security} applies unchanged.
-The two hint bytes could be dropped as well, since the decompressor builds both curves and can run TorsionBasisToHint on them (the recomputed hints equal the transmitted ones on 300 of 300 vectors, \S\ref{sec:checked}), for 172 / 265 / 351 bytes; we keep them, as the specification does, because they are what makes the verifier's bases cheap (Section~3.4.3).
-% source: without the hints the bit string is 1375 / 2115 / 2801 bits,
-% ceil(/8) = 172 / 265 / 351; hint equality from task1_formula_audit.txt.
+The two hint bytes could be dropped as well, since the decompressor builds both curves and can run TorsionBasisToHint on them (the recomputed hints equal the transmitted ones on 300 of 300 vectors, \S\ref{sec:checked}), for 172 / 265 / 350 bytes; we keep them, as the specification does, because they are what makes the verifier's bases cheap~\cite[Section~3.4.3]{sqisign-spec-r3}.
+% source: without the hints the bit string is 1374 / 2114 / 2800 bits,
+% ceil(/8) = 172 / 265 / 350; hint equality from task1_formula_audit.txt.
 
 \begin{table}[H]
 \centering
-\caption{Signature sizes in bytes on the NIST known-answer vectors.}
+\caption{Signature sizes in bytes.}
 \label{tab:sizes}
 \small
 \begin{tabular}{c c c c}
@@ -419,12 +486,12 @@ The two hint bytes could be dropped as well, since the decompressor builds both 
 \midrule
 I   & 200 & 174 & 26 (13\%) \\
 III & 306 & 267 & 39 (13\%) \\
-V   & 406 & 353 & 53 (13\%) \\
+V   & 406 & 352 & 54 (13\%) \\
 \bottomrule
 \end{tabular}
 \end{table}
-% source: Table 11 of sqisign-spec-r3 and kat_compressed.rs on branch
-% fix/compressed-nbt, run 2026-10-26 (measurements/round3/logs/kat_compressed.log).
+% source: Table 11 of sqisign-spec-r3 and kat_compressed.rs in the artifact,
+% run 2026-10-26 (measurements/round3/logs/kat_compressed.log).
 
 %% ============================================================
 \section{Pairing selection}
@@ -479,22 +546,19 @@ N}}$, so by Lemma~\ref{lem:tate-weil}
 \[
   t_{2^m}(A, B) = \omega^{-c\, 2^{F - N}} \qquad \text{for every } m \ge N,
 \]
-a value independent of the ladder's length, of order $2^{2N - F}$: $2^{72}$,
+a value independent of the ladder's order, of order $2^{2N - F}$: $2^{72}$,
 $2^{108}$, $2^{140}$ at levels I, III, V, against the $g = 197, 303, 401$
 bits of $\det \Mm$ needed. The same holds for $(C, D)$. On the 300 KAT
 vectors the two values have exactly that order at every $m$ from $N$ to
 $F$, and their discrete logarithm never determines $\det \Mm$ modulo
-$2^g$, or modulo $2^{\ers}$, at any $m$. No Tate ladder on the bases the
-verifier has recovers the entry; the Weil pairing, which does not
-divide by $2^{F - N}$, is required on them.
+$2^g$, or modulo $2^{\ers}$, at any $m$. No Tate ladder on the bases the verifier has recovers the entry, since its value there is $\omega$ raised to a multiple of $2^{F - N}$; on those bases the Weil pairing is required.
 % source: 2 x 198 - 324 = 72, 2 x 304 - 500 = 108, 2 x 402 - 664 = 140;
 % paper_pairing_audit.rs task2, variant a, measurements/round3/logs/
 % task2_tate_sweep_summary.txt (orders 2^72 / 2^108 / 2^140 at every m,
 % smallest m with 100/100 = None).
 
 \paragraph{One Tate ladder per curve on the full-order bases.}
-What a ladder of length $m$ loses to the divisibility it regains from
-the points of order $2^F$ that the hints also define.
+The full-order points that the hints also define restore what divisibility takes away.
 
 \begin{proposition}\label{prop:tate}
 Let $(R,S)$ and $(R',S')$ be the bases of $E_{\mathrm{chl}}[2^F]$ and
@@ -552,7 +616,7 @@ One Tate ladder of order $2^m$ per curve determines $\det \Mm \bmod 2^g$ wheneve
 \[
   m \;\ge\; \left\lceil \frac{F + g - \rrs}{2} \right\rceil ,
 \]
-that is, with $\rrs = 0$ and $g = \ers + 1$ in round 3, $m \ge 261, 402,
+that is, with $\rrs = 0$ and $g = \ers + 1$ in v3.0, $m \ge 261, 402,
 533$ at levels I, III, V; and $\det \Mm \bmod 2^{\ers}$ from $m \ge
 \lceil (F + \ers)/2 \rceil = 260, 401, 532$.
 \end{corollary}
@@ -561,25 +625,18 @@ Lemma~\ref{lem:tate-weil} relates the two pairings exactly, with no square
 root, so no bit is lost and the threshold is a theorem.
 Table~\ref{tab:threshold} gives, per level, the smallest $m$ at which the
 ladder of Proposition~\ref{prop:tate} determines $\det \Mm$ modulo $2^g$
-on all 100 KAT vectors, and modulo $2^{\ers}$; both equal the
-corollary's bounds, one apart, and on every vector individually: at the
-bound less one the ladder determines $2m - F$ bits of $\lambda$, one short
-of the modulus, on every vector. At level~I the verifier's pairing stage,
-the two bases from the hints at order $2^N$ (126 doublings per point
-after the cofactor) and two Weil pairings of two ladders of $N - 1$ steps
-each, takes 783.7~$\mu$s; the Tate alternative, the bases at order
-$2^{261}$ (63 doublings per point), one ladder of 260 steps per curve,
-and the 63 further doublings per point with a difference point that give
-the chain its order-$2^N$ bases, takes 648.6~$\mu$s, 17\% less. The
-discrete logarithm is the same size on both paths, $2m - F = N$ bits at
-the bound.
+on all 100 KAT vectors, and modulo $2^{\ers}$. Both equal the corollary's bounds, and the bounds are tight on every vector: one step below them, the ladder determines one bit fewer than needed.
+
+At level~I, as medians over the 100 KAT vectors measured with the cost table of \S\ref{sec:cost}, the verifier's pairing stage takes 771.6~$\mu$s: the two bases from the hints at order $2^N$ (126 doublings per point after the cofactor) and two Weil pairings, each made of two ladders of order $2^N$, as in the bases and pairings rows of Table~\ref{tab:breakdown}. The Tate alternative takes 646.1~$\mu$s, 16\% less: the bases at order $2^{261}$ (63 doublings per point, 130.0~$\mu$s), one ladder of order $2^{261}$ per curve (391.9~$\mu$s), and the 63 further doublings per point, with a difference point, that give the chain its order-$2^N$ bases (124.2~$\mu$s).
+The discrete logarithm is the same size on both paths, $2m - F = N$ bits
+at the bound.
 % source: paper_pairing_audit.rs task2, variant c (measurements/round3/
 % logs/task2_tate_sweep_summary.txt: smallest m with 100/100 = 261 / 402 /
 % 533 mod 2^g and 260 / 401 / 532 mod 2^e_rsp, per-vector histograms
-% {261: 100} etc., ok_g 0/100 at the bound less one) and timing_l1_kat0
-% (logs/timing_l1_kat0.txt: bases at 2^N 215.8 + both Weil 565.6 =
-% stage 783.7 us; bases at 2^261 130.2 + both Tate 391.6 +
-% reduction to 2^N 123.3 = stage 648.6 us).
+% {261: 100} etc., ok_g 0/100 at the bound less one); the stage from
+% run_timing_1.log, medians over the vectors: bases at 2^N 215.7 + two
+% Weil pairings 555.9 = 771.6 us; bases at 2^261 130.0 + two Tate
+% ladders 391.9 + reduction to 2^N 124.2 = 646.1 us.
 
 \begin{table}[H]
 \centering
@@ -606,8 +663,8 @@ V   & 664 & 402 & 401 & 533 & 533 & 532 & 532 \\
 \label{sec:cost}
 %% ============================================================
 
-Table~\ref{tab:breakdown} is level~I verification with
-\texttt{sqisign-rs}~0.7 on the 100 KAT vectors: for each vector, every
+Table~\ref{tab:breakdown} is level~I verification with the
+implementation in the artifact~\cite{artifact} on the 100 KAT vectors: for each vector, every
 component of each path timed on a copy of the state that path feeds it,
 the median of 200 iterations after 5 warm-ups, and then the median over
 the vectors; both paths under a prepared public key (the per-key basis
@@ -615,10 +672,12 @@ work done once), on an Intel Xeon at 2.80~GHz (Cascade Lake, KVM guest)
 with \texttt{rustc} 1.99.0 and the crate's release profile (fat LTO, one
 codegen unit, no \texttt{target-cpu} flag; the x86-64 assembly field
 kernels selected at run time). Three runs agreed on every component to
-within 0.6\% and on the full verifications to within 0.1\%.
+within 0.3\% (the 2.4~$\mu$s decoding to within its 0.1~$\mu$s
+resolution) and on the full verifications to within 0.2\%.
 % source: paper_timing.rs, run_timing_1.log (runs 2 and 3 in
 % run_timing_2.log and run_timing_3.log); the spread is computed over the
-% three logs, worst component challenge hash and compare (15.3, 15.3, 15.4).
+% three logs, worst component above 1 us the basis change on the standard
+% path (377.0, 376.3, 376.0), the decoding row (2.4, 2.3, 2.4).
 
 \begin{table}[H]
 \centering
@@ -635,18 +694,18 @@ path's components timed on its own state.}
 \midrule
 decoding & 0.3 & 2.4 \\
 $\Eaux$ from $A_{\mathrm{aux}}$ & 0.1 & 0.1 \\
-challenge derivation $\Epk \to \Echl$ & 583.5 & 583.4 \\
-bases from the hints at order $2^N$, both curves & 215.4 & 215.4 \\
-two Weil pairings &  & 559.9 \\
-two inversions and the discrete logarithm &  & 189.5 \\
+challenge derivation $\Epk \to \Echl$ & 586.0 & 586.0 \\
+bases from the hints at order $2^N$, both curves & 215.7 & 215.7 \\
+two Weil pairings &  & 555.9 \\
+two inversions and the discrete logarithm &  & 186.9 \\
 $\det \Mm$ and the dropped entry &  & 0.1 \\
 matrix range and normal-form check & 0.0 & 0.0 \\
-basis change, apply $\Mm$ & 368.0 & 365.9 \\
-$(2^{\ers}, 2^{\ers})$-chain to $\Ecom$ & 2908.5 & 2908.6 \\
-challenge hash and compare & 15.3 & 15.3 \\
+basis change, apply $\Mm$ & 377.0 & 380.3 \\
+$(2^{\ers}, 2^{\ers})$-chain to $\Ecom$ & 2927.3 & 2927.2 \\
+challenge hash and compare & 15.4 & 15.4 \\
 \midrule
-sum of component medians & 4091.2 & 4840.7 \\
-full verification from bytes, median & 4103.3 & 4855.5 \\
+sum of component medians & 4121.9 & 4870.1 \\
+full verification from bytes, median & 4115.2 & 4869.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -654,31 +713,30 @@ full verification from bytes, median & 4103.3 & 4855.5 \\
 The integrated path, which the implementation runs, derives the
 challenge curve and the two bases once; what it adds is the two pairings,
 the inversions and the discrete logarithm, the recovery and the larger
-decoding: 752~$\mu$s, 18\% of the standard verification
-(4103~$\mu$s). With the Tate ladder of \S\ref{sec:pairing} in place of
-the two Weil ladders, the pairing stage measured there is 135~$\mu$s
-cheaper on entry~0, and the overhead falls to 617~$\mu$s, 15\%.
-% source: run_timing_1.log: pairings 559.9 + inversions and dlog 189.5 +
-% recovery 0.1 + decoding 2.4 - 0.3 = 751.6 us, 18.3 % of
-% 4103.3 us; the Tate stage from timing_l1_kat0.txt, 783.7 - 648.6 =
-% 135.1 us, 751.6 - 135.1 = 616.5 us, 15.0 %.
+decoding: 745~$\mu$s, 18\% of the standard verification
+(4115~$\mu$s). With the Tate ladder of \S\ref{sec:pairing} in place of the two Weil pairings, the pairing stage is 126~$\mu$s cheaper on the
+same vectors, and the overhead falls to 620~$\mu$s, 15\%. We therefore recommend the Tate variant; the Weil formulation is the simpler one to state and check.
+% source: run_timing_1.log: pairings 555.9 + inversions and dlog 186.9 +
+% recovery 0.1 + decoding 2.4 - 0.3 = 745.1 us, 18.1 % of
+% 4115.2 us; the Tate stage of the same run, 771.6 - 646.1 =
+% 125.5 us, 745.1 - 125.5 = 619.6 us, 15.1 %.
 
 %% ============================================================
-\section{What was checked}
+\section{Validation}
 \label{sec:checked}
 %% ============================================================
 
 Table~\ref{tab:checked} lists the checks, all on the official NIST
 vectors of the reference implementation at tag
-\texttt{nist-v3}~\cite{the-sqisign-v3}, 100 per level, with
-\texttt{sqisign-rs} version 0.7 on branch \path{fix/compressed-nbt}.
-The tests and logs are in the repository~\cite{sqisign-rs} under
-\path{paper-weil/measurements/round3} and
-\path{crates/kat/tests/kat_compressed.rs}.
+\texttt{nist-v3}~\cite{the-sqisign-v3}, 100 per level, with the
+implementation in the artifact~\cite{artifact}.
+The tests are in the artifact: the KAT test and the two measurement
+harnesses under \path{crates/kat/tests}, run by its \texttt{RUN} file;
+their output is the source of every count and timing quoted.
 
 \begin{table}[H]
 \centering
-\caption{Checks on the 300 round-3 KAT vectors (counts per level I / III
+\caption{Checks on the 300 v3.0 KAT vectors (counts per level I / III
 / V).}
 \label{tab:checked}
 \footnotesize
@@ -694,8 +752,7 @@ $M_{00}$ even (pivot path, $M_{11}$ transmitted) & 32 / 22 / 37 \\
 recomputed hints equal the transmitted ones & 100 / 100 / 100 \\
 $[2^{F - N}]$ of the full-order basis of Proposition~\ref{prop:tate} is the verifier's basis & 100 / 100 / 100 \\
 compressed round trip, verify, decompress and verify & 100 / 100 / 100 \\
-%decompressed matrix exact; else differs in bit $\ers + 1$ only & 14 / 14 / 13; 86 / 86 / 87 \\
-decompressed matrix equals the signer's & 100 / 100 / 100 \\
+decompressed signature equals the signer's & 100 / 100 / 100 \\
 Tate on the verifier's bases determines $\det \Mm$ modulo $2^{\ers}$, any $m$ & 0 / 0 / 0 \\
 one Tate ladder on the full-order bases, $m = \lceil (F + g)/2 \rceil$; $m$ one less & 100 / 100 / 100; 0 / 0 / 0 \\
 \bottomrule
@@ -704,6 +761,34 @@ one Tate ladder on the full-order bases, $m = \lceil (F + g)/2 \rceil$; $m$ one 
 % source: paper_pairing_audit.rs task1 (measurements/round3/logs/
 % task1_formula_audit.txt) and task2 (task2_tate_sweep_summary.txt);
 % kat_compressed.rs (logs/kat_compressed.log), runs of 2026-10-26.
+
+\section{Conclusion}
+\label{sec:conc}
+
+Version 3.0 of the {\SQIsign} specification transmits all four entries of the
+change-of-basis matrix $\Mm_{\mathrm{chl}}$, although two Weil pairings
+on bases the verifier already computes determine its determinant modulo
+$2^{\ers + 1}$ (Theorem~\ref{thm:main}). Dropping one entry, chosen by
+the pivot rule of Section~\ref{sec:recover}, and sending the three top
+bits that neither the pairings nor the normal form determine, yields
+compressed signatures of 174, 267 and 352 bytes at levels I, III and V
+instead of 200, 306 and 406. This 13\% saving recovers, at level~I, half
+of the growth from v2.0 to v3.0. Decompression returns the
+signer's own signature, so verification and its security reduction are
+unchanged; the cost is 18\% of a level-I verification, or 15\% with the
+single Tate ladder per curve of Section~\ref{sec:pairing}, whose
+threshold we prove and observe to be tight.
+
+The change affects only the encoding: the signer merely omits an entry
+and a few bits, and the verifier runs one decompression step before the
+standard checks. It could therefore be adopted in a future revision of
+the specification without altering the scheme. Two further bytes per
+signature are available by recomputing the hints on both curves
+(Section~\ref{sec:format}), at the cost of making the verifier's bases
+more expensive. Finally, our analysis shows that the inputs the verifier
+passes to the $(2,2)$-chain are not isotropic at full level
+(Remark~\ref{rem:isotropy}), a point on which the specification's
+description of the chain could be clarified.
 
 %% ============================================================
 \bibliography{SQIcompression}
