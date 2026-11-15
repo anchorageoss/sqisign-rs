@@ -255,10 +255,59 @@ pub struct CompactSignStats {
     pub restarts: u32,
 }
 
+/// What a signing call records for the paper's measurements. Empty unless
+/// the `instrument` feature is on; public data either way.
+#[derive(Default)]
+pub struct SignRecords<const N: usize> {
+    /// The Gram matrix of the response lattice of each commitment the call
+    /// reached, as [`crate::quat::ideal::product_gram_matrix`] gives it: the
+    /// form whose value at a coefficient vector is twice the degree of the
+    /// response it stands for.
+    #[cfg(feature = "instrument")]
+    pub gram: alloc::vec::Vec<crate::quat::Mat4x4<N>>,
+    /// The signature re-encoded on the basis of every hint pair `(hp, hq)`
+    /// of the commitment curve that gives one, the canonical pair included.
+    #[cfg(feature = "instrument")]
+    pub reencodings: alloc::vec::Vec<(u32, u32, alloc::vec::Vec<u8>)>,
+    /// Whether to produce [`Self::reencodings`] (it costs a basis and a
+    /// discrete logarithm per hint pair).
+    #[cfg(feature = "instrument")]
+    pub want_reencodings: bool,
+}
+
+/// [`compact_sign_stats`] returning the [`SignRecords`] of the call.
+#[cfg(feature = "instrument")]
+pub fn compact_sign_records<L: HdLevel, const N: usize>(
+    params: &Params<N>,
+    pk: &CompactPublicKey<L>,
+    sk: &CompactSecretKey<L, N>,
+    msg: &[u8],
+    entropy: &mut impl Rng,
+    out: &mut [u8],
+    want_reencodings: bool,
+) -> Result<(usize, CompactSignStats, SignRecords<N>), CompactSignError> {
+    let mut rec = SignRecords {
+        want_reencodings,
+        ..Default::default()
+    };
+    let (n, stats) = sign_with_budget(
+        params,
+        pk,
+        sk,
+        msg,
+        entropy,
+        out,
+        MAX_RESPONSE_TRIES,
+        &mut rec,
+    )?;
+    Ok((n, stats, rec))
+}
+
 /// [`compact_sign`] returning the sampler's counts next to the length. A
 /// commitment that yields no good degree within the sampling budget is
-/// dropped and signing starts over with a fresh one, so that signing ends
-/// with a valid signature.
+/// dropped and signing starts over with a fresh one; after
+/// `MAX_COMMITMENTS` of them the call fails with
+/// [`CompactSignError::NoGoodResponse`].
 pub fn compact_sign_stats<L: HdLevel, const N: usize>(
     params: &Params<N>,
     pk: &CompactPublicKey<L>,
@@ -282,6 +331,21 @@ pub fn compact_sign_stats_with_budget<L: HdLevel, const N: usize>(
     out: &mut [u8],
     max_tries: usize,
 ) -> Result<(usize, CompactSignStats), CompactSignError> {
+    let mut rec = SignRecords::default();
+    sign_with_budget(params, pk, sk, msg, entropy, out, max_tries, &mut rec)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sign_with_budget<L: HdLevel, const N: usize>(
+    params: &Params<N>,
+    pk: &CompactPublicKey<L>,
+    sk: &CompactSecretKey<L, N>,
+    msg: &[u8],
+    entropy: &mut impl Rng,
+    out: &mut [u8],
+    max_tries: usize,
+    rec: &mut SignRecords<N>,
+) -> Result<(usize, CompactSignStats), CompactSignError> {
     use CompactSignError as E;
     let mut stats = CompactSignStats::default();
     let mut rng = seeded(entropy, b"csg").ok_or(E::Entropy)?;
@@ -290,7 +354,9 @@ pub fn compact_sign_stats_with_budget<L: HdLevel, const N: usize>(
     let commitments =
         MAX_COMMITMENTS * (MAX_RESPONSE_TRIES / max_tries.clamp(1, MAX_RESPONSE_TRIES));
     for _ in 0..commitments {
-        match sign_one_commitment(params, pk, sk, msg, &mut rng, out, &mut stats, max_tries) {
+        match sign_one_commitment(
+            params, pk, sk, msg, &mut rng, out, &mut stats, max_tries, rec,
+        ) {
             Ok(n) => return Ok((n, stats)),
             // failures of this commitment: try another
             Err(e @ (E::NoGoodResponse | E::CommitmentBasis)) => {
@@ -315,6 +381,7 @@ fn sign_one_commitment<L: HdLevel, const N: usize>(
     out: &mut [u8],
     stats: &mut CompactSignStats,
     max_tries: usize,
+    rec: &mut SignRecords<N>,
 ) -> Result<usize, CompactSignError> {
     use CompactSignError as E;
     let alg = &params.alg;
@@ -391,6 +458,11 @@ fn sign_one_commitment<L: HdLevel, const N: usize>(
         return Err(E::NoGoodResponse);
     }
     let prod = Zeroizing::new(QuatIdeal::mul_o0(&k_ideal, &ideal_commit));
+    #[cfg(feature = "instrument")]
+    rec.gram
+        .push(crate::quat::ideal::product_gram_matrix(&prod, alg));
+    #[cfg(not(feature = "instrument"))]
+    let _ = &rec;
     let mut bound = Ibz::<N>::one().mul_2exp(L::E_EMBED).sub(&Ibz::one());
     bound.set_bound(L::E_EMBED as i32 + 1);
     let mut found = None;
@@ -453,27 +525,44 @@ fn sign_one_commitment<L: HdLevel, const N: usize>(
             .ok_or(E::NotInvertible)?,
     );
     let inv_sk_a_eps = Zeroizing::new(inv_sk.mul_mod(&a_eps, &two_f));
-    let mut m = Zeroizing::new(inv_sk_a_eps.mul_mod(&m_com, &two_f));
-    for row in m.0.iter_mut() {
-        for x in row.iter_mut() {
-            *x = x.mul(&nsk_inv).modulo(&two_f);
+    // Measurement: the same response written on the basis of every hint
+    // pair of the commitment curve that gives one.
+    #[cfg(feature = "instrument")]
+    for hp in 0..if rec.want_reencodings { 20u32 } else { 0 } {
+        for hq in 0..20u32 {
+            let Some((p, q2)) = hd_torsion_basis::<L>(&a_com, hp, hq) else {
+                continue;
+            };
+            let pmq = jac_add(&p, &q2.neg(), &e_com);
+            let basis = EcBasis::new(p.to_xz(), q2.to_xz(), pmq.to_xz());
+            let Some(m_alt) = change_of_basis_matrix_tate::<L, N>(&basis, &b_com, &mut e_com, f)
+            else {
+                continue;
+            };
+            let Ok((a, b, c_or_d)) =
+                response_scalars::<L, N>(&inv_sk_a_eps, &m_alt, &nsk_inv, &k, &two_f, &two_r)
+            else {
+                continue;
+            };
+            let mut bytes = alloc::vec![0u8; sig_wire_bytes::<L>()];
+            if encode_signature::<L>(
+                &a_com,
+                to_w(&a),
+                to_w(&b),
+                to_w(&c_or_d),
+                &to_u6(&q),
+                hp,
+                hq,
+                &mut bytes,
+            )
+            .is_some()
+            {
+                rec.reencodings.push((hp, hq, bytes));
+            }
         }
     }
-
-    // the scalars: through the challenge, onto the 2^r-torsion
-    let a = m.0[0][0].modulo(&two_r);
-    let v_b = m.0[1][0].sub(&m.0[0][0].mul(&k)).modulo(&two_f);
-    let b = exact_div_2exp(&v_b, L::LAMBDA)
-        .ok_or(E::NotDivisibleB)?
-        .modulo(&two_r);
-    let c_or_d = if a.is_odd() {
-        m.0[0][1].modulo(&two_r)
-    } else {
-        let v_d = m.0[1][1].sub(&m.0[0][1].mul(&k)).modulo(&two_f);
-        exact_div_2exp(&v_d, L::LAMBDA)
-            .ok_or(E::NotDivisibleD)?
-            .modulo(&two_r)
-    };
+    let (a, b, c_or_d) =
+        response_scalars::<L, N>(&inv_sk_a_eps, &m_com, &nsk_inv, &k, &two_f, &two_r)?;
 
     let n = encode_signature::<L>(
         &a_com,
@@ -487,6 +576,41 @@ fn sign_one_commitment<L: HdLevel, const N: usize>(
     )
     .ok_or(E::Encode)?;
     Ok(n)
+}
+
+/// The transmitted scalars `(a, b, c or d)` of a response whose action on
+/// the public-key side is `inv_sk_a_eps`, on the commitment basis whose
+/// change of basis is `m_com`: through the challenge `k`, onto the
+/// `2^r`-torsion.
+fn response_scalars<L: HdLevel, const N: usize>(
+    inv_sk_a_eps: &Mat2x2<N>,
+    m_com: &Mat2x2<N>,
+    nsk_inv: &Ibz<N>,
+    k: &Ibz<N>,
+    two_f: &Ibz<N>,
+    two_r: &Ibz<N>,
+) -> Result<(Ibz<N>, Ibz<N>, Ibz<N>), CompactSignError> {
+    use CompactSignError as E;
+    let mut m = Zeroizing::new(inv_sk_a_eps.mul_mod(m_com, two_f));
+    for row in m.0.iter_mut() {
+        for x in row.iter_mut() {
+            *x = x.mul(nsk_inv).modulo(two_f);
+        }
+    }
+    let a = m.0[0][0].modulo(two_r);
+    let v_b = m.0[1][0].sub(&m.0[0][0].mul(k)).modulo(two_f);
+    let b = exact_div_2exp(&v_b, L::LAMBDA)
+        .ok_or(E::NotDivisibleB)?
+        .modulo(two_r);
+    let c_or_d = if a.is_odd() {
+        m.0[0][1].modulo(two_r)
+    } else {
+        let v_d = m.0[1][1].sub(&m.0[0][1].mul(k)).modulo(two_f);
+        exact_div_2exp(&v_d, L::LAMBDA)
+            .ok_or(E::NotDivisibleD)?
+            .modulo(two_r)
+    };
+    Ok((a, b, c_or_d))
 }
 
 /// The wire size of a compact signature at this level.

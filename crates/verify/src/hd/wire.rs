@@ -287,6 +287,36 @@ pub fn hd_verify_parsed_with<L: HdLevel>(
     hd_verify_with::<L>(&hdsig, opts)
 }
 
+/// [`hd_verify_bytes`] without the canonical-hint check. Measurement only
+/// (feature `instrument`); not a verifier.
+#[cfg(feature = "instrument")]
+pub fn hd_verify_bytes_without_hint_check<L: HdLevel>(
+    signature: &[u8],
+    public_key: &[u8],
+    message: &[u8],
+) -> Result<(), HdReject> {
+    let sig = parse_signature::<L>(signature)?;
+    let pk = parse_public_key::<L>(public_key)?;
+    let chal = challenge_limbs::<L>(&sig, &pk, message).ok_or(HdReject::BadCurve)?;
+    let hdsig = HdSignature {
+        a_pk: pk.a_pk.clone(),
+        a_com: sig.a_com.clone(),
+        hint_pk_p: pk.hint_pk_p,
+        hint_pk_q: pk.hint_pk_q,
+        hint_com_p: sig.hint_com_p,
+        hint_com_q: sig.hint_com_q,
+        chal_limbs: &chal,
+        resp_a: sig.a,
+        resp_b: sig.b,
+        resp_c_or_d: sig.c_or_d,
+        q: sig.q,
+    };
+    crate::hd::self_contained::hd_verify_without_hint_check::<L>(
+        &hdsig,
+        &HdVerifyOptions::default(),
+    )
+}
+
 /// Verify from bytes with the default options (the four-point verifier).
 pub fn hd_verify_bytes<L: HdLevel>(
     signature: &[u8],

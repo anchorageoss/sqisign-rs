@@ -11,6 +11,22 @@ pub fn batched_inv<L: FpBackend>(x: &mut [Fp2<L>], t1: &mut [Fp2<L>], t2: &mut [
     Fp2::batched_inv(x, t1, t2)
 }
 
+/// Whether one of `xs` is zero: the test before a division by them.
+#[inline]
+pub fn any_zero<L: FpBackend>(xs: &[&Fp2<L>]) -> bool {
+    xs.iter().any(|x| bool::from(x.ct_is_zero()))
+}
+
+/// `1 / x`, or `None` for `x = 0`.
+#[inline]
+pub fn inv_checked<L: FpBackend>(x: &Fp2<L>) -> Option<Fp2<L>> {
+    if bool::from(x.ct_is_zero()) {
+        None
+    } else {
+        Some(x.inv())
+    }
+}
+
 /// `1 / x` (`0` for `x = 0`).
 #[inline]
 pub fn inv<L: FpBackend>(x: &Fp2<L>) -> Fp2<L> {

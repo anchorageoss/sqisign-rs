@@ -22,6 +22,7 @@ use crate::ec::jacobian::{jac_add, jac_dbl};
 use crate::ec::{EcCurve, JacPoint};
 use crate::{Fp2, FpBackend};
 
+use crate::hd::field::any_zero;
 use crate::hd::strategy::optimised_strategy;
 
 /// A pair of dim-2 theta points (two kernel generators living on one codomain).
@@ -116,13 +117,18 @@ impl<L: FpBackend> ThetaStructureDim2<L> {
 
     /// Precompute `y0=a/b, z0=a/c, t0=a/d, Y0=AA/BB, Z0=AA/CC, T0=AA/DD`
     /// (`ThetaStructureDim2._arithmetic_precomputation`), where `(AA,BB,CC,DD)`
-    /// is the squared-theta of the null. Idempotent.
-    pub fn precompute(&mut self) {
+    /// is the squared-theta of the null. Idempotent. Returns `false`, and
+    /// precomputes nothing, when one of the six divisors vanishes; the
+    /// structure cannot be doubled on then.
+    pub fn precompute(&mut self) -> bool {
         if self.prec.is_some() {
-            return;
+            return true;
         }
         let [a, b, c, d] = &self.null;
         let st = squared_theta2(&self.null);
+        if any_zero(&[b, c, d, &st[1], &st[2], &st[3]]) {
+            return false;
+        }
         // One batched inversion of (b, c, d, BB, CC, DD) instead of six.
         let mut inv = [
             b.clone(),
@@ -142,6 +148,7 @@ impl<L: FpBackend> ThetaStructureDim2<L> {
         let big_z0 = st[0].mul(&inv[4]);
         let big_t0 = st[0].mul(&inv[5]);
         self.prec = Some([y0, z0, t0, big_y0, big_z0, big_t0]);
+        true
     }
 
     /// `2·P` (`ThetaPointDim2.double`); requires [`Self::precompute`].
@@ -541,6 +548,10 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         let num2 = xa[2 ^ zero_idx].clone();
         let num3 = za[3 ^ zero_idx].clone();
         let num4 = xa[3 ^ zero_idx].clone();
+        // the four divisors of the codomain and of the image weights
+        if any_zero(&[&num1, &num2, &num3, &num4]) {
+            return None;
+        }
         let den1 = crate::hd::field::inv(&num1);
         let den2 = crate::hd::field::inv(&num2);
         let den3 = crate::hd::field::inv(&num3);
@@ -563,7 +574,7 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
     }
 
     #[allow(clippy::identity_op)] // `0 ^ z0` kept for symmetry with `i ^ z0`.
-    fn special_image(&self, p: &[Fp2<L>; 4], translate: &[Fp2<L>; 4]) -> [Fp2<L>; 4] {
+    fn special_image(&self, p: &[Fp2<L>; 4], translate: &[Fp2<L>; 4]) -> Option<[Fp2<L>; 4]> {
         let axby = squared_theta2(p);
         let aybx = squared_theta2(translate);
         let z0 = self.zero_idx;
@@ -580,17 +591,22 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         } else {
             (t.clone(), aybx[2 ^ z0].mul(&self.precomp[2 ^ z0]))
         };
+        // lambda = num / den: undefined when either vanishes
+        if any_zero(&[&num, &den]) {
+            return None;
+        }
 
         let mut xyzt = [Fp2::<L>::zero(), Fp2::zero(), Fp2::zero(), Fp2::zero()];
         xyzt[0 ^ z0] = xb.mul(&num);
         xyzt[1 ^ z0] = y.mul(&den);
         xyzt[2 ^ z0] = z.mul(&den);
         xyzt[3 ^ z0] = t.mul(&den);
-        hadamard2(&xyzt)
+        Some(hadamard2(&xyzt))
     }
 
-    /// Evaluate on a `TuplePoint` → codomain theta point.
-    pub fn eval(&self, p: &TuplePoint<L>) -> [Fp2<L>; 4] {
+    /// Evaluate on a `TuplePoint` → codomain theta point. `None` when the
+    /// projective factor of the translate is undefined.
+    pub fn eval(&self, p: &TuplePoint<L>) -> Option<[Fp2<L>; 4]> {
         let p_sum = p.add(&self.t_shift, &self.e1, &self.e2);
         let iso_p = self.base_change(&tuple_product_xz(p));
         let iso_p_sum = self.base_change(&tuple_product_xz(&p_sum));
@@ -669,8 +685,8 @@ pub struct ThetaIsogenyDim2<L: FpBackend> {
 impl<L: FpBackend> ThetaIsogenyDim2<L> {
     /// Build from the 8-torsion `(t1_8, t2_8)` above the kernel. Uses the full
     /// inversion path (image precomp `1/B,1/C,1/D`), which is independent of any
-    /// domain precomputation.
-    pub fn new(t1_8: &[Fp2<L>; 4], t2_8: &[Fp2<L>; 4]) -> Self {
+    /// domain precomputation. `None` when one of the six divisors vanishes.
+    pub fn new(t1_8: &[Fp2<L>; 4], t2_8: &[Fp2<L>; 4]) -> Option<Self> {
         let st1 = squared_theta2(t1_8);
         let st2 = squared_theta2(t2_8);
         let (xa, xb) = (st1[0].clone(), st1[1].clone());
@@ -681,6 +697,9 @@ impl<L: FpBackend> ThetaIsogenyDim2<L> {
             st2[3].clone(),
         );
 
+        if any_zero(&[&xa, &za, &tb, &xb, &zc, &td]) {
+            return None;
+        }
         // One batched inversion of (xA, zA, tB, xB, zC, tD) instead of six.
         let mut inv = [
             xa.clone(),
@@ -712,10 +731,10 @@ impl<L: FpBackend> ThetaIsogenyDim2<L> {
         // codomain dual null (A,B,C,D) with A=1, then Hadamard to standard.
         let abcd = [Fp2::<L>::one(), big_b, big_c, big_d];
         let null = hadamard2(&abcd);
-        Self {
+        Some(Self {
             codomain: ThetaStructureDim2::new(null),
             precomp: [b_inv, c_inv, d_inv],
-        }
+        })
     }
 
     pub fn codomain(&self) -> &ThetaStructureDim2<L> {
@@ -771,6 +790,8 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
         let mut gluing: Option<GluingThetaIsogenyDim2<L>> = None;
         let mut cur: Option<ThetaStructureDim2<L>> = None;
         let mut codomain_null = zero12.clone();
+        // whether the doubling constants of `cur` could be formed
+        let mut cur_ready = false;
 
         for k in 0..m {
             let mut prev: u32 = level.iter().sum();
@@ -784,6 +805,10 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
                     let nx = (last.0.double_iter(s, e1, e2), last.1.double_iter(s, e1, e2));
                     tuple_stack.push(nx);
                 } else {
+                    // a doubling needs the constants of the current codomain
+                    if !cur_ready {
+                        return None;
+                    }
                     let c = cur.as_ref().unwrap();
                     let last = theta_stack.last().unwrap();
                     theta_stack.push((c.double_iter(&last.0, s), c.double_iter(&last.1, s)));
@@ -795,21 +820,21 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
                 let (a, b) = tuple_stack.last().unwrap().clone();
                 let g = GluingThetaIsogenyDim2::new(&a, &b, zero12, n, e1, e2)?;
                 let mut cc = g.codomain().clone();
-                cc.precompute();
+                cur_ready = cc.precompute();
                 codomain_null = cc.null().clone();
                 tuple_stack.pop();
                 level.pop();
                 theta_stack = tuple_stack
                     .iter()
-                    .map(|(x, y)| (g.eval(x), g.eval(y)))
-                    .collect();
+                    .map(|(x, y)| Some((g.eval(x)?, g.eval(y)?)))
+                    .collect::<Option<Vec<_>>>()?;
                 cur = Some(cc);
                 gluing = Some(g);
             } else {
                 let (a, b) = theta_stack.last().unwrap().clone();
-                let iso = ThetaIsogenyDim2::new(&a, &b);
+                let iso = ThetaIsogenyDim2::new(&a, &b)?;
                 let mut cc = iso.codomain().clone();
-                cc.precompute();
+                cur_ready = cc.precompute();
                 codomain_null = cc.null().clone();
                 theta_stack.pop();
                 level.pop();
@@ -835,12 +860,13 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
     }
 
     /// Evaluate a `TuplePoint` through the whole chain → codomain theta point.
-    pub fn eval(&self, p: &TuplePoint<L>) -> [Fp2<L>; 4] {
-        let mut cur = self.gluing.eval(p);
+    /// `None` when the gluing's image is undefined at `p`.
+    pub fn eval(&self, p: &TuplePoint<L>) -> Option<[Fp2<L>; 4]> {
+        let mut cur = self.gluing.eval(p)?;
         for iso in &self.plain {
             cur = iso.eval(&cur);
         }
-        cur
+        Some(cur)
     }
 
     /// Dual evaluation (`DualIsogenyChainDim2`): a dim-2 theta point on the chain
@@ -865,5 +891,63 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
             cur = hadamard2(&prod);
         }
         self.gluing.dual_eval(&cur)
+    }
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    //! Each division of the dimension-2 chain rejects a vanishing divisor
+    //! with `None` or `false`; none panics and none divides.
+    use super::*;
+    use crate::P324_3 as P;
+
+    fn v(c: [u8; 4]) -> [Fp2<P>; 4] {
+        c.map(|x| if x == 0 { Fp2::zero() } else { Fp2::one() })
+    }
+
+    #[test]
+    fn precompute_reports_a_vanishing_divisor() {
+        assert!(!ThetaStructureDim2::<P>::new(v([1, 0, 1, 1])).precompute());
+        assert!(!ThetaStructureDim2::<P>::new(v([0, 0, 0, 0])).precompute());
+    }
+
+    #[test]
+    fn gluing_codomain_rejects_a_vanishing_divisor() {
+        // the squared-theta of (1, 1, 0, 0) has a zero, as a gluing kernel
+        // point must; the second point gives four zero divisors
+        let t1 = v([1, 1, 0, 0]);
+        assert!(squared_theta2(&t1)
+            .iter()
+            .any(|x| bool::from(x.ct_is_zero())));
+        assert!(
+            GluingThetaIsogenyDim2::<P>::special_compute_codomain(&t1, &v([0, 0, 0, 0])).is_none()
+        );
+    }
+
+    #[test]
+    fn gluing_image_rejects_an_undefined_factor() {
+        let id = || JacPoint::<P>::identity();
+        let e = EcCurve::<P>::from_a(&Fp2::zero()).unwrap();
+        let one4 = || v([1, 1, 1, 1]);
+        let g = GluingThetaIsogenyDim2::<P> {
+            base_change_matrix: core::array::from_fn(|_| one4()),
+            folded: None,
+            null_bc: one4(),
+            codomain: ThetaStructureDim2::new(one4()),
+            precomp: one4(),
+            zero_idx: 0,
+            t_shift: TuplePoint::new(id(), id()),
+            e1: e.clone(),
+            e2: e,
+        };
+        assert!(g
+            .special_image(&v([0, 0, 0, 0]), &v([0, 0, 0, 0]))
+            .is_none());
+    }
+
+    #[test]
+    fn plain_step_rejects_a_vanishing_divisor() {
+        assert!(ThetaIsogenyDim2::<P>::new(&v([0, 0, 0, 0]), &v([0, 0, 0, 0])).is_none());
+        assert!(ThetaIsogenyDim2::<P>::new(&v([1, 1, 0, 0]), &v([1, 1, 1, 1])).is_none());
     }
 }

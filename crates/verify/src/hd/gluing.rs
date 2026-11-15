@@ -107,7 +107,7 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
         p: &ThetaPointDim4<L>,
         l_trans: &[ThetaPointDim4<L>],
         l_trans_ind: &[usize],
-    ) -> ThetaPointDim4<L> {
+    ) -> Option<ThetaPointDim4<L>> {
         let nt = l_trans.len();
         assert!(nt <= MAX_TRANS && nt == l_trans_ind.len());
 
@@ -128,13 +128,20 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
         let mut lam_num: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
         let mut lam_den: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
         for (k, ind) in l_trans_ind.iter().enumerate() {
+            let mut found = false;
             for j in 0..N {
                 let jpk = j ^ ind;
                 if !bool::from(hsl[k][j].ct_is_zero()) && !bool::from(o[jpk].ct_is_zero()) {
                     lam_num[k] = hs_p[jpk].mul(&o[j]);
                     lam_den[k] = hsl[k][j].mul(&o[jpk]);
+                    found = true;
                     break;
                 }
+            }
+            // no index gives the factor of this translate: its divisor
+            // vanishes everywhere
+            if !found {
+                return None;
             }
         }
         let mut den_all = Fp2::<L>::one();
@@ -157,18 +164,54 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
             if !self.dual_null_zero[i] {
                 *ui = hs_p[i].mul(&self.inv_dual_null[i]).mul(&den_all);
             } else {
+                let mut found = false;
                 for (k, ind) in l_trans_ind.iter().enumerate() {
                     let ipk = i ^ ind;
                     if !self.dual_null_zero[ipk] {
                         *ui = self.inv_dual_null[ipk]
                             .mul(&hsl[k][ipk])
                             .mul(&lam_scaled[k]);
+                        found = true;
                         break;
                     }
+                }
+                // every way to this coordinate divides by a zero of the
+                // dual null point
+                if !found {
+                    return None;
                 }
             }
         }
 
-        ThetaPointDim4::new(hadamard(&u))
+        Some(ThetaPointDim4::new(hadamard(&u)))
+    }
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// With a dual null point that vanishes everywhere, no index gives the
+    /// factor of a translate: the image is `None`, not a division by zero.
+    #[test]
+    fn special_image_rejects_when_every_divisor_vanishes() {
+        let ones = || ThetaPointDim4::<P>::new(core::array::from_fn(|_| Fp2::one()));
+        let zeros = || core::array::from_fn(|_| Fp2::<P>::zero());
+        let g = GluingIsogenyDim4::<P> {
+            codomain: ThetaStructureDim4::new(ones()),
+            dual_null: zeros(),
+            inv_dual_null: zeros(),
+            dual_null_zero: [true; N],
+        };
+        assert!(g
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_none());
+        // a usable factor but a coordinate no translate reaches
+        let mut g2 = g.clone();
+        g2.dual_null = core::array::from_fn(|_| Fp2::one());
+        assert!(g2
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_none());
     }
 }

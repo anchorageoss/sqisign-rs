@@ -35,12 +35,13 @@ use crate::hd::basis::canonical_hints;
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
 use crate::hd::challenge::recover_challenge_prof;
+use crate::hd::field::inv_checked;
 use crate::hd::gluing_chain::{
     jac_mul_w, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
 };
 use crate::hd::goodness::is_good_degree;
 use crate::hd::hd_verify::HdReject;
-use crate::hd::isogeny::apply_plain_image;
+use crate::hd::isogeny::apply_plain_image_checked;
 use crate::hd::kani::{
     gluing_bc_dim4_f1, gluing_bc_dim4_f2, norm_equation_2f_minus_q,
     starting_two_symplectic_matrices,
@@ -238,20 +239,20 @@ fn run_half<L: HdLevel, P: Profiler>(
     prof.add(SLOT_SETUP, t1 - t0);
     match kernel_points {
         KernelPoints::Four => {
-            let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
+            let post: [ThetaPointDim4<L>; 4] = chain.evaluate4(&basis)?;
             prof.add(SLOT_GLUING, prof.now() - t1);
             let sc = run_strategy_chain_prof(&start, &post, n_plain, prof)?;
             Some((chain, sc, false))
         }
         KernelPoints::TwoWithImageCheck => {
-            let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
+            let post: [ThetaPointDim4<L>; 4] = chain.evaluate4(&basis)?;
             prof.add(SLOT_GLUING, prof.now() - t1);
             let (sc, fell_back) =
                 run_strategy_chain_two_point_checked_prof(&start, &post, n_plain, prof)?;
             Some((chain, sc, fell_back))
         }
         KernelPoints::TwoWithoutImageCheck => {
-            let pair = [chain.evaluate(&basis[0]), chain.evaluate(&basis[1])];
+            let pair = [chain.evaluate(&basis[0])?, chain.evaluate(&basis[1])?];
             prof.add(SLOT_GLUING, prof.now() - t1);
             let sc = run_strategy_chain_two_point_prof(&start, &pair, n_plain, prof)?;
             Some((chain, sc, false))
@@ -312,9 +313,9 @@ fn hd_image_check<L: HdLevel>(
     // F1: gluing chain, then the plain (2,2,2,2) steps. The strategy loop
     // already built each isogeny; reuse its stored image precomputation `1/O`
     // (`apply_plain_image`) instead of rebuilding the isogenies via from_kernel.
-    let mut pt = chain1.evaluate(&t4);
+    let mut pt = chain1.evaluate(&t4)?;
     for inv in &sc1.image_precomp {
-        pt = apply_plain_image(inv, &pt);
+        pt = apply_plain_image_checked(inv, &pt)?;
     }
     // F2 = F2_dual.dual(): pt is on C1 = Hadamard(C2).
     let ft = eval_f2_dual(chain2, &sc2.codomains, &pt)?;
@@ -331,7 +332,7 @@ fn hd_image_check<L: HdLevel>(
 /// Returns `None` if challenge/response recovery fails or the norm equation has
 /// no solution (a malformed/forged `q`).
 fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
-    build_setup_prof(sig, &mut NoProfiler)
+    build_setup_prof(sig, true, &mut NoProfiler)
 }
 
 /// [`build_setup`] with a [`Profiler`]: the challenge and response recovery
@@ -340,16 +341,19 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
 /// `SLOT_SETUP`.
 fn build_setup_prof<L: HdLevel, P: Profiler>(
     sig: &HdSignature<L>,
+    check_hints: bool,
     prof: &mut P,
 ) -> Result<Setup<L>, HdReject> {
     let t0 = prof.now();
     // The hints must be the canonical ones of their curves: any other pair
     // that gives a basis would be a second encoding of the same signature.
+    // (`check_hints` is `false` only in the measurement entry of the
+    // `instrument` feature.)
     for (a, hp, hq) in [
         (&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q),
         (&sig.a_com, sig.hint_com_p, sig.hint_com_q),
     ] {
-        if canonical_hints::<L>(a) != Some((hp, hq)) {
+        if check_hints && canonical_hints::<L>(a) != Some((hp, hq)) {
             return Err(HdReject::NonCanonicalHint);
         }
     }
@@ -450,7 +454,8 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
     }
     let (u1, _u2, mu) = make_canonical(&r2_4, &s2_4, &mut e_chal).ok_or(HdReject::CanonicalChal)?;
 
-    let e4 = weil4(&t1, &t2, &mut e_com).inv();
+    // e_4(T1, T2) is inverted: a vanishing value is no pairing of a basis
+    let e4 = inv_checked(&weil4(&t1, &t2, &mut e_com)).ok_or(HdReject::CanonicalCom)?;
     let zero12 = product_theta_dim2(&dim1_null(&t1), &dim1_null(&u1));
     let m0 = m0_from_canon(&mt, &mu);
 
@@ -579,11 +584,24 @@ fn hd_verify_prof<L: HdLevel, P: Profiler>(
     opts: &HdVerifyOptions,
     prof: &mut P,
 ) -> (Result<(), HdReject>, HdVerifyReport) {
-    let setup = match build_setup_prof(sig, prof) {
+    let setup = match build_setup_prof(sig, true, prof) {
         Ok(s) => s,
         Err(e) => return (Err(e), HdVerifyReport::default()),
     };
     self_derived_check(&setup, opts, prof)
+}
+
+/// [`hd_verify_with`] without the canonical-hint check. Measurement only
+/// (feature `instrument`): it counts the hint pairs that would give a
+/// second encoding of a signature if the verifier did not check them. Not
+/// a verifier.
+#[cfg(feature = "instrument")]
+pub fn hd_verify_without_hint_check<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> Result<(), HdReject> {
+    let setup = build_setup_prof(sig, false, &mut NoProfiler)?;
+    self_derived_check(&setup, opts, &mut NoProfiler).0
 }
 
 /// [`hd_verify_with`] timed per phase with the caller's cycle counter
@@ -656,9 +674,9 @@ pub fn hd_image<L: HdLevel>(
 
     let id = JacPoint::<L>::identity();
     let t4 = TuplePoint4::new(s.p_com.clone(), id.clone(), id.clone(), id);
-    let mut pt = chain1.evaluate(&t4);
+    let mut pt = chain1.evaluate(&t4)?;
     for inv in &sc1.image_precomp {
-        pt = apply_plain_image(inv, &pt);
+        pt = apply_plain_image_checked(inv, &pt)?;
     }
     let ft = eval_f2_dual(&chain2, &sc2.codomains, &pt)?;
     let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
@@ -696,10 +714,7 @@ pub fn hd_codomains<L: HdLevel>(
             chain2.codomain_null().clone(),
         ],
         plain: [sc1.codomains, sc2.codomains],
-        gluing_images: [
-            core::array::from_fn(|i| chain1.evaluate(&basis1[i])),
-            core::array::from_fn(|i| chain2.evaluate(&basis2[i])),
-        ],
+        gluing_images: [chain1.evaluate4(&basis1)?, chain2.evaluate4(&basis2)?],
         fell_back: [fb1, fb2],
     })
 }
@@ -744,4 +759,20 @@ pub fn hd_kernel_setup<L: HdLevel>(sig: &HdSignature<L>) -> Option<HdKernelSetup
         e4: s.e4.clone(),
         generators,
     })
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// The inversion of `e_4(T1, T2)` in the setup: a vanishing pairing
+    /// value is a reject, not an inversion of zero.
+    #[test]
+    fn a_vanishing_pairing_value_is_a_reject() {
+        let r: Result<Fp2<P>, HdReject> =
+            inv_checked(&Fp2::<P>::zero()).ok_or(HdReject::CanonicalCom);
+        assert_eq!(r.err(), Some(HdReject::CanonicalCom));
+        assert!(inv_checked(&Fp2::<P>::one()).is_some());
+    }
 }

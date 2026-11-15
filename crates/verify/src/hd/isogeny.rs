@@ -163,6 +163,19 @@ impl<L: FpBackend> IsogenyDim4<L> {
     }
 }
 
+/// [`apply_plain_image`] for weights taken from a stored chain: `None`
+/// when a weight vanishes, which is the case of a codomain whose dual
+/// null point has a zero coordinate, where the weights are not `1 / O`.
+pub fn apply_plain_image_checked<L: FpBackend>(
+    inv_dual_null: &[Fp2<L>; N],
+    p: &ThetaPointDim4<L>,
+) -> Option<ThetaPointDim4<L>> {
+    if inv_dual_null.iter().any(|w| bool::from(w.ct_is_zero())) {
+        return None;
+    }
+    Some(apply_plain_image(inv_dual_null, p))
+}
+
 /// [`apply_plain_image`] in place on the point's coordinates.
 #[inline]
 pub fn apply_plain_image_assign<L: FpBackend>(
@@ -365,4 +378,20 @@ pub(crate) fn codomain_dual_null_and_inverse<L: FpBackend>(
         return Some((o, inv_o, zero_mask, has_zero));
     }
     None
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// The image check applies stored weights: a vanishing one is `None`.
+    #[test]
+    fn stored_weights_with_a_zero_are_rejected() {
+        let p = ThetaPointDim4::<P>::new(core::array::from_fn(|_| Fp2::one()));
+        let mut w: [Fp2<P>; N] = core::array::from_fn(|_| Fp2::one());
+        assert!(apply_plain_image_checked(&w, &p).is_some());
+        w[7] = Fp2::zero();
+        assert!(apply_plain_image_checked(&w, &p).is_none());
+    }
 }

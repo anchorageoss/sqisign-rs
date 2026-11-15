@@ -131,6 +131,8 @@ pub use two_point::{
 };
 pub use uint::U6;
 pub use wide::W;
+#[cfg(feature = "instrument")]
+pub use wire::hd_verify_bytes_without_hint_check;
 pub use wire::{
     challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_bytes_with,
     hd_verify_parsed, hd_verify_parsed_with, parse_public_key, parse_signature, public_key_bytes,

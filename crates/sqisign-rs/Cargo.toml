@@ -24,6 +24,10 @@ signature = { workspace = true, features = ["rand_core"] }
 default = []
 # The dimension-4 compact format at levels I, III and V (experimental).
 compact = ["sqisign-verify/compact"]
+# Measurement builds only (the paper's bench): the signer records the Gram
+# matrix of each response lattice and the re-encodings of each signature
+# under every hint pair of its commitment curve.
+instrument = ["compact", "sqisign-verify/instrument"]
 
 [dev-dependencies]
 rand_core = { version = "0.6", features = ["getrandom"] }

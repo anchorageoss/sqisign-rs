@@ -415,7 +415,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         // Push each through the two dim-2 chains, product, base change → dim-4.
         let mut k8: Vec<ThetaPointDim4<L>> = Vec::with_capacity(5);
         for t in &l_k {
-            k8.push(self_eval_to_dim4(&isogenies_dim2, &n_dim4, t, e1, e2));
+            k8.push(self_eval_to_dim4(&isogenies_dim2, &n_dim4, t, e1, e2)?);
         }
         let k8_arr: [ThetaPointDim4<L>; 5] = core::array::from_fn(|i| k8[i].clone());
         let gluing_dim4 = GluingIsogenyDim4::from_kernel(&k8_arr, &GLUING_KERNEL_DIRS)?;
@@ -492,19 +492,29 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
     }
 
     /// Evaluate the gluing chain on a `TuplePoint4` of the domain `E1²×E2²`,
-    /// returning the dim-4 theta image on the codomain.
-    pub fn evaluate(&self, p: &TuplePoint4<L>) -> ThetaPointDim4<L> {
-        let eval_p = self.split_eval(p);
-        let l_p_trans: [ThetaPointDim4<L>; 2] = core::array::from_fn(|k| {
-            let q = p.add(&self.l_trans[k], &self.e1, &self.e2);
-            self.split_eval(&q)
-        });
+    /// returning the dim-4 theta image on the codomain. `None` when a step
+    /// of the evaluation would divide by a vanishing value.
+    pub fn evaluate(&self, p: &TuplePoint4<L>) -> Option<ThetaPointDim4<L>> {
+        let eval_p = self.split_eval(p)?;
+        let q0 = p.add(&self.l_trans[0], &self.e1, &self.e2);
+        let q1 = p.add(&self.l_trans[1], &self.e1, &self.e2);
+        let l_p_trans: [ThetaPointDim4<L>; 2] = [self.split_eval(&q0)?, self.split_eval(&q1)?];
         self.gluing_dim4
             .special_image(&eval_p, &l_p_trans, &self.l_trans_ind)
     }
 
     /// dim4 → (dim2 × dim2) split, push through the dim-2 chain, product, base change.
-    fn split_eval(&self, p: &TuplePoint4<L>) -> ThetaPointDim4<L> {
+    /// [`Self::evaluate`] on four points, in order.
+    pub fn evaluate4(&self, p: &[TuplePoint4<L>; 4]) -> Option<[ThetaPointDim4<L>; 4]> {
+        Some([
+            self.evaluate(&p[0])?,
+            self.evaluate(&p[1])?,
+            self.evaluate(&p[2])?,
+            self.evaluate(&p[3])?,
+        ])
+    }
+
+    fn split_eval(&self, p: &TuplePoint4<L>) -> Option<ThetaPointDim4<L>> {
         self_eval_to_dim4(&self.isogenies_dim2, &self.n_dim4, p, &self.e1, &self.e2)
     }
 }
@@ -517,11 +527,11 @@ fn self_eval_to_dim4<L: FpBackend>(
     p: &TuplePoint4<L>,
     _e1: &EcCurve<L>,
     _e2: &EcCurve<L>,
-) -> ThetaPointDim4<L> {
+) -> Option<ThetaPointDim4<L>> {
     let a = TuplePoint::new(p.c[0].clone(), p.c[2].clone());
     let b = TuplePoint::new(p.c[1].clone(), p.c[3].clone());
-    let ta = chain.eval(&a);
-    let tb = chain.eval(&b);
+    let ta = chain.eval(&a)?;
+    let tb = chain.eval(&b)?;
     let prod = product_theta_dim2to4(&ta, &tb);
-    ThetaPointDim4::new(n_dim4.apply(&prod))
+    Some(ThetaPointDim4::new(n_dim4.apply(&prod)))
 }
