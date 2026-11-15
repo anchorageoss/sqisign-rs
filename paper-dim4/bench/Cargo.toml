@@ -25,6 +25,15 @@ path = "src/paper.rs"
 name = "paper_heap"
 path = "src/paper_heap.rs"
 
+# The two measurements of the paper that need instrumented code (the Gram
+# matrices of the response lattices, the hint pairs that re-encode a
+# signature when the hint check is off): feature `instrument`, never in a
+# session build.
+[[bin]]
+name = "paper_instrument"
+path = "src/paper_instrument.rs"
+required-features = ["instrument"]
+
 [dependencies]
 sqisign-rs = { path = "../../crates/sqisign-rs", features = ["compact"] }
 sqisign-verify = { path = "../../crates/verify", features = ["compact"] }
@@ -37,6 +46,7 @@ default = []
 round2 = ["dep:sqisign-rs-r2"]
 # The Fp2 operation counts per phase (SECENG-2434); never in a session build.
 op-counters = ["sqisign-verify/op-counters"]
+instrument = ["sqisign-rs/instrument", "sqisign-verify/instrument"]
 
 [profile.release]
 lto = "fat"

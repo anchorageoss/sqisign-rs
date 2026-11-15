@@ -120,6 +120,18 @@ if [ "$RESUME_FROM" -le 1 ]; then
   say "session start"
   pass 1
 fi
+# PASSES=1: one pass only (a check against an earlier session after a code
+# change), then MIKE's step cost if MIKE_STEP names the mike-step binary;
+# no second pass, no heap run and no report.
+if [ "${PASSES:-0}" = 1 ]; then
+  if [ -n "${MIKE_STEP:-}" ]; then
+    wait_quiet
+    say "MIKE step cost"
+    run taskset -c "$CORE" "$MIKE_STEP" "$OUT/mike-step.csv" 200
+  fi
+  say "one-pass check end"
+  exit 0
+fi
 if [ "$RESUME_FROM" -le 2 ]; then pass 2; fi
 if ! other python3 "$HERE/paper_report.py" "$OUT" --check-noise >> "$LOG" 2>&1; then
   say "a median moved by more than $PAPER_NOISE between the two passes: third pass"
