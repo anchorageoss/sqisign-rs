@@ -1,0 +1,33 @@
+2026-11-16T07:33:49Z counting runs done; waiting for quiet: 1-minute load under 0.10 for 300 s
+2026-11-16T08:14:01Z quiet samples 6 of 30 after 2410 s; load 0.03 0.10 0.34 1/2202 4057259
+%CPU PSR COMMAND
+ 0.8  17 claude
+ 0.5  16 claude
+ 0.4  21 claude
+ 0.3  13 claude
+ 0.2  27 MainThread
+30af0b2f07004c5c6600de183f87c77ce19c008a60cf84195f69a1d9aafe89b3  paper-dim4/bench/target/release/paper
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim2-I: 4.3 s
+dim2-III: 15.1 s
+dim2-V: 32.3 s
+dim4-I: 29.9 s
+dim4-III: 41.9 s
+dim4-V: 99.3 s
+2026-11-16T08:17:44Z pass end, exit 0; load 1.02 0.61 0.50 1/2196 4057675
+2026-11-16T08:18:06Z pass 2 (dim4 only), load 0.73 0.57 0.49 1/2211 4057769
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim4-I: 29.9 s
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim4-III: 41.9 s
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim4-V: 99.6 s
+2026-11-16T08:20:58Z pass 2 end, load 1.01 0.79 0.60 1/2201 4058074

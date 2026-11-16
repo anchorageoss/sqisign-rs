@@ -1,0 +1,221 @@
+level 1: 20 signatures of one key; each tampered input in the three verifier modes (a run is one input in one mode; an input the decoder rejects is one run)
+
+[honest]
+  inputs 20, runs 60, accepted runs 60, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 60
+
+[sig-bit]
+  inputs 22240, runs 66452, accepted runs 21, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 21, DegreeNotGood 10212, MalformedInput 134, MiddleCodomainMismatch 16059, NonCanonicalHint 36351, ResponseRecovery 3675
+  UNEXPECTED ACCEPTANCE
+  accepted: sig 1 bit 1001 [four] zero vector: false
+  accepted: sig 1 bit 1001 [two+check] zero vector: false
+  accepted: sig 1 bit 1001 [two] zero vector: false
+  accepted: sig 9 bit 1001 [four] zero vector: false
+  accepted: sig 9 bit 1001 [two+check] zero vector: false
+  accepted: sig 9 bit 1001 [two] zero vector: false
+  accepted: sig 13 bit 912 [four] zero vector: false
+  accepted: sig 13 bit 912 [two+check] zero vector: false
+  accepted: sig 13 bit 912 [two] zero vector: false
+  accepted: sig 14 bit 1001 [four] zero vector: false
+  accepted: sig 14 bit 1001 [two+check] zero vector: false
+  accepted: sig 14 bit 1001 [two] zero vector: false
+  accepted: sig 17 bit 1001 [four] zero vector: false
+  accepted: sig 17 bit 1001 [two+check] zero vector: false
+  accepted: sig 17 bit 1001 [two] zero vector: false
+  accepted: sig 18 bit 912 [four] zero vector: false
+  accepted: sig 18 bit 912 [two+check] zero vector: false
+  accepted: sig 18 bit 912 [two] zero vector: false
+  accepted: sig 19 bit 912 [four] zero vector: false
+  accepted: sig 19 bit 912 [two+check] zero vector: false
+  accepted: sig 19 bit 912 [two] zero vector: false
+
+[pk-bit]
+  inputs 13440, runs 40080, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 5820, MalformedInput 120, NonCanonicalHint 34140
+
+[msg-bit]
+  inputs 660, runs 1980, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 1980
+
+[acom-bit+canonical-hints]
+  inputs 13006, runs 39018, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 39018
+
+[acom-bit, hint check off]
+  inputs 13006, runs 39018, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 39018
+
+[apk-bit+canonical-hints]
+  inputs 13000, runs 39000, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 39000
+
+[top-bit]
+  inputs 60, runs 180, accepted runs 27, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 27, MiddleCodomainMismatch 153
+  accepted: sig 1 top bits 010 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 1 top bits 010 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 1 top bits 010 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 6 top bits 011 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 6 top bits 011 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 6 top bits 011 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 9 top bits 010 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 9 top bits 010 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 9 top bits 010 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 13 top bits 001 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 13 top bits 001 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 13 top bits 001 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 14 top bits 010 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 14 top bits 010 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 14 top bits 010 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 15 top bits 011 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 15 top bits 011 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 15 top bits 011 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 17 top bits 010 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 17 top bits 010 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 17 top bits 010 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 18 top bits 001 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 18 top bits 001 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 18 top bits 001 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 19 top bits 001 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 19 top bits 001 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 19 top bits 001 (c_or_d, b, a) [two] zero vector: false
+
+[top-bit, with the third scalar]
+  inputs 80, runs 240, accepted runs 33, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 33, MiddleCodomainMismatch 207
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 2 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 2 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 2 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 3 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 3 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 3 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 4 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 4 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 4 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 5 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 5 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 5 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 7 top bits 110 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 7 top bits 110 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 7 top bits 110 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 8 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 8 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 8 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 10 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 10 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 10 top bits 101 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 11 top bits 110 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 11 top bits 110 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 11 top bits 110 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 12 top bits 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 12 top bits 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 12 top bits 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 16 top bits 101 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 16 top bits 101 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 16 top bits 101 (c_or_d, b, a) [two] zero vector: false
+
+[negation of some scalars]
+  inputs 120, runs 360, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 360
+
+[negation]
+  inputs 20, runs 60, accepted runs 60, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 60
+  accepted: sig 0 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 4 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 4 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 4 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 5 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 5 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 5 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 6 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 6 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 6 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 7 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 7 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 7 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 8 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 8 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 8 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 9 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 9 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 9 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 10 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 10 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 10 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 11 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 11 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 11 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 12 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 12 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 12 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 13 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 13 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 13 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 14 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 14 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 14 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 15 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 15 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 15 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 16 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 16 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 16 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 17 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 17 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 17 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 18 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 18 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 18 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 19 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 19 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 19 negated 111 (c_or_d, b, a) [two] zero vector: false
+
+[both-even]
+  inputs 360, runs 1080, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 1080
+
+[zero-and-one scalars]
+  inputs 280, runs 840, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 792, ResponseRecovery 48
+
+[other degree]
+  inputs 580, runs 1740, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 60, GluingBound 240, MiddleCodomainMismatch 1440
+
+[other degree, scalars (1, 0, 0)]
+  inputs 580, runs 1740, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 60, GluingBound 240, MiddleCodomainMismatch 1440
+
+[other degree, random scalars]
+  inputs 580, runs 1740, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 60, GluingBound 240, MiddleCodomainMismatch 1440
+
+[random scalars]
+  inputs 800, runs 2400, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 1875, ResponseRecovery 525
+
+[crafted commitment curve]
+  inputs 800, runs 2400, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 1440, NonCanonicalHint 120, ResponseRecovery 840
+
+[crafted key curve]
+  inputs 260, runs 780, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 240, MiddleCodomainMismatch 420, NonCanonicalHint 120
+
+total over the tampered classes: inputs 79872, runs 239108, accepted runs 141 (unexpected 21), runs with an all-zero vector 0, accepted runs with an all-zero vector 0

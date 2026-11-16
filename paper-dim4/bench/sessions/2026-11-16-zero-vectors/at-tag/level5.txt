@@ -1,0 +1,107 @@
+level 5: 4 signatures of one key; each tampered input in the three verifier modes (a run is one input in one mode; an input the decoder rejects is one run)
+
+[honest]
+  inputs 4, runs 12, accepted runs 12, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 12
+
+[sig-bit]
+  inputs 8896, runs 26664, accepted runs 3, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 3, DegreeNotGood 4113, MalformedInput 12, MiddleCodomainMismatch 6306, NonCanonicalHint 14478, ResponseRecovery 1752
+  UNEXPECTED ACCEPTANCE
+  accepted: sig 3 bit 2031 [four] zero vector: false
+  accepted: sig 3 bit 2031 [two+check] zero vector: false
+  accepted: sig 3 bit 2031 [two] zero vector: false
+
+[pk-bit]
+  inputs 5440, runs 16256, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 4260, MalformedInput 32, NonCanonicalHint 11964
+
+[msg-bit]
+  inputs 132, runs 396, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 396
+
+[acom-bit+canonical-hints]
+  inputs 5344, runs 16032, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 16032
+
+[acom-bit, hint check off]
+  inputs 5344, runs 16032, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 16032
+
+[apk-bit+canonical-hints]
+  inputs 5344, runs 16032, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 16032
+
+[top-bit]
+  inputs 12, runs 36, accepted runs 6, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 6, MiddleCodomainMismatch 30
+  accepted: sig 1 top bits 011 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 1 top bits 011 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 1 top bits 011 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 3 top bits 010 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 3 top bits 010 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 3 top bits 010 (c_or_d, b, a) [two] zero vector: false
+
+[top-bit, with the third scalar]
+  inputs 16, runs 48, accepted runs 6, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 6, MiddleCodomainMismatch 42
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 2 top bits 110 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 2 top bits 110 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 2 top bits 110 (c_or_d, b, a) [two] zero vector: false
+
+[negation of some scalars]
+  inputs 24, runs 72, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 72
+
+[negation]
+  inputs 4, runs 12, accepted runs 12, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 12
+  accepted: sig 0 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 1 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 2 negated 111 (c_or_d, b, a) [two] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 3 negated 111 (c_or_d, b, a) [two] zero vector: false
+
+[both-even]
+  inputs 72, runs 216, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 216
+
+[zero-and-one scalars]
+  inputs 56, runs 168, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 162, ResponseRecovery 6
+
+[other degree]
+  inputs 116, runs 348, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 24, GluingBound 48, MiddleCodomainMismatch 276
+
+[other degree, scalars (1, 0, 0)]
+  inputs 116, runs 348, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 24, GluingBound 48, MiddleCodomainMismatch 276
+
+[other degree, random scalars]
+  inputs 116, runs 348, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 24, GluingBound 48, MiddleCodomainMismatch 276
+
+[random scalars]
+  inputs 80, runs 240, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 162, ResponseRecovery 78
+
+[crafted commitment curve]
+  inputs 160, runs 480, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 288, NonCanonicalHint 24, ResponseRecovery 168
+
+[crafted key curve]
+  inputs 52, runs 156, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 48, MiddleCodomainMismatch 84, NonCanonicalHint 24
+
+total over the tampered classes: inputs 31324, runs 93884, accepted runs 27 (unexpected 3), runs with an all-zero vector 0, accepted runs with an all-zero vector 0
