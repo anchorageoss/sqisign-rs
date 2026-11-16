@@ -326,6 +326,15 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
     automorphism $[i]$ of order 4 that the chain respects, which MIKE uses to
     compute each step from two points above the kernel instead of
     four~\cite[Appendix E.2]{BDD+26}; our two-point verifier adapts this idea.
+    What that idea does not give for the verifier, and what we prove, is that
+    the verifier's chain has such an automorphism
+    (Propositions~\ref{prop:commute} and~\ref{prop:descent}), that it acts on
+    the theta coordinates in which the verifier computes as one fixed
+    permutation (Theorem~\ref{thm:base}), and that this holds for every
+    input, honest or forged (Proposition~\ref{prop:forged} and
+    Theorem~\ref{thm:base}); the verifier also checks the symmetry at the
+    gluing and falls back to four points otherwise
+    (Algorithm~\ref{alg:twopoint}).
     MIKE's chain is moreover defined over $\mathbb{F}_p$ rather than
     $\mathbb{F}_{p^2}$, its domain being a Weil restriction, and at level I it
     runs 228 steps in 16.0 megacycles of constant-time C~\cite[Table
