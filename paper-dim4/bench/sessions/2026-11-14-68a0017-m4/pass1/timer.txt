@@ -1,0 +1,2 @@
+the monotonic wall clock (std::time::Instant), nanoseconds
+thread set to the user-interactive QoS class (performance cores). Run with nothing else open and on mains power.

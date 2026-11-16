@@ -1,0 +1,59 @@
+2026-11-14T23:12:22Z build: cargo build --release --bin paper --bin paper_heap
+    Updating git repository `https://github.com/anchorageoss/sqisign-rs`
+    Updating git submodule `https://github.com/SQISign/the-sqisign.git`
+ Downloading crates ...
+  Downloaded zerocopy v0.8.59
+  Downloaded rand v0.8.8
+   Compiling libc v0.2.189
+   Compiling proc-macro2 v1.0.107
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling cfg-if v1.0.5
+   Compiling zerocopy v0.8.59
+   Compiling subtle v2.6.1
+   Compiling generic-array v0.14.7
+   Compiling hybrid-array v0.4.15
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling getrandom v0.2.17
+   Compiling cpufeatures v0.2.17
+   Compiling syn v2.0.119
+   Compiling keccak v0.1.6
+   Compiling rand_core v0.6.4
+   Compiling signature v2.2.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling zeroize_derive v1.5.0
+   Compiling rand v0.8.8
+   Compiling zeroize v1.9.0
+   Compiling sha3 v0.10.9
+   Compiling sqisign-verify v0.6.0 (<checkout>/crates/verify)
+   Compiling sqisign-rs v0.6.0 (<checkout>/crates/sqisign-rs)
+   Compiling dim4-session v0.1.0 (<checkout>/paper-dim4/bench)
+    Finished `release` profile [optimized] target(s) in 39.19s
+2026-11-14T23:13:02Z session start
+2026-11-14T23:13:02Z pass 1: Rust
+field kernels: portable (aarch64)
+timer: the monotonic wall clock (std::time::Instant), nanoseconds
+thread set to the user-interactive QoS class (performance cores). Run with nothing else open and on mains power.
+dim2-I: 2.4 s
+dim2-III: 9.2 s
+dim2-V: 14.7 s
+dim4-I: 16.0 s
+dim4-III: 23.7 s
+dim4-V: 47.7 s
+2026-11-14T23:14:55Z pass 2: Rust
+field kernels: portable (aarch64)
+timer: the monotonic wall clock (std::time::Instant), nanoseconds
+thread set to the user-interactive QoS class (performance cores). Run with nothing else open and on mains power.
+dim2-I: 2.4 s
+dim2-III: 9.3 s
+dim2-V: 14.8 s
+dim4-I: 16.1 s
+dim4-III: 23.9 s
+dim4-V: 48.3 s
+2026-11-14T23:16:50Z heap
+2026-11-14T23:16:54Z session end
