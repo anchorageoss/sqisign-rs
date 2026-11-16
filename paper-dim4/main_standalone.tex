@@ -1744,6 +1744,17 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
     The machine is not what a deployment runs; the ratios between the rows are
     the numbers to carry.
 
+    The same harness was also run on an Apple M4 Pro, at the commit the
+    tables were measured at~\cite{Ray26c}, with the crate's portable field
+    arithmetic, since its assembly kernels are for x86-64, and with the wall
+    clock alone (Table~\ref{tab:m4}). These times are not comparable in
+    absolute terms with those of the assembly build above; the ratios are the
+    comparison. There the two-point verifier takes 0.62, 0.60 and 0.60 times
+    the four-point one at levels I, III and V, and 4.1, 4.0 and 3.8 times the
+    dimension-2 verifier of the same build, against 6.7, 6.6 and 6.3 with
+    four points. The values are those of the first of two passes; the second
+    differs by at most 1.2\,\% on these rows.
+
     \begin{table}[t]
         \centering
         \caption{Wall-clock milliseconds at level I on the round-3 prime, medians,
@@ -1764,6 +1775,25 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
             & signing & 128.8 \\
             & verification & 27.3 \\
             & verification, two points & 17.2 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{table}[t]
+        \centering
+        \caption{Verification in wall-clock milliseconds on an Apple M4 Pro
+            (macOS, \texttt{rustc} 1.99, portable field arithmetic, commit
+            68a0017), medians of the first of two passes, with the run counts
+            of Section~\ref{sec:setup}. The last two columns are the multiple
+            of the dimension-2 verifier of the same build.}
+        \label{tab:m4}
+        \begin{tabular}{c r r r r r}
+            \toprule
+            level & four points & two points & two over four & four, $\times$ dim.\ 2 & two, $\times$ dim.\ 2 \\
+            \midrule
+            I   & 14.7 & 9.1 & 0.62 & 6.7 & 4.1 \\
+            III & 42.2 & 25.4 & 0.60 & 6.6 & 4.0 \\
+            V   & 77.8 & 46.4 & 0.60 & 6.3 & 3.8 \\
             \bottomrule
         \end{tabular}
     \end{table}
