@@ -1,0 +1,711 @@
+{
+ "c_reference": {
+  "I": {
+   "ops": {
+    "keygen": {
+     "average": 35.836,
+     "max": 49.961,
+     "median": 35.156,
+     "min": 30.609
+    },
+    "sign": {
+     "average": 106.899,
+     "max": 223.018,
+     "median": 102.579,
+     "min": 89.543
+    },
+    "verify from bytes": {
+     "average": 12.771,
+     "max": 13.621,
+     "median": 12.62,
+     "min": 12.527
+    }
+   },
+   "runs": 300
+  },
+  "III": {
+   "ops": {
+    "keygen": {
+     "average": 132.335,
+     "max": 439.546,
+     "median": 110.323,
+     "min": 80.994
+    },
+    "sign": {
+     "average": 366.524,
+     "max": 778.206,
+     "median": 340.671,
+     "min": 238.236
+    },
+    "verify from bytes": {
+     "average": 31.571,
+     "max": 33.371,
+     "median": 31.243,
+     "min": 31.06
+    }
+   },
+   "runs": 100
+  },
+  "V": {
+   "ops": {
+    "keygen": {
+     "average": 248.095,
+     "max": 512.307,
+     "median": 228.152,
+     "min": 197.046
+    },
+    "sign": {
+     "average": 766.894,
+     "max": 1302.315,
+     "median": 716.683,
+     "min": 571.732
+    },
+    "verify from bytes": {
+     "average": 78.565,
+     "max": 82.827,
+     "median": 77.663,
+     "min": 77.382
+    }
+   },
+   "runs": 100
+  }
+ },
+ "profile": {
+  "four": {
+   "median_total_mcycles": 102.10083900000001,
+   "n": 100,
+   "phases": {
+    "decode": {
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
+     "median_mcycles": 0.005825,
+     "share": 5.737118729248589e-05
+    },
+    "slot0": {
+     "description": "basis generation (recover_challenge, recover_response, hd_torsion_basis)",
+     "median_mcycles": 7.9253485,
+     "share": 0.07805779453248449
+    },
+    "slot1": {
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
+     "median_mcycles": 6.766166500000001,
+     "share": 0.06664085931736374
+    },
+    "slot2": {
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
+     "median_mcycles": 0.7250920000000001,
+     "share": 0.007141525997645182
+    },
+    "slot3": {
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
+     "median_mcycles": 8.133847,
+     "share": 0.08011132354427887
+    },
+    "slot4": {
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
+     "median_mcycles": 55.8096015,
+     "share": 0.5496760687339917
+    },
+    "slot5": {
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
+     "median_mcycles": 15.3916275,
+     "share": 0.15159415348303457
+    },
+    "slot6": {
+     "description": "final comparisons (middle_codomain_matches)",
+     "median_mcycles": 0.011437,
+     "share": 0.0001126445097105856
+    },
+    "slot7": {
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
+     "median_mcycles": 6.7628565,
+     "share": 0.06660825869419838
+    }
+   },
+   "plain_steps": {
+    "codomain_fraction": 0.21617081216393041,
+    "median_mcycles": 71.201229,
+    "pushes_fraction": 0.7838291878360696
+   },
+   "sub_slots": [
+    [
+     "chal: hd_torsion_basis on E_pk",
+     0.2515945
+    ],
+    [
+     "chal: x-only doublings of the basis and ec_ladder3pt",
+     0.968009
+    ],
+    [
+     "chal: the challenge isogeny chain with its image points",
+     1.33561
+    ],
+    [
+     "chal: the lifts of the image points",
+     0.2744545
+    ],
+    [
+     "chal: the Weil pairing(s), the lambda squarings and the sign of phi Q",
+     1.02329
+    ],
+    [
+     "chal: P_resc and Q_resc",
+     0.940269
+    ],
+    [
+     "resp: hd_torsion_basis on E_com",
+     0.250542
+    ],
+    [
+     "resp: the (f - r) doublings to R_com and S_com",
+     0.933681
+    ],
+    [
+     "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
+     0.689422
+    ],
+    [
+     "resp: recover_response_cd and the images phi R, phi S",
+     1.2050394999999998
+    ],
+    [
+     "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
+     0.0
+    ],
+    [
+     "setup: norm_equation_2f_minus_q (Cornacchia)",
+     0.0339005
+    ],
+    [
+     "setup: the four fixed-base doubling chains, the 4-torsion points, make_canonical x2, weil4, the nulls, points_m",
+     1.804044
+    ],
+    [
+     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
+     0.0187115
+    ],
+    [
+     "b_kpp, both halves: the kernel generators from the fixed-base chains",
+     4.8709415
+    ],
+    [
+     "ThetaStructureDim4::new of the start, both halves",
+     0.0018
+    ]
+   ],
+   "sum_of_phase_medians": 101.5318015,
+   "unslotted_median_total_minus_sum": 0.5690375000000074
+  },
+  "two-check": {
+   "median_total_mcycles": 75.219725,
+   "n": 100,
+   "phases": {
+    "decode": {
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
+     "median_mcycles": 0.005704,
+     "share": 7.634928555995415e-05
+    },
+    "slot0": {
+     "description": "basis generation (recover_challenge, recover_response, hd_torsion_basis)",
+     "median_mcycles": 7.9284289999999995,
+     "share": 0.10612375346473031
+    },
+    "slot1": {
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
+     "median_mcycles": 6.774858,
+     "share": 0.09068295372898665
+    },
+    "slot2": {
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
+     "median_mcycles": 0.723109,
+     "share": 0.009678971867456677
+    },
+    "slot3": {
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
+     "median_mcycles": 8.1588105,
+     "share": 0.10920746014972865
+    },
+    "slot4": {
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
+     "median_mcycles": 28.9769015,
+     "share": 0.38786215414904696
+    },
+    "slot5": {
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
+     "median_mcycles": 15.324716,
+     "share": 0.2051246700577136
+    },
+    "slot6": {
+     "description": "final comparisons (middle_codomain_matches)",
+     "median_mcycles": 0.011346,
+     "share": 0.00015186868758121315
+    },
+    "slot7": {
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
+     "median_mcycles": 6.805403999999999,
+     "share": 0.09109181860919603
+    }
+   },
+   "plain_steps": {
+    "codomain_fraction": 0.3459177534544873,
+    "median_mcycles": 44.3016175,
+    "pushes_fraction": 0.6540822465455127
+   },
+   "sub_slots": [
+    [
+     "chal: hd_torsion_basis on E_pk",
+     0.251442
+    ],
+    [
+     "chal: x-only doublings of the basis and ec_ladder3pt",
+     0.9665604999999999
+    ],
+    [
+     "chal: the challenge isogeny chain with its image points",
+     1.336525
+    ],
+    [
+     "chal: the lifts of the image points",
+     0.274378
+    ],
+    [
+     "chal: the Weil pairing(s), the lambda squarings and the sign of phi Q",
+     1.0172055
+    ],
+    [
+     "chal: P_resc and Q_resc",
+     0.9440815
+    ],
+    [
+     "resp: hd_torsion_basis on E_com",
+     0.250405
+    ],
+    [
+     "resp: the (f - r) doublings to R_com and S_com",
+     0.936106
+    ],
+    [
+     "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
+     0.6864635
+    ],
+    [
+     "resp: recover_response_cd and the images phi R, phi S",
+     1.2022795
+    ],
+    [
+     "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
+     0.0
+    ],
+    [
+     "setup: norm_equation_2f_minus_q (Cornacchia)",
+     0.033321
+    ],
+    [
+     "setup: the four fixed-base doubling chains, the 4-torsion points, make_canonical x2, weil4, the nulls, points_m",
+     1.818959
+    ],
+    [
+     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
+     0.018361
+    ],
+    [
+     "b_kpp, both halves: the kernel generators from the fixed-base chains",
+     4.8658635
+    ],
+    [
+     "ThetaStructureDim4::new of the start, both halves",
+     0.002013
+    ]
+   ],
+   "sum_of_phase_medians": 74.709278,
+   "unslotted_median_total_minus_sum": 0.5104469999999992
+  }
+ },
+ "ratios_from_cells": {
+  "four_point_over_c_reference_verify_I": 8.1,
+  "four_point_over_dim2_standard_verify_I": 7.1,
+  "two_point_with_check_over_c_reference_verify_I": 6.0,
+  "two_point_with_check_over_dim2_standard_verify_I": 5.3,
+  "two_point_with_check_over_four_point": 0.74,
+  "two_point_without_check_over_four_point": 0.71
+ },
+ "rows": {
+  "dim2-I-keygen": {
+   "max": 58.722077,
+   "mean": 39.92395684615384,
+   "median": 38.958931,
+   "median_ms": 12.7735545,
+   "min": 33.906484,
+   "n": 52,
+   "per_round_median": {
+    "1": 37.568344,
+    "2": 40.038662,
+    "3": 40.644513,
+    "4": 37.86148
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-sign": {
+   "max": 166.172357,
+   "mean": 116.00651603846154,
+   "median": 113.77293,
+   "median_ms": 37.302774,
+   "min": 98.966064,
+   "n": 52,
+   "per_round_median": {
+    "1": 117.835683,
+    "2": 115.750184,
+    "3": 113.375637,
+    "4": 110.192504
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-verify": {
+   "max": 15.457491,
+   "mean": 14.0960438,
+   "median": 14.27217,
+   "median_ms": 4.679525,
+   "min": 13.764315,
+   "n": 200,
+   "per_round_median": {
+    "1": 13.799740499999999,
+    "2": 14.317356,
+    "3": 13.811635,
+    "4": 14.317279500000001
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-verify-compressed": {
+   "max": 16.998199,
+   "mean": 16.37294682,
+   "median": 16.252764,
+   "median_ms": 5.32884,
+   "min": 16.192968,
+   "n": 200,
+   "per_round_median": {
+    "1": 16.2387795,
+    "2": 16.751148999999998,
+    "3": 16.2355315,
+    "4": 16.235013000000002
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-keygen": {
+   "max": 815.779657,
+   "mean": 169.80148978846154,
+   "median": 142.509298,
+   "median_ms": 46.7245185,
+   "min": 90.185145,
+   "n": 52,
+   "per_round_median": {
+    "1": 129.497174,
+    "2": 140.435603,
+    "3": 135.411063,
+    "4": 150.781874
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-sign": {
+   "max": 1457.500297,
+   "mean": 441.15744419230765,
+   "median": 395.392941,
+   "median_ms": 129.6372,
+   "min": 263.329131,
+   "n": 52,
+   "per_round_median": {
+    "1": 371.639267,
+    "2": 422.489416,
+    "3": 371.84383,
+    "4": 410.400009
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-verify": {
+   "max": 35.272152,
+   "mean": 34.517406810000004,
+   "median": 34.617866,
+   "median_ms": 11.3502,
+   "min": 33.833498,
+   "n": 200,
+   "per_round_median": {
+    "1": 35.033809500000004,
+    "2": 35.157548,
+    "3": 33.926431,
+    "4": 33.89631249999999
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-verify-compressed": {
+   "max": 41.133856,
+   "mean": 40.32759669,
+   "median": 40.364996,
+   "median_ms": 13.2344995,
+   "min": 39.546483,
+   "n": 200,
+   "per_round_median": {
+    "1": 40.881803500000004,
+    "2": 39.7856945,
+    "3": 40.801908499999996,
+    "4": 39.816347
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-keygen": {
+   "max": 427.568978,
+   "mean": 270.7256461346154,
+   "median": 256.7079165,
+   "median_ms": 84.166662,
+   "min": 215.196349,
+   "n": 52,
+   "per_round_median": {
+    "1": 237.178461,
+    "2": 274.513634,
+    "3": 248.948869,
+    "4": 245.527837
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-sign": {
+   "max": 1536.69855,
+   "mean": 835.9902556346153,
+   "median": 787.2665185,
+   "median_ms": 258.1203115,
+   "min": 627.91814,
+   "n": 52,
+   "per_round_median": {
+    "1": 793.020679,
+    "2": 742.328184,
+    "3": 805.419112,
+    "4": 796.925441
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-verify": {
+   "max": 85.545332,
+   "mean": 83.98505703500001,
+   "median": 84.160617,
+   "median_ms": 27.59376,
+   "min": 83.334662,
+   "n": 200,
+   "per_round_median": {
+    "1": 83.47766150000001,
+    "2": 84.28635349999999,
+    "3": 83.762531,
+    "4": 84.28325799999999
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-verify-compressed": {
+   "max": 103.91902,
+   "mean": 99.424698005,
+   "median": 100.799664,
+   "median_ms": 33.049289,
+   "min": 97.606618,
+   "n": 200,
+   "per_round_median": {
+    "1": 97.749176,
+    "2": 100.9060935,
+    "3": 97.7249125,
+    "4": 101.0291605
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-keygen": {
+   "max": 56.530469,
+   "mean": 42.56575130769231,
+   "median": 41.179636,
+   "median_ms": 13.50165,
+   "min": 37.568009,
+   "n": 52,
+   "per_round_median": {
+    "1": 41.032961,
+    "2": 42.427727,
+    "3": 41.871376,
+    "4": 40.225017
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-sign": {
+   "loop": {
+    "samples_max": 523,
+    "samples_mean": 111.55,
+    "samples_median": 79.5,
+    "samples_min": 2,
+    "signatures": 100,
+    "tests_mean": 54.75
+   },
+   "max": 1902.249376,
+   "mean": 443.66237079999996,
+   "median": 330.5525185,
+   "median_ms": 108.3780275,
+   "min": 49.451724,
+   "n": 100,
+   "per_round_median": {
+    "1": 303.614324,
+    "2": 433.459442,
+    "3": 227.551563,
+    "4": 303.524959
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-four": {
+   "fell_back": 0,
+   "max": 103.840758,
+   "mean": 102.14870044499999,
+   "median": 102.16129000000001,
+   "median_ms": 33.495704,
+   "min": 100.822996,
+   "n": 200,
+   "per_round_median": {
+    "1": 102.5541915,
+    "2": 102.269733,
+    "3": 101.996956,
+    "4": 101.9364895
+   },
+   "per_signature_median": {
+    "0": 102.3332795,
+    "1": 101.952579,
+    "2": 102.089356,
+    "3": 102.10131200000001,
+    "4": 102.2372505
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-two-check": {
+   "fell_back": 0,
+   "max": 76.170578,
+   "mean": 75.24986294499999,
+   "median": 75.235296,
+   "median_ms": 24.667519,
+   "min": 74.380472,
+   "n": 200,
+   "per_round_median": {
+    "1": 75.224895,
+    "2": 75.064526,
+    "3": 75.3776545,
+    "4": 75.23798
+   },
+   "per_signature_median": {
+    "0": 75.100867,
+    "1": 75.27828550000001,
+    "2": 75.40641600000001,
+    "3": 75.0383875,
+    "4": 75.410701
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-two-nocheck": {
+   "fell_back": 0,
+   "max": 73.449612,
+   "mean": 72.48923440499999,
+   "median": 72.4667795,
+   "median_ms": 23.759749,
+   "min": 71.532382,
+   "n": 200,
+   "per_round_median": {
+    "1": 72.4321925,
+    "2": 72.34391099999999,
+    "3": 72.5773885,
+    "4": 72.39634050000001
+   },
+   "per_signature_median": {
+    "0": 72.416669,
+    "1": 72.55857,
+    "2": 72.59154000000001,
+    "3": 72.28797349999999,
+    "4": 72.6478125
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ "session": {
+  "commit": "d91ab15d12e7a9b5c120b23816e3b2f4be29917b",
+  "end": "2026-11-01T16:42:23Z",
+  "start": "2026-11-01T16:39:29Z",
+  "tsc_mhz": 3049.994
+ }
+}

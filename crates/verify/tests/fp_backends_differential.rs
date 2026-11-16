@@ -9,7 +9,7 @@
 //! The kernel choice is process-wide, so the tests serialise on a mutex
 //! and restore the detection afterwards.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(all(target_arch = "x86_64", not(sqisign_portable)))]
 
 use num_bigint::BigUint;
 use num_traits::{One, Zero};

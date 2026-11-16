@@ -75,15 +75,18 @@ macro_rules! level {
 
 level!(
     /// NIST level I, `p324_3` ([`crate::P324_3`]).
-    level1, p324_3
+    level1,
+    p324_3
 );
 level!(
     /// NIST level III, `p500_27` ([`crate::P500_27`]).
-    level3, p500_27
+    level3,
+    p500_27
 );
 level!(
     /// NIST level V, `p664_17` ([`crate::P664_17`]).
-    level5, p664_17
+    level5,
+    p664_17
 );
 
 /// `public_key_t`.
@@ -379,8 +382,14 @@ pub(crate) fn challenge_state<L: FpBackend + PrimePrecomp>(
     let f_chall = params.challenge_bits + EXTRA_TORSION;
     let e_pk = key.curve.clone();
     let bas_ea = &key.basis;
+    // The ladder walks every bit of the words it is given; the challenge
+    // scalar is decoded from challenge_bytes bytes (signature_from_bytes,
+    // hash_to_challenge), so its words past that are zero and only the
+    // words holding the challenge are passed: CHALLENGE_BITS bits, not
+    // the order's width.
+    let chall_words = params.challenge_bytes.div_ceil(8);
     let kernel = ec_ladder3pt(
-        &chall_coeff[..L::ORDER_WORDS],
+        &chall_coeff[..chall_words],
         &bas_ea.p,
         &bas_ea.q,
         &bas_ea.pmq,
@@ -465,8 +474,32 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
     sig: &Signature<L>,
     msg: &[u8],
 ) -> Option<()> {
+    verify_reason(params, key, sig, msg).ok()
+}
+
+/// Where a verification stops: a diagnostic for tests, not an API for
+/// callers (the verdict is the `Result`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RejectReason {
+    /// An entry of the basis-change matrix is out of range.
+    BasisChangeMatrix,
+    /// The challenge isogeny or a canonical basis could not be computed
+    /// (the auxiliary curve, the kernel, the chain, a hint).
+    ChallengeState,
+    /// The chain ran and the recomputed challenge did not match, or a
+    /// step of the response chain failed.
+    Response,
+}
+
+/// `verify_prepared` with the stopping point on rejection.
+pub fn verify_reason<L: FpBackend + PrimePrecomp>(
+    params: &VerifyParams,
+    key: &PreparedPublicKey<L>,
+    sig: &Signature<L>,
+    msg: &[u8],
+) -> Result<(), RejectReason> {
     if !check_canonical_basis_change_matrix(params, sig) {
-        return None;
+        return Err(RejectReason::BasisChangeMatrix);
     }
     let st = challenge_state(
         params,
@@ -475,7 +508,8 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
         &sig.chall_coeff,
         sig.hint_chall,
         sig.hint_aux,
-    )?;
+    )
+    .ok_or(RejectReason::ChallengeState)?;
     finish(
         params,
         key,
@@ -484,6 +518,7 @@ fn verify_inner<L: FpBackend + PrimePrecomp>(
         &sig.chall_coeff,
         msg,
     )
+    .ok_or(RejectReason::Response)
 }
 
 /// One item of [`verify_batch`]: a prepared key, a message and an encoded

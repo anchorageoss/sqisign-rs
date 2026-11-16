@@ -1,0 +1,13 @@
+2026-11-14T22:47:15Z kill rust-analyzer and its proc-macro servers
+2026-11-14T22:47:28Z the editor respawns its language server when killed (killed once at 22:47Z, new pid): SIGSTOP instead, SIGCONT after the session
+2026-11-14T22:47:28Z sudo service cron stop (no systemd in this container, so no timers; cron runs cron-apt and apt-compat)
+2026-11-14T22:47:28Z affinity: every process off CPUs 13 and 29 (taskset -a -p -c 0-12,14-28,30,31)
+2026-11-14T22:47:32Z moved 237 processes, 0 could not be moved
+2026-11-14T22:47:39Z QUIET=1 QUIET_LOAD=0.10 PAPER_NOISE=0.015 OTHER_CPUS=0-7,16-23 taskset -c 0-7,16-23 ./paper_session.sh /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session 13
+2026-11-14T22:57:02Z cancelled at the human's word before any pass ran (it was still waiting for quiet); to be restarted after the Mac port is pushed
+2026-11-14T23:15:22Z restart at head 68a0017: QUIET=1 QUIET_LOAD=0.10 PAPER_NOISE=0.015 OTHER_CPUS=0-7,16-23 taskset -c 0-7,16-23 ./paper_session.sh /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session 13
+2026-11-14T23:46:46Z first attempt stopped by its own rule: load not under 0.10 for 300 s within 30 min (it ended at 0.09). During that window this agent answered three messages and unpacked the Mac archive. One more attempt with the agent idle.
+2026-11-14T23:46:46Z restart at head 68a0017: QUIET=1 QUIET_LOAD=0.10 PAPER_NOISE=0.015 OTHER_CPUS=0-7,16-23 taskset -c 0-7,16-23 ./paper_session.sh /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session 13
+2026-11-15T00:36:27Z pass 1 ran after a strict quiet start (00:00:40Z). Before pass 2 the strict rule (30 consecutive samples of the 1-minute load under 0.10) was not met in 30 minutes although the load ended at 0.03 0.04 0.10: single samples near 0.10 reset the count. Resumed at pass 2 with the averaged form of the rule (1-minute and 5-minute averages both under 0.10): RESUME_FROM=2 QUIET=1 QUIET_RULE=avg QUIET_LOAD=0.10 PAPER_NOISE=0.015 OTHER_CPUS=0-7,16-23 taskset -c 0-7,16-23 ./paper_session.sh /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session 13
+2026-11-15T00:36:36Z note: the resume restarted vmstat and overwrote vmstat.log; the first log (580 samples from 23:47Z to 00:35Z, pass 1 included) had steal 0 in every sample (read at 00:36Z before the resume)
+2026-11-15T01:08:52Z restore: SIGCONT to the language server pids, sudo service cron start, taskset -a -p -c 0-31 on every process (239)

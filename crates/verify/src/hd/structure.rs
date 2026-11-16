@@ -4,7 +4,10 @@
 
 use crate::{Fp2, FpBackend};
 
-use crate::hd::arith::{hadamard, pointwise_square};
+use crate::hd::arith::{
+    hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square, pointwise_square_assign,
+    to_squared_theta_assign,
+};
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 
 /// A dimension-4 theta structure: its theta null point (the theta point at the
@@ -16,9 +19,10 @@ use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 pub struct ThetaStructureDim4<L: FpBackend> {
     null_point: ThetaPointDim4<L>,
     precomputed: bool,
-    /// `1 / O[k]` (inverse of the null point coordinates).
+    /// `1 / O[k]` up to a common scalar (the products of the other
+    /// coordinates of the null point).
     inv_null: [Fp2<L>; N],
-    /// `1 / H(S(O))[k]` (inverse of the squared dual null point).
+    /// `1 / H(S(O))[k]` up to a common scalar, likewise.
     inv_dual_sq: [Fp2<L>; N],
 }
 
@@ -81,8 +85,8 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
             return true;
         }
         let o = self.null_point.coords();
-        let so = pointwise_square(o);
-        let hso = hadamard(&so);
+        let mut hso = o.clone();
+        to_squared_theta_assign(&mut hso);
 
         let suitable = o.iter().all(|c| !bool::from(c.ct_is_zero()))
             && hso.iter().all(|c| !bool::from(c.ct_is_zero()));
@@ -90,21 +94,41 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
             return false;
         }
 
-        // Invert O (16) and H(S(O)) (16) together with a *single* field
-        // inversion: concatenate into one 32-element batch (Montgomery's trick).
-        let mut combined: [Fp2<L>; 2 * N] = core::array::from_fn(|i| {
-            if i < N {
-                o[i].clone()
-            } else {
-                hso[i - N].clone()
-            }
-        });
-        let mut scratch1: [Fp2<L>; 2 * N] = core::array::from_fn(|_| Fp2::zero());
-        let mut scratch2: [Fp2<L>; 2 * N] = core::array::from_fn(|_| Fp2::zero());
-        crate::hd::field::batched_inv(&mut combined, &mut scratch1, &mut scratch2);
+        // The doubling weights as products of the other coordinates, no
+        // inversion: the doubled point is the same up to a common scalar.
+        self.inv_null = crate::hd::field::products_of_others(o);
+        self.inv_dual_sq = crate::hd::field::products_of_others(&hso);
+        self.precomputed = true;
+        true
+    }
 
-        self.inv_null = core::array::from_fn(|i| combined[i].clone());
-        self.inv_dual_sq = core::array::from_fn(|i| combined[N + i].clone());
+    /// [`Self::precompute`] for a null point fixed by the permutation
+    /// [`PI`](crate::hd::two_point::PI) coordinate by coordinate (equal
+    /// values on each orbit, as the two-point step produces): the squares,
+    /// the Hadamard transform and the two sets of weights are computed on
+    /// the ten orbits. The caller guarantees the symmetry.
+    pub fn precompute_pi(&mut self) -> bool {
+        use crate::hd::two_point::{expand_orbits, hadamard_pi_assign, ORBIT_REPS};
+        if self.precomputed {
+            return true;
+        }
+        let o = self.null_point.coords();
+        let mut hso = o.clone();
+        for &a in ORBIT_REPS.iter() {
+            hso[a].sqr_assign();
+        }
+        hadamard_pi_assign(&mut hso);
+        let o10: [Fp2<L>; 10] = core::array::from_fn(|i| o[ORBIT_REPS[i]].clone());
+        let h10: [Fp2<L>; 10] = core::array::from_fn(|i| hso[ORBIT_REPS[i]].clone());
+        if o10
+            .iter()
+            .chain(h10.iter())
+            .any(|c| bool::from(c.ct_is_zero()))
+        {
+            return false;
+        }
+        self.inv_null = expand_orbits(&crate::hd::field::products_of_others(&o10));
+        self.inv_dual_sq = expand_orbits(&crate::hd::field::products_of_others(&h10));
         self.precomputed = true;
         true
     }
@@ -120,34 +144,41 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
     /// Requires [`Self::precompute`] to have been called.
     #[inline]
     pub fn double(&self, p: &ThetaPointDim4<L>) -> ThetaPointDim4<L> {
+        let mut q = p.clone();
+        self.double_assign(&mut q);
+        q
+    }
+
+    /// [`Self::double`] in place: `p <- 2·p`.
+    #[inline]
+    pub fn double_assign(&self, p: &mut ThetaPointDim4<L>) {
         debug_assert!(
             self.precomputed,
             "ThetaStructureDim4::double called before precompute()"
         );
-        // U_χ(P) = S(H(S(P)))
-        let s1 = pointwise_square(p.coords());
-        let h1 = hadamard(&s1);
-        let mut u = pointwise_square(&h1);
-        // ⊙ 1/H(S(O))
-        for (uk, inv) in u.iter_mut().zip(self.inv_dual_sq.iter()) {
-            *uk = uk.mul(inv);
-        }
-        // H(...)
-        let mut out = hadamard(&u);
-        // ⊙ 1/O
-        for (ok, inv) in out.iter_mut().zip(self.inv_null.iter()) {
-            *ok = ok.mul(inv);
-        }
-        ThetaPointDim4::new(out)
+        // U_χ(P) = S(H(S(P))), then ⊙ 1/H(S(O)), H, ⊙ 1/O, all in place.
+        let a = p.coords_mut();
+        to_squared_theta_assign(a);
+        pointwise_square_assign(a);
+        pointwise_mul_assign(a, &self.inv_dual_sq);
+        hadamard_assign(a);
+        pointwise_mul_assign(a, &self.inv_null);
+        crate::hd::zero_trace::vector(crate::hd::zero_trace::D4_DOUBLE, a);
     }
 
     /// Iterated doubling: `P ↦ 2ⁿ·P`. Returns `P` unchanged for `n == 0`.
     #[inline]
     pub fn double_iter(&self, p: &ThetaPointDim4<L>, n: u32) -> ThetaPointDim4<L> {
         let mut out = p.clone();
-        for _ in 0..n {
-            out = self.double(&out);
-        }
+        self.double_iter_assign(&mut out, n);
         out
+    }
+
+    /// [`Self::double_iter`] in place: `p <- 2ⁿ·p`.
+    #[inline]
+    pub fn double_iter_assign(&self, p: &mut ThetaPointDim4<L>, n: u32) {
+        for _ in 0..n {
+            self.double_assign(p);
+        }
     }
 }

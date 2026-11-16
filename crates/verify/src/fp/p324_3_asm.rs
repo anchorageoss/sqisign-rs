@@ -1345,6 +1345,21 @@ fn canonical(a: &[u64; NLIMBS]) -> [u64; NLIMBS] {
     c
 }
 
+/// `2p`, for the zero test on the lazily reduced range.
+const TWO_P: [u64; NLIMBS] = {
+    let mut out = [0u64; NLIMBS];
+    let mut carry = 0u64;
+    let mut i = 0;
+    while i < NLIMBS {
+        let (s1, c1) = P[i].overflowing_add(P[i]);
+        let (s2, c2) = s1.overflowing_add(carry);
+        out[i] = s2;
+        carry = (c1 | c2) as u64;
+        i += 1;
+    }
+    out
+};
+
 #[inline]
 fn is_zero_limbs(a: &[u64; NLIMBS]) -> Choice {
     let mut acc = 0u64;
@@ -1365,9 +1380,17 @@ fn eq_limbs(a: &[u64; NLIMBS], b: &[u64; NLIMBS]) -> Choice {
 
 #[inline]
 fn sqr_n(x: &mut [u64; NLIMBS], n: u32) {
-    for _ in 0..n {
-        let t = *x;
+    // Two buffers in turn: no copy of the value before each squaring.
+    let mut t = [0u64; NLIMBS];
+    let mut i = 0;
+    while i + 1 < n {
+        mont_mul(&mut t, x, x);
         mont_mul(x, &t, &t);
+        i += 2;
+    }
+    if i < n {
+        mont_mul(&mut t, x, x);
+        *x = t;
     }
 }
 
@@ -1456,7 +1479,10 @@ impl FpBackend for P324_3 {
 
     #[inline]
     fn is_zero(a: &Limbs) -> Choice {
-        is_zero_limbs(&canonical(as_arr(a)))
+        // Below 3p a value is zero exactly when its limbs are 0, p or 2p:
+        // three compares in place of the two conditional subtractions.
+        let a = as_arr(a);
+        is_zero_limbs(a) | eq_limbs(a, &P) | eq_limbs(a, &TWO_P)
     }
 
     #[inline]
@@ -1597,15 +1623,21 @@ impl FpBackend for P324_3 {
 
     #[inline]
     fn fp2_sqr_assign(a: &mut Fp2<Self>) {
-        let (a_re, a_im) = (*as_arr(&a.re.limbs), *as_arr(&a.im.limbs));
+        // Both halves into locals first, then stored: the in-place stores of
+        // the earlier form sat on the dependent chain (SECENG-2435).
+        let (a_re, a_im) = (as_arr(&a.re.limbs), as_arr(&a.im.limbs));
         let mut sum = [0u64; NLIMBS];
         let mut diff = [0u64; NLIMBS];
-        add_lazy(&mut sum, &a_re, &a_im);
-        sub_lazy_2p(&mut diff, &a_re, &a_im);
-        mont_mul(as_arr_mut(&mut a.re.limbs), &sum, &diff);
         let mut twice = [0u64; NLIMBS];
-        add_lazy(&mut twice, &a_re, &a_re);
-        mont_mul(as_arr_mut(&mut a.im.limbs), &twice, &a_im);
+        add_lazy(&mut sum, a_re, a_im);
+        sub_lazy_2p(&mut diff, a_re, a_im);
+        add_lazy(&mut twice, a_re, a_re);
+        let mut re = [0u64; NLIMBS];
+        let mut im = [0u64; NLIMBS];
+        mont_mul(&mut re, &sum, &diff);
+        mont_mul(&mut im, &twice, a_im);
+        *as_arr_mut(&mut a.re.limbs) = re;
+        *as_arr_mut(&mut a.im.limbs) = im;
     }
 
     #[inline]

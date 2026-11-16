@@ -1,0 +1,78 @@
+date: 2026-11-14T22:22:29Z
+host kernel: Linux 6.12.110+ x86_64
+rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+cargo: cargo 1.100.0 (3acc79c0c 2026-11-05)
+RUSTFLAGS: '' CARGO_BUILD_RUSTFLAGS: ''
+machine type: n2-standard-32
+pinned core: 11 (siblings: 11,27)
+governor: none exposed
+load before: 2.79 1.63 1.37 10/2231 3765416
+--- lscpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           46 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  32
+On-line CPU(s) list:                     0-31
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) CPU @ 2.80GHz
+CPU family:                              6
+Model:                                   85
+Thread(s) per core:                      2
+Core(s) per socket:                      8
+Socket(s):                               2
+Stepping:                                7
+BogoMIPS:                                5600.49
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch ssbd ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves arat avx512_vnni md_clear arch_capabilities
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               512 KiB (16 instances)
+L1i cache:                               512 KiB (16 instances)
+L2 cache:                                16 MiB (16 instances)
+L3 cache:                                66 MiB (2 instances)
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-7,16-23
+NUMA node1 CPU(s):                       8-15,24-31
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Mitigation; Aligned branch/return thunks
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Mitigation; Enhanced IBRS
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+Vulnerability Vmscape:                   Not affected
+--- /proc/meminfo (head)
+MemTotal:       132002464 kB
+MemFree:         6459040 kB
+MemAvailable:   120791904 kB
+Buffers:         4385608 kB
+Cached:         102777948 kB
+--- repository
+e804cae9f8e874e525a1ee6160fce93212e4a96f
+--- C reference
+nist-v3
+6d017708db403bf83977fa70770fc4f7f9e9ff21
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/cc
+SQISIGN_BUILD_TYPE:UNINITIALIZED=broadwell
+--- busiest processes
+%CPU PSR COMMAND
+60.0  27 python3.11
+60.0   5 python3.11
+50.0  23 python3.11
+34.0   1 claude
+12.5  12 python3.11
+ 1.2  16 claude
+ 0.5   0 claude
+load after pass 1: 1.03 1.31 1.32 1/2208 3767557
+load after pass 2: 1.17 1.17 1.24 1/2213 3768943
+load after pass 3: 1.14 1.16 1.22 1/2200 3770373

@@ -1,0 +1,17 @@
+Fixed code (working tree of the commit that carries this file), binary `paper` built from clean, CPU 13, 2026-11-16.
+Pass 1 (all blocks) started at load 0.03 0.10 0.34 after a 40-minute wait; the strict rule (1-minute load under 0.10 for 300 s) held for 60 s only. Pass 2 (dimension-4 blocks) at load 0.73 0.57 0.49.
+Medians in Mc against the medians of the clean session (sessions/2026-11-15-68a0017/numbers.json):
+
+row                           pass 1    pass 2    clean    pass 1    pass 2
+dim4-I-verify-four            75.131    75.723    76.540   -1.84 %   -1.07 %
+dim4-I-verify-two             46.766    46.989    48.048   -2.67 %   -2.20 %
+dim4-I-verify-two-nocheck     45.829    45.784    47.296   -3.10 %   -3.20 %
+dim4-III-verify-four         193.834   193.807   194.632   -0.41 %   -0.42 %
+dim4-III-verify-two          118.583   118.880   120.059   -1.23 %   -0.98 %
+dim4-III-verify-two-nocheck  117.105   117.057   118.575   -1.24 %   -1.28 %
+dim4-V-verify-four           481.195   482.182   482.237   -0.22 %   -0.01 %
+dim4-V-verify-two            289.689   290.787   291.583   -0.65 %   -0.27 %
+dim4-V-verify-two-nocheck    287.224   287.961   289.163   -0.67 %   -0.42 %
+dimension-2 verification rows (pass 1): within 0.27 % of the clean session.
+
+Largest movement: -3.20 % (dim4-I-verify-two-nocheck, pass 2); no row is slower. The level I rows move by more than the 1.5 % bar of the earlier check, downwards. In the phase profile the gain is mostly in the point pushes (slot 4), which the fixes do not touch beyond an empty counter call: a difference of code generation, not of the algorithm. The paper's tables were measured at 68a0017 and are not changed here.

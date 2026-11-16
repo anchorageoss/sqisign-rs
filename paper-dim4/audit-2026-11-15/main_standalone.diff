@@ -1,0 +1,574 @@
+--- main_standalone.2026-11-04.orig.tex
++++ main_standalone.tex
+@@ -45,14 +45,14 @@
+ 
+     % Plain-text abstract, required by iacrcc for the final version.
+     \begin{textabstract}
+-SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 one, which removes the auxiliary curve from the signature but makes verification much costlier. We show that the verifier's chain of dimension-4 isogenies respects an automorphism of order 4 that acts on its theta coordinates as one fixed permutation, for every input, honest or forged. After the gluing, two of the four kernel points can therefore be recovered from the other two by permuting coordinates, and the constants of each step are determined by ten coordinates instead of sixteen, which cuts the verifier's cost by 37 to 40%. Along the way we derive the change of basis that the verifier applies at the gluing, which Dartois states with only a brief justification, prove that the verifier's image check remains sound with the signs that its implementation leaves free, and show that the verifier must validate the basis hints, which a forger controls. We implement the scheme at the round-3 SQIsign primes, adopted after Wesolowski's attack. At level I a signature takes 139 bytes, against 200 for the round-3 specification, and key and signature together take 223 bytes, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack; verification costs four times that of the dimension-2 scheme in the same code.
++SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 one, which removes the auxiliary curve from the signature but makes verification much costlier. We show that the verifier's chain of dimension-4 isogenies respects an automorphism of order 4 that acts on its theta coordinates as one fixed permutation, for every input, honest or forged. After the gluing, two of the four kernel points can therefore be recovered from the other two by permuting coordinates, and the constants of each step are determined by ten coordinates instead of sixteen, which cuts the verifier's cost by 37 to 40%. Along the way we derive the change of basis that the verifier applies at the gluing, which Dartois states with only a brief justification, prove that the verifier's image check remains sound with the signs that its implementation leaves free, and show that the verifier must validate the basis hints, which a forger controls. We implement the scheme at the round-3 SQIsign primes, adopted after Wesolowski's attack. At level I a signature takes 139 bytes, against 200 for the round-3 specification, and key and signature together take 223 bytes, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack; verification costs 4.3 times that of the dimension-2 scheme in the same code.
+     \end{textabstract}
+ 
+     \begin{abstract}
+         {\SQIsign HD} verifies a dimension-4 isogeny where {\SQIsign} verifies a dimension-2 one, which removes the auxiliary curve from the signature but makes verification much costlier.
+         We show that the verifier's chain of dimension-4 isogenies respects an automorphism of order 4 that acts on its theta coordinates as one fixed permutation, for every input, honest or forged. After the gluing, two of the four kernel points can therefore be recovered from the other two by permuting coordinates, and the constants of each step are determined by ten coordinates instead of sixteen, which cuts the verifier's cost by 37 to 40\,\%.
+         Along the way we derive the change of basis that the verifier applies at the gluing, which Dartois states with only a brief justification, prove that the verifier's image check remains sound with the signs that its implementation leaves free, and show that the verifier must validate the basis hints, which a forger controls.
+-        We implement the scheme at the round-3 {\SQIsign} primes, adopted after Wesolowski's attack. At level I a signature takes 139 bytes, against 200 for the round-3 specification, and key and signature together take 223 bytes, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack; verification costs four times that of the dimension-2 scheme in the same code.
++        We implement the scheme at the round-3 {\SQIsign} primes, adopted after Wesolowski's attack. At level I a signature takes 139 bytes, against 200 for the round-3 specification, and key and signature together take 223 bytes, the smallest level-I combination of any post-quantum signature we are aware of at parameters that stand after that attack; verification costs 4.3 times that of the dimension-2 scheme in the same code.
+     \end{abstract}
+ 
+     %% ============================================================
+@@ -106,7 +106,7 @@
+         chain (Proposition~\ref{prop:symnull}), so the constants of each step
+         are determined by ten coordinates instead of sixteen. Together these
+         turn the symmetry into a concrete speedup: the two-point verifier takes
+-        0.63, 0.61 and 0.60 times the cycles of the four-point one at levels I,
++        0.63, 0.62 and 0.60 times the cycles of the four-point one at levels I,
+         III and V (Section~\ref{sec:twopoint} and
+         Appendix~\ref{app:symmetry}).
+         \item \emph{The change of basis at the gluing.} We prove that the
+@@ -431,11 +431,17 @@
+     \subsection{The verifier}
+     \label{sec:verif}
+     The verifier decodes the key and the signature, recomputes the challenge,
+-    and checks that the basis hints are the canonical ones of their curves. From the hints it builds a basis $(R_0, S_0)$ of $\Ecom[2^f]$,
++    and checks that the basis hints are the canonical ones of their curves. From the hints it builds a basis of the $2^f$-torsion of the public-key curve,
+     where $2^f$ is the largest power of 2 dividing $p + 1$, as in the
+-    specification, and a basis of $\Echl[2^f]$; their multiples by $2^{f-r}$
+-    are the bases of the $2^r$-torsion in which the action is written, and the
+-    verifier checks that both pair to roots of unity of exact order $2^r$. It
++    specification, and a basis $(R_0, S_0)$ of $\Ecom[2^f]$. No basis of
++    $\Echl[2^f]$ is built: the challenge isogeny, of degree $2^\lambda$, maps
++    the multiples by $2^{f - \lambda - r}$ of the public-key basis to a basis
++    $(P, Q)$ of $\Echl[2^r]$, and $(R, S) = ([2^{f-r}]R_0, [2^{f-r}]S_0)$ is
++    the basis of $\Ecom[2^r]$; the action is written in these two bases. The
++    verifier checks, in this order, that $e(P, Q)$ has exact order $2^r$, that
++    the transmitted $a$ and $b$ are not both even, and that $e(R, S)$ has
++    exact order $2^r$, which it does by computing the integer $k$ with $e(R,
++    S) = e(P, Q)^k$ and requiring that it exist and be odd. It
+     then completes the dropped scalar by the rule of Section~\ref{sec:wire},
+     repeats the goodness test on $q$, writes $2^e - q = a_1^2 + a_2^2$ by
+     Cornacchia's algorithm, and builds the kernel of the dimension-4 isogeny
+@@ -443,7 +449,9 @@
+     action~\cite[Lemma 4 and Section 4.4]{DLRW24}. Finally, it computes the two
+     half-chains of $\lceil e/2 \rceil$ steps from both ends, and accepts when
+     two conditions hold: the two middle codomains have the same theta null
+-    point, projectively, and the chain maps $(R_0, 0, 0, 0)$ to $(\pm[a_1]R_0,
++    point, projectively (our code compares the null point of the first with
++    the Hadamard transform of that of the second, since it evaluates the
++    second half-chain through its dual), and the chain maps $(R_0, 0, 0, 0)$ to $(\pm[a_1]R_0,
+     \pm[a_2]R_0, \ast, 0)$, the first two components being compared by their
+     $x$-coordinates. These are the two conditions of SQIsignHD's Section 4.5
+     in the form in which its library checks them. Their Algorithm 5 fixes the
+@@ -453,10 +461,13 @@
+     holds for the condition with free signs, since its proof uses only the
+     degrees $a_1^2$ and $a_2^2$. The component marked $\ast$, on which the
+     transmitted action acts, need not be compared either. A signature thus
+-    fails on any decoding error, on a hint that is not canonical or a basis
+-    that does not pair to a root of unity of exact order $2^r$, on a degree
+-    that is not good, on a chain that lands on a product of curves where it
+-    should not, or on either condition.
++    fails on any decoding error, on a curve coefficient that is not that of a
++    curve, on a hint that is not canonical, on a pairing that does not have
++    exact order $2^r$, on transmitted $a$ and $b$ that are both even, on a
++    degree that is not good, on a failure of Cornacchia's algorithm or a
++    value $m > 40$ (Appendix~\ref{app:remains}), on a step that would divide
++    by a vanishing value, as when the chain lands on a product of curves
++    where it should not, or on either condition.
+ 
+     \begin{proposition}[Soundness of the image check]
+         \label{prop:soundness}
+@@ -480,16 +491,18 @@
+             \Ensure accept or reject
+             \State decode the key and the signature, rejecting malformed input
+             \State $\Ecom \gets$ the curve with coefficient $A_{\mathrm{com}}$;
+-            $\Echl \gets$ the challenge curve, recomputed from the public key,
+-            $\Ecom$ and $\mu$
+-            \State reject unless the hints of the public-key curve and of $\Ecom$
++            reject unless the hints of the public-key curve and of $\Ecom$
+             are canonical
+-            \State bases of $\Ecom[2^f]$ and $\Echl[2^f]$ from the hints, and of
+-            the $2^r$-torsion from them; reject unless both pair to roots of unity
+-            of exact order $2^r$
++            \State $\Echl \gets$ the challenge curve, recomputed from the public
++            key, $\Ecom$ and $\mu$; $(P, Q) \gets$ the basis of $\Echl[2^r]$ that
++            is the image, under the challenge isogeny, of the hinted basis of
++            the public-key curve; reject unless $e(P, Q)$ has exact order $2^r$
++            \State reject if $a$ and $b$ are both even
++            \State $(R, S) \gets$ the basis of $\Ecom[2^r]$ from the hinted
++            basis $(R_0, S_0)$ of $\Ecom[2^f]$; reject unless $e(R, S)$ has
++            exact order $2^r$
+             \State complete $M = \left(\begin{smallmatrix} a & b \\ c & d
+-            \end{smallmatrix}\right)$ by the rule of Section~\ref{sec:wire};
+-            reject if $a$ and $b$ are both even
++            \end{smallmatrix}\right)$ by the rule of Section~\ref{sec:wire}
+             \If{$q \ge 2^e$ or $2^e - q$ is not a probable prime congruent to
+             1 modulo 4}
+                 \State reject
+@@ -524,13 +537,13 @@
+     \paragraph{Where the verifier's time goes.}
+     The verifier pays for the smaller signature. Its chain of dimension-4
+     isogeny steps, 87 from each end at level I, works on sixteen theta
+-    coordinates instead of the four of a dimension-2 step, and costs 6.4 times
+-    the dimension-2 verifier of the same crate at the same prime (45.6 against
+-    7.1 megacycles), and 6.6 times the reference's assembly build
++    coordinates instead of the four of a dimension-2 step, and costs 6.8 times
++    the dimension-2 verifier of the same crate at the same prime (76.5 against
++    11.2 megacycles), and 7.0 times the reference's assembly build
+     (Section~\ref{sec:bench}). Almost all of this time is spent in the steps
+-    after the gluing. A profile of the verifier at level I attributes 59\,\%
++    after the gluing. A profile of the verifier at level I attributes 60\,\%
+     of it to doubling the four generators of each step's kernel and pushing
+-    them, with the other saved points, through the chain, and 16\,\% to
++    them, with the other saved points, through the chain, and 15\,\% to
+     computing each step's codomain and its constants from those four points;
+     the dimension-2 steps, the gluing and the final checks take the rest. A
+     substantial saving must therefore reduce the work spent on kernel points,
+@@ -1177,7 +1190,7 @@
+     coordinates; it then computes exactly the isogenies and codomains of the
+     four-point verifier (Theorem~\ref{thm:conditional}). This removes half of
+     the doublings and evaluations of kernel points, and in our measurements
+-    the two-point verifier took 0.63, 0.61 and 0.60 times the cycles of the four-point one at levels I, III and V, on
++    the two-point verifier took 0.63, 0.62 and 0.60 times the cycles of the four-point one at levels I, III and V, on
+     the same signature (Section~\ref{sec:scope}).
+ 
+     The symmetry also shortens the computation of each step's codomain. Since
+@@ -1189,15 +1202,18 @@
+     null point, its inverse and the next step's doubling constants, are
+     determined by their values on the ten orbits of $\pi$. MIKE's reference
+     implementation exploits the same structure~\cite{BDD+26}, and we adopt two
+-    of its techniques: the inverse of the dual null point is read off the two
+-    pushed kernel points as products along a fixed path through the ten orbits,
+-    in about 26 multiplications, and the Hadamard transform of a vector fixed by
+-    $\pi$ takes 34 additions instead of 64. Like MIKE's, this computation uses
++    of its techniques: the dual null point and its inverse are each read off the
++    two pushed kernel points as products along a fixed tree on the ten orbits,
++    a path through nine of them and one leaf, in 25 multiplications, and the
++    Hadamard transform of a vector fixed by $\pi$ takes 32 additions and 4
++    doublings instead of 64 additions. Like MIKE's, this computation uses
+     the symmetry without checking it: it rests on Theorem~\ref{thm:base}, which
+-    applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero, since a vanishing
+-    coordinate sends the verifier back to the full computation. Finally, as in
++    applies to our verifier by Appendix~\ref{app:remains}. It never divides by zero: a vanishing
++    coordinate among those the codomain formula reads sends the step back to
++    the full computation, and a vanishing coordinate among the doubling
++    constants makes the verifier reject, as it does with four points. Finally, as in
+     MIKE's implementation, a codomain's doubling constants are computed only
+-    when a doubling follows, which happens after about 42\,\% of the steps of an
++    when a doubling follows, which happens after about 43\,\% of the steps of an
+     optimal strategy at level I. All of them are included in the measurements of
+     Table~\ref{tab:cycles}.
+ 
+@@ -1337,7 +1353,8 @@
+     The exponent $e$ also governs the signer's search for a good degree. The
+     signer samples vectors of the response ideal below $2^e$ and keeps the
+     first whose norm $q$ is odd, congruent to 3 modulo 4, and has $2^e - q$ a
+-    probable prime (40 Miller--Rabin rounds). The sampled norms are odd, so one
++    probable prime (40 Miller--Rabin rounds), and for which the verifier's
++    Cornacchia step succeeds with $m \le 40$ (Appendix~\ref{app:remains}). The sampled norms are odd, so one
+     candidate in two passes the congruence; if $2^e - q$ behaves as a random
+     $e$-bit integer, the density of good $q$ is then $1/(e \ln 2)$: one
+     candidate in 121 at level I, of which 60 reach a primality test.
+@@ -1370,26 +1387,29 @@
+     $2^{18.6}$, $2^{19.4}$ and $2^{20.1}$ at levels I, III and V. The norm
+     form of a maximal order has no local obstruction at 2, so if about half
+     of these norms are odd and the odd ones behave like random odd integers,
+-    about $2^{9.7}$ of them are good at level I, and the chance that none is is about $\exp(-2^{9.7})$. A degenerate class
++    about $2^{9.7}$ of them are good at level I, counting $v$ and $-v$, which have the same norm, once, and the chance that none is is about $\exp(-2^{9.7})$. A degenerate class
+     therefore essentially requires $N_3 > X/2$, in which case all short
+     vectors lie in $L_2$, as for $\mathcal{O}_0$ above, where $N_1 = N_2 =
+     1$ and $N_3 \ge p/4$.
+ 
+     To estimate the probability of $N_3 > X/2$, we instrumented our signer to
+     record the Gram matrix of the response lattice of each fresh commitment
+-    and computed its successive minima for 4\,180 commitments at level I.
++    and computed its successive minima for 4\,180 commitments at level I,
++    those of the 100 signatures of Table~\ref{tab:loop} and of 4\,080 further
++    signatures of the same key.
+     Normalized by $\sqrt{p}/2$, the fourth root of the determinant, the third
+-    minimum has median $2^{0.39}$ and maximum $2^{3.66}$, that is, $2^{-8.6}X$,
+-    and its tail follows $\Pr[N_3 > y\sqrt{p}/2] \approx 1.6\,y^{-4}$ closely
+-    over $1.4 \le y \le 5.7$, the range in which the sample has between 1\,600
+-    and 6 points: the product $y^4 \Pr$ stays between 1.5 and 1.8. This is
++    minimum has median $2^{0.39}$ and maximum $2^{3.65}$, that is, $2^{-8.6}X$,
++    and its tail follows $\Pr[N_3 > y\sqrt{p}/2] \approx 1.5\,y^{-4}$
++    over $1.4 \le y \le 4.8$, the range in which the sample has between 1\,588
++    and 6 points: the product $y^4 \Pr$ has median 1.53 there and stays between
++    1.3 and 1.6 while at least 50 points remain, falling to 0.8 at the last 6. This is
+     the behavior expected of a random lattice. Scale the form to determinant
+     1, so that $\nu_i = N_i/(\sqrt p/2)$ are its successive minima. For a
+     lattice drawn from the invariant probability measure on lattices of
+     determinant 1, Siegel's mean value theorem~\cite{Sie45} gives
+     $\Pr[\nu_1 \le x] \le \pi^2 x^2/4 \approx 2.47\,x^2$, nearly with
+-    equality for small $x$; our sample gives between $1.9\,x^2$ and
+-    $2.8\,x^2$ over $2^{-5} \le x \le 2^{-1}$, within sampling error. For the third
++    equality for small $x$; our sample gives between $1.8\,x^2$ and
++    $3.0\,x^2$ over $2^{-5} \le x \le 2^{-1}$, within sampling error. For the third
+     minimum, Minkowski's theorem gives $\nu_1 \nu_2 < 1024/(\pi^4 y^2)$
+     when $\nu_3 > y$, so the primitive rank-2 sublattice containing the first
+     two minimal vectors has determinant less than $32/(\pi^2 y)$. Kim's
+@@ -1415,9 +1435,15 @@
+     not prove.
+ 
+     Our signer gives up on a commitment after 4096 samples without a good
+-    degree and starts over with a fresh one, so that signing always ends with
+-    a valid signature; by the estimate above, this happens in fewer than one
+-    signature in $2^{40}$. The restart changes the distribution of the
++    degree and starts over with a fresh one, and it stops with an error after
++    64 commitments. A commitment is given up when its class is degenerate,
++    with probability about $2^{-44}$ at level I by the estimate above, or when
++    4096 samples of a class that is not degenerate contain no good degree,
++    with probability $(1 - 1/109)^{4096} \approx 2^{-54}$ at the measured
++    density of one good degree in 109 samples (Table~\ref{tab:loop}). A
++    restart thus happens in fewer than one signature in $2^{40}$, and the
++    error, which takes 64 such commitments in a row, with probability about
++    $2^{-2800}$. The restart changes the distribution of the
+     published commitments by at most the same probability in statistical
+     distance.
+ 
+@@ -1494,9 +1520,13 @@
+     which are those the signer sends. Without this check any other hint that
+     gives a basis would do: anyone could re-express the transmitted action in
+     that basis, by discrete logarithms of order $2^r$, and obtain a second
+-    valid encoding of the same signature, which in our tests happened for
+-    over two hundred hint pairs per signature at level I. With it, each
+-    signature has a single encoding, and unpacking costs a few hundred
++    valid encoding of the same signature. With the check switched off, 97 of
++    the 399 other pairs of table entries gave such an encoding per signature
++    on average at level I, over the 100 signatures of
++    Table~\ref{tab:loop} (median 95, between 39 and 224), and the verifier
++    rejected every one of them with the check on. With it, the hints
++    leave a signature a single encoding (the top bit of a scalar, discussed
++    below, is a separate matter), and unpacking costs a few hundred
+     cycles, which is negligible compared to a verification. Since the canonical hints are a deterministic function of their curves, and
+     the verifier already computes them to check them, the signature could omit
+     them at no further cost to the verifier, for 137, 210 and 276 bytes; we
+@@ -1533,9 +1563,10 @@
+     \subsection{Setup}
+     \label{sec:setup}
+     All measurements come from one session on one machine, a virtual machine
+-    with one vCPU of an Intel Xeon at 2.30~GHz and 3~GiB of memory, on
+-    2026-11-04. One binary measures the Rust code, compiled by \texttt{rustc}
+-    1.89 in release mode with fat link-time optimization and no target-CPU
++    with 32 vCPUs of an Intel Xeon at 2.80~GHz and 126~GiB of memory (Google
++    Compute Engine, \texttt{n2-standard-32}), with the measuring process
++    pinned to one core whose sibling was kept idle, on 2026-11-15. One binary measures the Rust code, compiled by \texttt{rustc}
++    1.100 in release mode with fat link-time optimization and no target-CPU
+     flag; the code chooses its assembly field kernels at run time from CPUID.
+     Each operation is timed with \texttt{rdtsc} and the wall clock around the
+     call. The tables report medians: for dimension 2, over 52 key generations,
+@@ -1547,14 +1578,17 @@
+     \texttt{nist-v3}, built with CMake in \texttt{Release} mode and
+     \texttt{-DSQISIGN\_BUILD\_TYPE=broadwell}, the assembly-backed field
+     arithmetic, and measured by its own benchmark
+-    (\texttt{-{}-iterations=300} at level I, 100 at III and V), medians.
++    (\texttt{-{}-iterations=300} at level I, 100 at III and V), medians. Every row was measured in three passes of the session: key generation and signing of the C reference at levels III and V, whose benchmark draws a fresh seed on every run, differed by more than 1.5\,\% between the first two passes, so a third was run, and the tables report the median of the three passes' values; no row of the Rust code moved by more than 1.2\,\%.
+     Verification is measured from bytes: decode the key, decode the signature,
+-    verify. The timings were taken with the byte-aligned layout that preceded
+-    the bit-packed one; decoding the packed layout costs a few hundred cycles
+-    more, far below the precision of the tables. They also precede the verifier's checks of the hints and of the
+-    orders of the pairings (Section~\ref{sec:wire}), which in a separate
+-    measurement at level I cost about 0.4\,\% of a four-point verification and
+-    0.6\,\% of a two-point one.
++    verify. The timings were taken with the bit-packed layout, and include the
++    verifier's checks of the hints and of the orders of the pairings
++    (Section~\ref{sec:wire}) and its goodness test, which together cost
++    1.2, 3.2 and 5.5 megacycles per verification at levels I, III and V, under
++    2\,\% of a four-point verification and under 3\,\% of a two-point one.
++    The verifier's tests of its divisors (Remark~\ref{rem:conformance}(j))
++    were added after this session; one further pass on the same core with
++    them moved no verification row by more than 0.6\,\%, and the tables are
++    those of the session.
+ 
+     \subsection{Results}
+     \label{sec:results}
+@@ -1586,19 +1620,19 @@
+     \end{table}
+ 
+     These savings come at a cost in time, which Table~\ref{tab:cycles} gives in
+-    megacycles. At level I the dimension-4 verifier costs 6.4 times the
+-    dimension-2 verifier of the same crate, and dimension-4 signing costs 3.3
+-    times dimension-2 signing, because the good degree is found by rejection. At levels III and V the dimension-4 verifier costs 6.4 and 5.8
+-    times the dimension-2 one, the two-point verifier 3.9 and 3.5 times, and
+-    signing 2.8 and 2.0 times as much in median. Signing times vary widely at
++    megacycles. At level I the dimension-4 verifier costs 6.8 times the
++    dimension-2 verifier of the same crate, and dimension-4 signing costs 3.6
++    times dimension-2 signing, because the good degree is found by rejection. At levels III and V the dimension-4 verifier costs 6.5 and 6.0
++    times the dimension-2 one, the two-point verifier 4.0 and 3.6 times, and
++    signing 2.4 and 2.2 times as much in median. Signing times vary widely at
+     these levels, because of the search for a good degree: the middle half of
+-    the signatures took 300 to 1289 megacycles at level III and 567 to 1596 at
++    the signatures took 398 to 1471 megacycles at level III and 869 to 3392 at
+     level V.
+     Key generation is the same in both formats up to the basis convention
+-    (22.6 against 23.7 megacycles). As a check on the implementation, the
+-    crate's dimension-2 code runs at 1.03 times the reference's assembly build
+-    for verification, 1.23 times for key generation and 1.20 times for
+-    signing, and the compressed format's recovery adds 18\,\% to a
++    (35.3 against 32.9 megacycles). As a check on the implementation, the
++    crate's dimension-2 code runs at 1.02 times the reference's assembly build
++    for verification, 1.06 times for key generation and 1.09 times for
++    signing, and the compressed format's recovery adds 19\,\% to a
+     verification. Figure~\ref{fig:trade} sets these costs against signature
+     size at level I: the compact format has the smallest signature and the
+     costliest verification, and the compressed format lies between the other
+@@ -1615,19 +1649,19 @@
+             \toprule
+             implementation & level & keygen & sign & verify & $\times$ dim.\ 2 \\
+             \midrule
+-            C reference, dimension 2 & I   & 19.2 & 56.2 & 6.9 & \\
+-            C reference, dimension 2 & III & 62.1 & 181.6 & 18.0 & \\
+-            C reference, dimension 2 & V   & 133.0 & 384.2 & 44.4 & \\
+-            Rust, dimension 2 & I   & 23.7 & 67.2 & 7.1 & \\
+-            Rust, dimension 2 & III & 72.6 & 219.2 & 18.6 & \\
+-            Rust, dimension 2 & V   & 143.6 & 453.6 & 50.0 & \\
+-            Rust, dimension 2, compressed verify & I & & & 8.4 & \\
+-            Rust, dimension 4 (compact) & I & 22.6 & 219.5 & 45.6 & 6.4 \\
+-            \quad two points & I & & & 28.5 & 4.0 \\
+-            Rust, dimension 4 (compact) & III & 75.1 & 610.7 & 118.9 & 6.4 \\
+-            \quad two points & III & & & 72.8 & 3.9 \\
+-            Rust, dimension 4 (compact) & V & 163.3 & 921.7 & 288.1 & 5.8 \\
+-            \quad two points & V & & & 174.1 & 3.5 \\
++            C reference, dimension 2 & I   & 31.2 & 92.0 & 11.0 & \\
++            C reference, dimension 2 & III & 106.2 & 323.1 & 29.0 & \\
++            C reference, dimension 2 & V   & 216.9 & 679.6 & 75.3 & \\
++            Rust, dimension 2 & I   & 32.9 & 100.0 & 11.2 & \\
++            Rust, dimension 2 & III & 109.0 & 375.4 & 29.8 & \\
++            Rust, dimension 2 & V   & 248.6 & 769.7 & 80.0 & \\
++            Rust, dimension 2, compressed verify & I & & & 13.3 & \\
++            Rust, dimension 4 (compact) & I & 35.3 & 360.5 & 76.5 & 6.8 \\
++            \quad two points & I & & & 48.0 & 4.3 \\
++            Rust, dimension 4 (compact) & III & 126.3 & 913.9 & 194.6 & 6.5 \\
++            \quad two points & III & & & 120.1 & 4.0 \\
++            Rust, dimension 4 (compact) & V & 249.8 & 1714.5 & 482.2 & 6.0 \\
++            \quad two points & V & & & 291.6 & 3.6 \\
+             \bottomrule
+         \end{tabular}
+     \end{table}
+@@ -1637,21 +1671,21 @@
+         \begin{tikzpicture}
+             \begin{axis}[
+                 width=8cm, height=5.5cm,
+-                xmin=120, xmax=240, ymin=0, ymax=60,
++                xmin=120, xmax=240, ymin=0, ymax=90,
+                 xlabel={signature bytes},
+                 ylabel={verification, megacycles (median)},
+                 axis lines=left,
+-                xtick={120,140,...,240}, ytick={0,20,40,60},
++                xtick={120,140,...,240}, ytick={0,30,60,90},
+                 tick label style={font=\small}, label style={font=\small},
+                 every node near coord/.append style={font=\small},
+                 ]
+-                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(139,45.6)};
+-                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(176,8.4) (200,7.1)};
+-                \addplot[only marks, mark=*, mark size=2.5pt, color=red] coordinates {(139,28.5)};
+-                \node[teal, anchor=west, font=\small] at (axis cs:145,47) {compact (dimension 4)};
+-                \node[red, anchor=west, font=\small] at (axis cs:145,29) {two points};
+-                \node[blue!55, anchor=south, font=\small] at (axis cs:168,11) {compressed};
+-                \node[blue!55, anchor=south west, font=\small] at (axis cs:203,10) {standard};
++                \addplot[only marks, mark=*, mark size=2.5pt, color=teal] coordinates {(139,76.5)};
++                \addplot[only marks, mark=*, mark size=2.5pt, color=blue!45] coordinates {(176,13.3) (200,11.2)};
++                \addplot[only marks, mark=*, mark size=2.5pt, color=red] coordinates {(139,48.0)};
++                \node[teal, anchor=west, font=\small] at (axis cs:145,78) {compact (dimension 4)};
++                \node[red, anchor=west, font=\small] at (axis cs:145,49) {two points};
++                \node[blue!55, anchor=south, font=\small] at (axis cs:168,17) {compressed};
++                \node[blue!55, anchor=south west, font=\small] at (axis cs:203,15) {standard};
+             \end{axis}
+         \end{tikzpicture}
+         \caption{The trade at level I on the round-3 prime: signature bytes
+@@ -1676,15 +1710,15 @@
+             \toprule
+             format & operation & ms \\
+             \midrule
+-            dimension 2 (standard) & key generation & 10.3 \\
+-            & signing & 29.2 \\
+-            & verification & 3.1 \\
+-            & verification, compressed & 3.6 \\
++            dimension 2 (standard) & key generation & 11.8 \\
++            & signing & 35.7 \\
++            & verification & 4.0 \\
++            & verification, compressed & 4.7 \\
+             \addlinespace
+-            dimension 4 (compact) & key generation & 9.8 \\
+-            & signing & 95.5 \\
+-            & verification & 19.8 \\
+-            & verification, two points & 12.4 \\
++            dimension 4 (compact) & key generation & 12.6 \\
++            & signing & 128.8 \\
++            & verification & 27.3 \\
++            & verification, two points & 17.2 \\
+             \bottomrule
+         \end{tabular}
+     \end{table}
+@@ -1694,8 +1728,8 @@
+     with the expectation of Section~\ref{sec:params}. A candidate costs one
+     norm computation; one in two reaches a Miller--Rabin test on an $e$-bit
+     number, and composites fail at the first round. The loop also accounts for
+-    the spread of signing times: the median signature needs 80 samples, the
+-    mean 107, and the range is 1 to 566.
++    the spread of signing times: the median signature needs 95 samples, the
++    mean 109, and the range is 1 to 446.
+ 
+     \begin{table}[t]
+         \centering
+@@ -1709,19 +1743,19 @@
+             & measured & expected \\
+             \midrule
+             signatures measured & 100 & \\
+-            response samples per signature, mean & 107 & 121 \\
++            response samples per signature, mean & 109 & 121 \\
+             the same if $q$ had random parity & --- & 241 \\
+-            response samples per signature, median (min, max) & 80 (1, 566) & \\
+-            primality tests per signature, mean & 53 & 60 \\
+-            signing, Mcycles, median (min, max) & 220 (27, 1400) & \\
+-            signing, dimension 2, Mcycles, median & 67 & \\
++            response samples per signature, median (min, max) & 95 (1, 446) & \\
++            primality tests per signature, mean & 55 & 60 \\
++            signing, Mcycles, median (min, max) & 361 (46, 1529) & \\
++            signing, dimension 2, Mcycles, median & 100 & \\
+             \bottomrule
+         \end{tabular}
+     \end{table}
+ 
+     Finally, at its peak, one compact verification at level I allocates
+-    1673~KiB (1.63~MiB) of heap with four points and 1637~KiB with two,
+-    measured with a counting allocator around the call, and 3474 and 6271~KiB
++    1655~KiB (1.62~MiB) of heap with four points and 1631~KiB with two,
++    measured with a counting allocator around the call, and 3443 and 6160~KiB
+     with four points at levels III and V; the dimension-2 verifier allocates
+     nothing.
+ 
+@@ -1771,15 +1805,16 @@
+     smallest level-I
+     combination we are aware of at parameters that stand after
+     Wesolowski's attack. The price is verification: a dimension-4
+-    verification costs 4.0, 3.9 and 3.5 times a dimension-2 one in
+-    the same code at levels I, III and V with two points, and 6.4, 6.4 and
+-    5.8 times with four, and
+-    signing costs 3.3, 2.8 and 2.0 times as much in median, because of the search
++    verification costs 4.3, 4.0 and 3.6 times a dimension-2 one in
++    the same code at levels I, III and V with two points, and 6.8, 6.5 and
++    6.0 times with four, and
++    signing costs 3.6, 2.4 and 2.2 times as much in median, because of the search
+     for a good degree;
+-    the two-point verifier takes 0.63, 0.61 and 0.60 times the cycles of
++    the two-point verifier takes 0.63, 0.62 and 0.60 times the cycles of
+     the four-point one (Section~\ref{sec:bench}). The compact format therefore suits settings
+     where bandwidth or storage dominates and a verification of a few tens of
+-    milliseconds is acceptable, while the specification's dimension-2 format
++    milliseconds at level I (Table~\ref{tab:ms}), and of 43 to 172
++    milliseconds at levels III and V on the same machine, is acceptable, while the specification's dimension-2 format
+     remains the better general-purpose choice.
+ 
+     Apart from the image check, the security argument is SQIsignHD's with our
+@@ -1794,10 +1829,13 @@
+ 
+     The main bottleneck remains the dimension-4 arithmetic itself, and
+     narrowing it decides whether the 61 bytes saved at level I are worth
+-    having; there is reason to expect room. MIKE's chain costs about 0.07 megacycles per step
+-    at level I, against about 0.16 for ours (28.5 megacycles over $2 \cdot
++    having; there is reason to expect room. On the core of
++    Section~\ref{sec:setup}, MIKE's Rust implementation~\cite{BDD+26} computes a
++    level-I shared secret, a chain of 228 steps, in 20.9 megacycles (median of
++    200 runs), about 0.09 megacycles per step,
++    against about 0.28 for ours (48.0 megacycles over $2 \cdot
+     87$ steps, with two points). The comparison is loose, since MIKE works over $\mathbb{F}_p$
+-    on a different processor and our verifier also evaluates a point for its
++    at a prime of 318 bits, in constant time, and our verifier also evaluates a point for its
+     image check, but it suggests that much of our fourfold penalty lies in the
+     implementation rather than in the dimension. Doubling on the quotient by
+     the automorphism would save more, but it needs efficient image formulas
+@@ -1811,6 +1849,7 @@
+     numbers describe code as it stood at the time of writing, not a settled design.
+ 
+ \section*{AI disclosure}
++    % TODO(author): confirm the model name and version in the next sentence.
+     While the authors observed the opportunities for improving 4-dimensional {\SQIsign} (notably the symmetry of the chain) on their own by reviewing the literature on the subject and designing exploratory tests, the final software prototype and test suites were developed on top of existing implementations of the signature scheme with the assistance of Anthropic's Claude Opus 5.5, which also drafted parts of the quantitative analysis and helped in carefully checking the proofs and references.
+     The authors have reviewed the material and take full responsibility for the programs, the tests and their results, the measurements, and every claim in the paper.
+ 
+@@ -2377,11 +2416,15 @@
+             of Lemma~\ref{lem:basepoints} with $\lambda \equiv q^{-1}$, and
+             recovers the dropped entry by the rule of Section~\ref{sec:wire},
+             rejecting a signature whose transmitted $a$ and $b$ are both even,
+-            where the rule is not defined. Before that, it rejects hints that
+-            are not the canonical ones of their curves, and it rejects unless
+-            $e(P, Q)$ has exact order $2^r$ and the discrete logarithm $k$ of
+-            $e(R, S)$ to that base exists and is odd, that is, unless both
+-            pairings have exact order $2^r$. Every input that reaches our
++            where the rule is not defined. In order, it rejects hints that
++            are not the canonical ones of their curves, then rejects unless
++            $e(P, Q)$ has exact order $2^r$, then rejects $a$ and $b$ both
++            even, then rejects unless the discrete logarithm $k$ of
++            $e(R, S)$ to the base $e(P, Q)$ exists and is odd, that is, unless both
++            pairings have exact order $2^r$; the entry is recovered last.
++            The basis $(P, Q)$ is the image under the challenge isogeny of
++            the hinted basis of the public-key curve, and $e(P, Q)$ is
++            computed from the pairing of that basis. Every input that reaches our
+             half-chains therefore satisfies the hypotheses of
+             Lemma~\ref{lem:basepoints}.
+             \item \emph{The change of basis at the gluing.} For both half-chains,
+@@ -2402,7 +2445,9 @@
+             pairs of copies, whose images are combined in the order of
+             Proposition~\ref{prop:gluingbasis}. Its kernel points are those of
+             that proposition, and it starts from the change of coordinates
+-            of~\cite[Theorem 12]{Dar24}, computed as in (a) and (b), for the
++            of~\cite[Theorem 12]{Dar24}, computed as in (a) and (b) except that
++            its four candidates for $\mathbf i_0$ are tried in the order $0, 2, 1,
++            3$, for the
+             matrices of Proposition~\ref{prop:gluingbasis}(i) modulo 4. Its plain
+             steps are the algorithms of (g) in dimension 2, and its gluing
+             evaluates by~\cite[Eqs.~(20), (24) and (25)]{Dar24} with one translate,
+@@ -2413,13 +2458,20 @@
+             by~\cite[Algorithm 5]{Dar24} with two translates, computed on the
+             elliptic curves~\cite[Remarks 19 and 20]{Dar24}.
+             \item \emph{Undefined cases.} Wherever these algorithms would divide by
+-            a vanishing value, our crate rejects the signature.
++            a vanishing value, our crate rejects the signature: it tests every
++            divisor of the dimension-2 chain, of the two gluings, of the plain
++            steps and of the image check before using it, and a test per site
++            exercises the reject.
+             \item \emph{The image check.} Our crate evaluates the chain at
+             $(R_0, 0, 0, 0)$, for the first point $R_0$ of the hinted basis of
+             $\Ecom[2^f]$, the point from which it derives $R$; it compares the
+             $x$-coordinates of the first two components of the image with
+             those of $[a_1]R_0$ and $[a_2]R_0$, and requires the fourth to be the
+             point at infinity, as Proposition~\ref{prop:soundness} assumes.
++            \item \emph{The middle comparison.} Our crate evaluates the second
++            half-chain through its dual, and compares the null point of the
++            first half-chain's last codomain with the Hadamard transform of
++            that of the second's, projectively.
+         \end{enumerate}
+         So our crate computes the theta structures of
+         Definition~\ref{def:structures} on every fourfold $A_{h,k}$ with $k \ge
+@@ -2432,14 +2484,15 @@
+     The two-point verifier checks on each signature that the gluing images of
+     $g_2, g_3$ are the $\pi$-permutations of those of $g_0, g_1$ and that the
+     gluing codomain's null point is fixed by $\pi$, at the cost of four
+-    evaluations through the gluing and six comparisons, and falls back to four
+-    points otherwise. These checks would make the two-point chain correct even
++    evaluations through the gluing, two projective comparisons of points for
++    the images and six comparisons of coordinates for the null point, and
++    falls back to four points otherwise. These checks would make the two-point chain correct even
+     without the conformance above: every plain step consists of coordinatewise
+     operations, Hadamard transforms and products with constants fixed by $\pi$,
+     so it commutes with $\pi$, and by induction from the gluing the two-point
+     chain computes what the four-point chain computes. Only the direct codomain
+     formula of Section~\ref{sec:twopoint} needs more, the consistency of the
+-    equations~\cite[Eq.~(21)]{Dar24} it solves along a single path, which the
++    equations~\cite[Eq.~(21)]{Dar24} it solves along a tree, which the
+     conformance above provides. The
+     fallback has not occurred on any honest signature tested. In the tests, the
+     codomain computation of Section~\ref{sec:twopoint}, which assumes that each
+@@ -2447,11 +2500,8 @@
+     which does not, produce the same codomain, projectively, at all 844
+     plain steps of both half-chains of five level-I test vectors, in both
+     modes of the two-point verifier, with and without the check at the gluing, and the same
+-    verdict on those vectors and on 70 tampered variants. An earlier version of
+-    the crate was checked more directly: $\theta(Dx) = \pi(\theta(x))$ held at
+-    every step of both half-chains of 32 honest and 72 forged signatures
+-    (17\,790 steps). At levels III and V, the same tests give the same codomain at all
+-    1\,282 and 1\,708 plain steps of five vectors each, and the same verdict on 75 and 70 tampered variants.
++    verdict on those vectors and on 70 tampered variants. At levels III and V, the same tests give the same codomain at all
++    1\,274 and 1\,706 plain steps of five vectors each, and the same verdict on 75 and 70 tampered variants.
+ 
+     \section{Beyond two-point evaluation}
+     \label{app:beyond}

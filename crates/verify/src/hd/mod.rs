@@ -55,32 +55,45 @@ pub mod dim4;
 pub mod field;
 pub mod gluing;
 pub mod gluing_chain;
+pub mod goodness;
 pub mod hd_verify;
 pub mod isogeny;
 pub mod kani;
+pub mod nqr_rule;
 mod nqr_tables_p324_3;
 pub mod params;
 pub mod point;
 pub mod product_theta;
+pub mod profile;
 pub mod response;
 pub mod self_contained;
 pub mod strategy;
 pub mod structure;
+pub mod two_point;
 pub mod uint;
+pub mod wide;
 pub mod wire;
+pub mod zero_trace;
 
-pub use arith::{act_point, hadamard, pointwise_square, to_squared_theta};
+pub use arith::{
+    act_point, hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square,
+    pointwise_square_assign, to_squared_theta, to_squared_theta_assign,
+};
 pub use basis::{canonical_hints, hd_torsion_basis, jac_to_affine, torsion_basis_2f_from_hint};
 pub use canonical::make_canonical;
 pub use chain::{middle_codomain_matches, run_half_chain, run_half_chain_collect};
-pub use challenge::{recover_challenge, ChallengeRecovery};
+pub use challenge::{recover_challenge, recover_challenge_prof, ChallengeRecovery};
 pub use dim2::{
     apply_mat4, base_change_theta_dim2, hadamard2, squared_theta2, GluingThetaIsogenyDim2,
     IsogenyChainDim2, ThetaIsogenyDim2, ThetaStructureDim2, TuplePoint,
 };
-pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4};
+pub use dim4::{apply_base_change_theta_dim4, base_change_theta_dim4, BaseChangeDim4};
 pub use gluing::{GluingIsogenyDim4, GLUING_KERNEL_DIRS};
-pub use gluing_chain::{jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4};
+pub use gluing_chain::{
+    jac_mul_u128, jac_mul_w, point_matrix_product_k, point_matrix_product_k_fixed, FixedBase,
+    KaniGluingChainHalf, TuplePoint4,
+};
+pub use goodness::{is_good_degree, is_probable_prime, MR_BASES};
 pub use hd_verify::{
     hd_challenge, hd_challenge_len, recover_response_cd, HdReject, MAX_CHAL_BYTES,
 };
@@ -90,18 +103,39 @@ pub use kani::{
     inverse_mod_pow2, is_symplectic_dim4, kernel_matrix_f1, kernel_matrix_f2_dual, matrix_f,
     matrix_f_dual, norm_equation_2f_minus_q, starting_two_symplectic_matrices, sum_of_two_squares,
 };
-pub use params::{pk_wire_bytes, sig_wire_bytes, HdLevel, MAX_PK_WIRE_BYTES, MAX_SIG_WIRE_BYTES};
+pub use params::{
+    pk_wire_bytes, sig_wire_bits, sig_wire_bytes, HdLevel, MAX_FP2_BYTES, MAX_PK_WIRE_BYTES,
+    MAX_SIG_WIRE_BYTES,
+};
 pub use point::{ThetaPointDim4, THETA_DIM4_N};
 pub use product_theta::{
     product_null_dim2, product_theta_dim2, product_theta_dim2to4, ThetaStructureDim1,
 };
-pub use response::{recover_response, ResponseRecovery, ResponseScalars};
-pub use self_contained::{hd_image, hd_verify, hd_verify_bool, HdSignature};
-pub use strategy::{optimised_strategy, run_strategy_chain, StrategyChain};
+pub use profile::{
+    CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_NAMES, SUB_NAMES, SUB_SLOTS,
+};
+pub use response::{
+    recover_response, recover_response_prof, ResponseError, ResponseRecovery, ResponseScalars,
+};
+pub use self_contained::{
+    hd_codomains, hd_image, hd_kernel_setup, hd_verify, hd_verify_bool, hd_verify_profiled,
+    hd_verify_profiled_full, hd_verify_profiled_record, hd_verify_with, HdCodomains, HdKernelSetup,
+    HdSignature, HdVerifyOptions, HdVerifyReport, KernelPoints, MAX_GLUING_M,
+};
+pub use strategy::{
+    optimised_strategy, run_strategy_chain, run_strategy_chain_prof, StrategyChain,
+};
 pub use structure::ThetaStructureDim4;
-pub use uint::U4;
+pub use two_point::{
+    gluing_images_paired, null_fixed_by_pi, permute_pi, run_strategy_chain_two_point,
+    run_strategy_chain_two_point_checked, PI, PI_FIXED, PI_PAIRS,
+};
+pub use uint::U6;
+pub use wide::W;
+#[cfg(feature = "instrument")]
+pub use wire::hd_verify_bytes_without_hint_check;
 pub use wire::{
-    challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_parsed,
-    parse_public_key, parse_signature, public_key_bytes, signature_bytes, ParsedPublicKey,
-    ParsedSignature,
+    challenge_limbs, encode_public_key, encode_signature, hd_verify_bytes, hd_verify_bytes_with,
+    hd_verify_parsed, hd_verify_parsed_with, parse_public_key, parse_signature, public_key_bytes,
+    signature_bytes, ParsedPublicKey, ParsedSignature,
 };

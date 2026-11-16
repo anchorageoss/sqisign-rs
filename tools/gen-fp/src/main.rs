@@ -300,7 +300,7 @@ fn generate(s: &PrimeSpec) -> String {
     // an inline-assembly backend replaces this one's trait implementation
     // on x86-64; the functions here then go unused
     let asm_note = if s.asm {
-        "\n//!\n//! On x86-64 the trait implementation lives in `<name>_asm.rs` (saturated\n//! limbs; `mulx`/`adcx`/`adox` or portable kernels chosen at run time), and\n//! this module is compiled but unused; elsewhere it is the implementation.\n#![cfg_attr(target_arch = \"x86_64\", allow(dead_code, unused_imports))]"
+        "\n//!\n//! On x86-64 the trait implementation lives in `<name>_asm.rs` (saturated\n//! limbs; `mulx`/`adcx`/`adox` or portable kernels chosen at run time), and\n//! this module is compiled but unused; elsewhere it is the implementation.\n#![cfg_attr(all(target_arch = \"x86_64\", not(sqisign_portable)), allow(dead_code, unused_imports))]"
             .replace("<name>", s.name)
     } else {
         String::new()
@@ -873,7 +873,7 @@ fn generate(s: &PrimeSpec) -> String {
 
     // ---- trait impl ------------------------------------------------------------
     let asm_gate = if s.asm {
-        "#[cfg(not(target_arch = \"x86_64\"))]\n"
+        "#[cfg(any(not(target_arch = \"x86_64\"), sqisign_portable))]\n"
     } else {
         ""
     };

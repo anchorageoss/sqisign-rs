@@ -1,0 +1,24 @@
+# The cost per step of MIKE's dimension-4 chain on the machine of the
+# paper's session, for the one sentence of the conclusion that sets it
+# against ours. It times MIKE's own Rust implementation, mike_rs at upstream
+# commit 0d79121 (github.com/tensor-MIKE/mike_rs), at its level-I parameter
+# set (e = 228 steps), built like the paper's bench: release, fat LTO, one
+# codegen unit, no target-cpu flag. The dependency is a local checkout of
+# mike_rs next to this repository; on the session's machine that is the
+# copy vendored in ~/prism-rs (vendor/mike_rs, VENDOR.md: upstream's code
+# with one parameter set added, which this bench does not use).
+# A package of its own, outside every workspace.
+[package]
+name = "mike-step"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+mike_rs = { path = "../../../../prism-rs/vendor/mike_rs" }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

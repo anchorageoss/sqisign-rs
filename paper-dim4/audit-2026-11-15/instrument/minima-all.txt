@@ -1,0 +1,18 @@
+commitments: 4180 (signatures 0 to 4179)
+nu1: median 2^-0.91, min 2^-7.93, max 2^0.22
+nu2: median 2^-0.12, min 2^-3.68, max 2^1.82
+nu3: median 2^0.39, min 2^-1.62, max 2^3.65
+nu4: median 2^1.08, min 2^0.09, max 2^8.51
+max nu3 = 2^3.65, that is N3 = 2^-8.6 X
+tail of nu3 over 1.41 <= y <= 4.84 (between 1588 and 6 points above y):
+  y^4 Pr[nu3 > y]: min 0.79, median 1.53, max 1.60; fitted exponent -4.15
+  with at least 20 points above y (y <= 3.86): min 1.07, max 1.60
+  with at least 50 points above y (y <= 3.34): min 1.34, max 1.60
+  with at least 100 points above y (y <= 2.79): min 1.38, max 1.60
+Pr[nu1 <= x] / x^2 over 2^-5 <= x <= 2^-1: 2.20 (9 pts at 2^-5.0), 2.69 (22 pts at 2^-4.5), 3.00 (49 pts at 2^-4.0), 2.14 (70 pts at 2^-3.5), 2.19 (143 pts at 2^-3.0), 2.26 (295 pts at 2^-2.5), 2.12 (554 pts at 2^-2.0), 1.93 (1009 pts at 2^-1.5), 1.82 (1897 pts at 2^-1.0)
+  Siegel: pi^2/4 = 2.467
+probabilities from Pr[N3 > X/2] = c (X/sqrt p)^-4 with c = 1.53 (and with the extremes 0.79, 1.60):
+  level I: y = 2^11.21; 2^-44.2 (2^-45.2 to 2^-44.1); random-lattice bound 690 y^-4 = 2^-35.4
+  level III: y = 2^11.62; 2^-45.9 (2^-46.8 to 2^-45.8); random-lattice bound 690 y^-4 = 2^-37.1
+  level V: y = 2^11.96; 2^-47.2 (2^-48.2 to 2^-47.1); random-lattice bound 690 y^-4 = 2^-38.4
+level I: a signature restarts with probability about 2^-44.2; 64 commitments in a row fail with probability 2^-2830

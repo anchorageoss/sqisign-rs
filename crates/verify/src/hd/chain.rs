@@ -65,3 +65,22 @@ pub fn middle_codomain_matches<L: FpBackend>(
     let hc2 = ThetaPointDim4::new(hadamard(f2_dual_last.coords()));
     f1_last.projective_eq(&hc2)
 }
+
+#[cfg(test)]
+mod all_zero_tests {
+    use super::*;
+    use crate::{Fp2, P324_3 as P};
+
+    /// The middle match fails when either last codomain is the zero vector.
+    #[test]
+    fn middle_match_rejects_the_zero_vector() {
+        let zero = ThetaPointDim4::<P>::new(core::array::from_fn(|_| Fp2::zero()));
+        let c2 =
+            ThetaPointDim4::<P>::new(core::array::from_fn(|k| Fp2::from_small(3 * k as u64 + 1)));
+        let c1 = ThetaPointDim4::new(hadamard(c2.coords()));
+        assert!(middle_codomain_matches(&c1, &c2));
+        assert!(!middle_codomain_matches(&zero, &c2), "zero on the left");
+        assert!(!middle_codomain_matches(&c1, &zero), "zero on the right");
+        assert!(!middle_codomain_matches(&zero, &zero), "zero on both sides");
+    }
+}

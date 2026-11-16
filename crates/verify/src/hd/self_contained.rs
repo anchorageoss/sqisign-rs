@@ -19,33 +19,46 @@
 //! Level I parameters come from [`HdLevel`]; the layer is the round-2
 //! compact verifier made generic over the prime.
 
+use alloc::vec::Vec;
+
 use crate::ec::jacobian::{jac_add, jac_dbl};
 use crate::ec::pairing::weil;
 use crate::ec::{EcCurve, JacPoint};
 use crate::fp::{Fp2, FpBackend};
 
 use super::params::HdLevel;
-use super::uint::U4;
+use super::uint::U6;
+use super::wide::W;
 
 use crate::hd::arith::{hadamard, pointwise_square};
-use crate::hd::basis::hd_torsion_basis;
+use crate::hd::basis::canonical_hints;
 use crate::hd::canonical::make_canonical;
 use crate::hd::chain::middle_codomain_matches;
-use crate::hd::challenge::recover_challenge;
+use crate::hd::challenge::recover_challenge_prof;
+use crate::hd::field::inv_checked;
 use crate::hd::gluing_chain::{
-    jac_mul_u128, point_matrix_product_k, KaniGluingChainHalf, TuplePoint4,
+    jac_mul_w, point_matrix_product_k_fixed, FixedBase, KaniGluingChainHalf, TuplePoint4,
 };
+use crate::hd::goodness::is_good_degree;
 use crate::hd::hd_verify::HdReject;
-use crate::hd::isogeny::apply_plain_image;
+use crate::hd::isogeny::apply_plain_image_checked;
 use crate::hd::kani::{
-    gluing_bc_dim4_f1, gluing_bc_dim4_f2, inverse_mod_pow2, norm_equation_2f_minus_q,
+    gluing_bc_dim4_f1, gluing_bc_dim4_f2, norm_equation_2f_minus_q,
     starting_two_symplectic_matrices,
 };
 use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::{product_theta_dim2, ThetaStructureDim1};
-use crate::hd::response::{recover_response, ResponseScalars};
-use crate::hd::strategy::{run_strategy_chain, StrategyChain};
+use crate::hd::profile::{
+    CycleProfiler, NoProfiler, ProfileRecord, Profiler, SLOTS, SLOT_BASIS, SLOT_COMPARE,
+    SLOT_GLUING, SLOT_IMAGE, SLOT_SETUP, SUB_SLOTS,
+};
+use crate::hd::response::{recover_response_prof, ResponseError, ResponseScalars};
+use crate::hd::strategy::{run_strategy_chain_prof, StrategyChain};
 use crate::hd::structure::ThetaStructureDim4;
+use crate::hd::two_point::{
+    run_strategy_chain_two_point_checked_prof, run_strategy_chain_two_point_prof,
+};
+use crate::hd::zero_trace;
 
 /// Upper bound on `m = v_2(a_2)` accepted by [`build_setup`]: the gluing base
 /// change reduces values mod `2^(m+2)` and multiplies them as `i128`, with
@@ -53,7 +66,59 @@ use crate::hd::structure::ThetaStructureDim4;
 /// stays far below the `r − 3` cap the half-chain step counts need. A
 /// legitimate response has a tiny `m` (`v_2` of a random even number), so
 /// this rejects only a crafted `q`.
-const MAX_GLUING_M: usize = 40;
+pub const MAX_GLUING_M: usize = 40;
+
+/// How many kernel points the plain chain of each half-chain carries from
+/// the gluing codomain on (SECENG-2421).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum KernelPoints {
+    /// The four generators `g0` to `g3`, as before the two-point variant
+    /// existed: the default, and the path [`hd_verify`] runs.
+    #[default]
+    Four,
+    /// `g0` and `g1` only, with `g2` and `g3` formed by the permutation
+    /// [`PI`](crate::hd::two_point::PI) at every step, after a check at the
+    /// gluing: the gluing images of `g2` and `g3` are compared projectively
+    /// with `PI` of those of `g0` and `g1`, and a half-chain whose images do
+    /// not match runs with four points (reported by
+    /// [`HdVerifyReport::fell_back`]).
+    TwoWithImageCheck,
+    /// `g0` and `g1` only, with `g2` and `g3` formed by `PI` at every step,
+    /// without the check at the gluing.
+    TwoWithoutImageCheck,
+}
+
+/// The options of [`hd_verify_with`]. The default is the four-point
+/// verifier.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HdVerifyOptions {
+    /// The kernel points carried after the gluing.
+    pub kernel_points: KernelPoints,
+}
+
+/// What [`hd_verify_with`] reports beside the verdict.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HdVerifyReport {
+    /// Per half-chain (`F1`, then `F2_dual`): `true` when the half ran with
+    /// four points because the check of [`KernelPoints::TwoWithImageCheck`]
+    /// failed. Both `false` in the other modes, and for a signature rejected
+    /// before its half-chains.
+    pub fell_back: [bool; 2],
+}
+
+/// The codomain null points of both half-chains, from [`hd_codomains`].
+#[derive(Clone, Debug)]
+pub struct HdCodomains<L: FpBackend> {
+    /// The gluing codomain of `F1` and of `F2_dual`.
+    pub gluing: [ThetaPointDim4<L>; 2],
+    /// The plain steps' codomains of `F1` and of `F2_dual`, in chain order.
+    pub plain: [Vec<ThetaPointDim4<L>>; 2],
+    /// The gluing images of the four full-order generators `g0` to `g3` of
+    /// `F1` and of `F2_dual`: the points the plain chains start from.
+    pub gluing_images: [[ThetaPointDim4<L>; 4]; 2],
+    /// As in [`HdVerifyReport`].
+    pub fell_back: [bool; 2],
+}
 
 /// Signature-derived inputs to [`hd_verify`] (everything comes from the wire
 /// signature + recovered public-key/commitment curves; no oracle data).
@@ -75,23 +140,14 @@ pub struct HdSignature<'a, L: FpBackend> {
     pub chal_limbs: &'a [u64],
     /// The signature's challenge as little-endian bytes (for the binding check).
     /// Response scalars `(a, b, c_or_d)`.
-    pub resp_a: i128,
-    pub resp_b: i128,
-    pub resp_c_or_d: i128,
-    /// Response degree `q` (the full ~136-bit value).
+    pub resp_a: W,
+    pub resp_b: W,
+    pub resp_c_or_d: W,
     /// The response degree, `q < 2^e`.
-    pub q: U4,
+    pub q: U6,
 }
 
 // small helpers (mirroring the validated tests)
-
-fn jac_dbl_n<L: HdLevel>(p: &JacPoint<L>, n: u32, c: &EcCurve<L>) -> JacPoint<L> {
-    let mut acc = p.clone();
-    for _ in 0..n {
-        acc = jac_dbl(&acc, c);
-    }
-    acc
-}
 
 /// `e_4(U,V)` (biextension `weil`, PARI's inverse).
 fn weil4<L: HdLevel>(u: &JacPoint<L>, v: &JacPoint<L>, c: &mut EcCurve<L>) -> Fp2<L> {
@@ -108,11 +164,19 @@ fn m0_from_canon(mt: &[[u8; 2]; 2], mu: &[[u8; 2]; 2]) -> [[u8; 4]; 4] {
     ]
 }
 
-fn dim1_null<L: HdLevel>(u1: &JacPoint<L>) -> [Fp2<L>; 2] {
+/// The dimension-1 null point from a point of order 4; `None` for a point
+/// with `z = 0`, which has no affine `x` (its inverse would be taken of
+/// zero).
+fn dim1_null<L: HdLevel>(u1: &JacPoint<L>) -> Option<[Fp2<L>; 2]> {
+    if bool::from(u1.z.ct_is_zero()) {
+        return None;
+    }
     let (x, _) = crate::hd::basis::jac_to_affine(u1);
-    ThetaStructureDim1::<L>::from_torsion(&x, &Fp2::<L>::one())
-        .null()
-        .clone()
+    Some(
+        ThetaStructureDim1::<L>::from_torsion(&x, &Fp2::<L>::one())
+            .null()
+            .clone(),
+    )
 }
 
 // Low 128 bits of a `U256`. Byte-oriented so it does not depend on the
@@ -125,38 +189,39 @@ struct Setup<L: FpBackend> {
     points_m: [JacPoint<L>; 4],
     /// The full `2^e`-torsion commitment basis point `P_com` (stage-6 input `T`).
     p_com: JacPoint<L>,
-    r_com: JacPoint<L>,
-    s_com: JacPoint<L>,
-    phi_r: JacPoint<L>,
-    phi_s: JacPoint<L>,
+    /// `lambda = q^-1 mod 2^r`.
+    lambda: W,
+    /// The doubling chains of `R_com`, `S_com`, `phi R` and `phi S`, the
+    /// base points of the kernel generators, computed once.
+    tables: [FixedBase<L>; 4],
     zero12: [Fp2<L>; 4],
     m0: [[u8; 4]; 4],
     e4: Fp2<L>,
-    a1: u128,
-    a2: u128,
-    q4: u128,
+    a1: W,
+    a2: W,
+    q4: W,
     m: usize,
 }
 
 /// `B_Kpp = kernel_basis(M, e1, R_com, S_com, φR, lamb·φS)` (modulus `2^(e1+2)=2^70`).
-fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[u128; 8]; 8]) -> [TuplePoint4<L>; 4] {
-    let mask = (1u128 << L::R) - 1;
-    let lamb = inverse_mod_pow2(s.q4, mask);
-    let lamb_s2 = jac_mul_u128(&s.phi_s, lamb, &s.e_chal);
-    point_matrix_product_k(
-        m_full, &s.r_com, &s.s_com, &s.phi_r, &lamb_s2, mask, &s.e_com, &s.e_chal,
-    )
+fn b_kpp<L: HdLevel>(s: &Setup<L>, m_full: &[[W; 8]; 8]) -> [TuplePoint4<L>; 4] {
+    let mask = W::mask(L::R);
+    point_matrix_product_k_fixed(m_full, &s.tables, s.lambda, mask, &s.e_com, &s.e_chal)
 }
 
 /// One self-derived half-chain: the gluing chain plus the optimal-strategy plain
 /// chain (kernels + codomains). Returns `None` if any step is uncomputable.
-fn run_half<L: HdLevel>(
+/// The third value is `true` when `kernel_points` was
+/// [`KernelPoints::TwoWithImageCheck`] and the half ran with four points.
+fn run_half<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
-    m_full: &[[u128; 8]; 8],
+    m_full: &[[W; 8]; 8],
     m_glue: &[[i64; 8]; 8],
     dual: bool,
-) -> Option<(KaniGluingChainHalf<L>, StrategyChain<L>)> {
-    let chain = KaniGluingChainHalf::new(
+    kernel_points: KernelPoints,
+    prof: &mut P,
+) -> Option<(KaniGluingChainHalf<L>, StrategyChain<L>, bool)> {
+    let chain = KaniGluingChainHalf::new_prof(
         &s.points_m,
         &s.zero12,
         &s.m0,
@@ -170,18 +235,54 @@ fn run_half<L: HdLevel>(
         dual,
         &s.e_com,
         &s.e_chal,
+        prof,
     )?;
+    let t0 = prof.now();
     let basis = b_kpp(s, m_full);
-    let post: [ThetaPointDim4<L>; 4] = core::array::from_fn(|i| chain.evaluate(&basis[i]));
+    let tb = prof.now();
+    prof.sub_add(14, tb - t0);
     let start = ThetaStructureDim4::<L>::new(chain.codomain_null().clone());
     let n_plain = (L::E1 - s.m as u32 - 1) as usize;
-    let sc = run_strategy_chain(&start, &post, n_plain)?;
-    Some((chain, sc))
+    let t1 = prof.now();
+    prof.sub_add(15, t1 - tb);
+    prof.add(SLOT_SETUP, t1 - t0);
+    match kernel_points {
+        KernelPoints::Four => {
+            let post: [ThetaPointDim4<L>; 4] = chain.evaluate4(&basis)?;
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let sc = run_strategy_chain_prof(&start, &post, n_plain, prof)?;
+            Some((chain, sc, false))
+        }
+        KernelPoints::TwoWithImageCheck => {
+            let post: [ThetaPointDim4<L>; 4] = chain.evaluate4(&basis)?;
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let (sc, fell_back) =
+                run_strategy_chain_two_point_checked_prof(&start, &post, n_plain, prof)?;
+            Some((chain, sc, fell_back))
+        }
+        KernelPoints::TwoWithoutImageCheck => {
+            let pair = [chain.evaluate(&basis[0])?, chain.evaluate(&basis[1])?];
+            prof.add(SLOT_GLUING, prof.now() - t1);
+            let sc = run_strategy_chain_two_point_prof(&start, &pair, n_plain, prof)?;
+            Some((chain, sc, false))
+        }
+    }
 }
 
 /// Projective equality of the affine `x`-coordinates of two Jacobian points
-/// (`x(A) = x(B) ⟺ A = ±B`): `A.x·B.z² = B.x·A.z²`.
+/// (`x(A) = x(B) ⟺ A = ±B`): `A.x·B.z² = B.x·A.z²`, for two affine points.
+/// `false` when either has `z = 0`: the identity has no affine `x`, and for
+/// the triple `(0, y, 0)` the cross-multiplication would hold against every
+/// point.
 fn x_eq<L: HdLevel>(a: &JacPoint<L>, b: &JacPoint<L>) -> bool {
+    let zero = |c: &Fp2<L>| bool::from(c.ct_is_zero());
+    zero_trace::flag(zero_trace::XEQ_LEFT_Z0, zero(&a.z));
+    zero_trace::flag(zero_trace::XEQ_LEFT_00, zero(&a.z) && zero(&a.x));
+    zero_trace::flag(zero_trace::XEQ_RIGHT_Z0, zero(&b.z));
+    zero_trace::flag(zero_trace::XEQ_RIGHT_00, zero(&b.z) && zero(&b.x));
+    if zero(&a.z) || zero(&b.z) {
+        return false;
+    }
     let (az2, bz2) = (a.z.sqr(), b.z.sqr());
     bool::from(a.x.mul(&bz2).ct_equal(&b.x.mul(&az2)))
 }
@@ -207,15 +308,13 @@ fn eval_f2_dual<L: HdLevel>(
         if cprev.iter().any(|x| bool::from(x.ct_is_zero())) {
             return None;
         }
-        // One batched inversion of the codomain null (Montgomery's trick),
-        // rather than 16 individual inversions per dual step.
-        let mut inv: [Fp2<L>; 16] = cprev.clone();
-        let mut t1: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::<L>::zero());
-        let mut t2: [Fp2<L>; 16] = core::array::from_fn(|_| Fp2::<L>::zero());
-        crate::hd::field::batched_inv(&mut inv, &mut t1, &mut t2);
+        // The dual-step weights as products of the other coordinates of the
+        // codomain null (1/C up to a common scalar), no inversion.
+        let inv: [Fp2<L>; 16] = crate::hd::field::products_of_others(cprev);
         let hs = hadamard(&pointwise_square(&coords));
         let prod: [Fp2<L>; 16] = core::array::from_fn(|t| hs[t].mul(&inv[t]));
         coords = hadamard(&prod); // hadamard = true
+        zero_trace::vector(zero_trace::D4_DUAL_PLAIN, &coords);
     }
     chain2.splitting_eval(&ThetaPointDim4::new(coords))
 }
@@ -235,29 +334,92 @@ fn hd_image_check<L: HdLevel>(
     // F1: gluing chain, then the plain (2,2,2,2) steps. The strategy loop
     // already built each isogeny; reuse its stored image precomputation `1/O`
     // (`apply_plain_image`) instead of rebuilding the isogenies via from_kernel.
-    let mut pt = chain1.evaluate(&t4);
+    let mut pt = chain1.evaluate(&t4)?;
     for inv in &sc1.image_precomp {
-        pt = apply_plain_image(inv, &pt);
+        pt = apply_plain_image_checked(inv, &pt)?;
     }
     // F2 = F2_dual.dual(): pt is on C1 = Hadamard(C2).
     let ft = eval_f2_dual(chain2, &sc2.codomains, &pt)?;
 
-    let a1p = jac_mul_u128(&s.p_com, s.a1, &s.e_com);
-    let a2p = jac_mul_u128(&s.p_com, s.a2, &s.e_com);
-    let ok0 = x_eq(&ft.c[0], &a1p);
-    let ok1 = x_eq(&ft.c[1], &a2p);
-    let ok3 = bool::from(ft.c[3].z.ct_is_zero()); // FT[3] = 0_{E_chal}
-    Some(ok0 && ok1 && ok3)
+    let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
+    let a2p = jac_mul_w(&s.p_com, &s.a2, &s.e_com);
+    Some(image_matches(&ft, &a1p, &a2p))
+}
+
+/// Whether a Jacobian triple is the identity in a well-formed
+/// representation: `z = 0` with `x` and `y` not zero (the point at infinity
+/// is `(t² : t³ : 0)`). The triples `(0, y, 0)` and `(x, 0, 0)`, the
+/// all-zero one among them, are no point.
+fn is_identity<L: HdLevel>(p: &JacPoint<L>) -> bool {
+    let zero = |c: &Fp2<L>| bool::from(c.ct_is_zero());
+    zero(&p.z) && !zero(&p.x) && !zero(&p.y)
+}
+
+/// The image condition on `F(T)`: its first two components are
+/// `±a₁·P_com` and `±a₂·P_com`, compared as affine points, and its fourth
+/// is the identity of `E_chal`, well formed.
+fn image_matches<L: HdLevel>(ft: &TuplePoint4<L>, a1p: &JacPoint<L>, a2p: &JacPoint<L>) -> bool {
+    let ok0 = x_eq(&ft.c[0], a1p);
+    let ok1 = x_eq(&ft.c[1], a2p);
+    let ok3 = is_identity(&ft.c[3]); // FT[3] = 0_{E_chal}
+    zero_trace::flag(zero_trace::IMAGE_C3_NOT_ID, !ok3);
+    zero_trace::flag(
+        zero_trace::IMAGE_C3_00,
+        bool::from(ft.c[3].z.ct_is_zero()) && bool::from(ft.c[3].x.ct_is_zero()),
+    );
+    ok0 && ok1 && ok3
 }
 
 /// Recover the response basis and assemble the completion-independent setup.
 /// Returns `None` if challenge/response recovery fails or the norm equation has
 /// no solution (a malformed/forged `q`).
 fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
-    let chal = recover_challenge::<L>(&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q, sig.chal_limbs)
-        .ok_or(HdReject::ChallengeRecovery)?;
-    let q4 = sig.q.low_u128();
-    let rsp = recover_response::<L>(
+    build_setup_prof(sig, true, &mut NoProfiler)
+}
+
+/// [`build_setup`] with a [`Profiler`]: the challenge and response recovery
+/// and the commitment basis to `SLOT_BASIS`, the norm equation, the
+/// canonical torsion, the product null point and the chain points to
+/// `SLOT_SETUP`.
+fn build_setup_prof<L: HdLevel, P: Profiler>(
+    sig: &HdSignature<L>,
+    check_hints: bool,
+    prof: &mut P,
+) -> Result<Setup<L>, HdReject> {
+    let t0 = prof.now();
+    // The hints must be the canonical ones of their curves: any other pair
+    // that gives a basis would be a second encoding of the same signature.
+    // (`check_hints` is `false` only in the measurement entry of the
+    // `instrument` feature.)
+    for (a, hp, hq) in [
+        (&sig.a_pk, sig.hint_pk_p, sig.hint_pk_q),
+        (&sig.a_com, sig.hint_com_p, sig.hint_com_q),
+    ] {
+        if check_hints && canonical_hints::<L>(a) != Some((hp, hq)) {
+            return Err(HdReject::NonCanonicalHint);
+        }
+    }
+    prof.sub_add(16, prof.now() - t0);
+    let chal = recover_challenge_prof::<L, P>(
+        &sig.a_pk,
+        sig.hint_pk_p,
+        sig.hint_pk_q,
+        sig.chal_limbs,
+        prof,
+    )
+    .ok_or(HdReject::ChallengeRecovery)?;
+    // e(P, Q) of exact order 2^r: its 2^(r-1)-th power is -1.
+    let tp = prof.now();
+    let mut w = chal.w_chal.clone();
+    for _ in 0..L::R - 1 {
+        w = w.sqr();
+    }
+    if !bool::from(w.ct_equal(&Fp2::<L>::one().neg())) {
+        return Err(HdReject::PairingOrder);
+    }
+    prof.sub_add(16, prof.now() - tp);
+    let q4 = sig.q.low_w();
+    let rsp = recover_response_prof::<L, P>(
         &chal,
         &sig.a_com,
         sig.hint_com_p,
@@ -268,13 +430,28 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
             c_or_d: sig.resp_c_or_d,
             q: q4,
         },
+        prof,
     )
-    .ok_or(HdReject::ResponseRecovery)?;
+    .map_err(|e| match e {
+        ResponseError::PairingOrder => HdReject::PairingOrder,
+        ResponseError::Other => HdReject::ResponseRecovery,
+    })?;
+    let t1 = prof.now();
+    prof.add(SLOT_BASIS, t1 - t0);
 
     // 5b.4: norm equation 2^e - q = a1² + a2² (a1 odd, a2 even); m = v₂(a2).
+    // The goodness test, before Cornacchia: q < 2^e and 2^e - q a probable
+    // prime congruent to 1 modulo 4.
+    let ts = prof.now();
+    if !is_good_degree(L::E_EMBED, &sig.q) {
+        return Err(HdReject::DegreeNotGood);
+    }
+    let tg = prof.now();
+    prof.sub_add(17, tg - ts);
     let (a1u, a2u) = norm_equation_2f_minus_q(L::E_EMBED, &sig.q).ok_or(HdReject::NormEquation)?;
-    let a1 = a1u.low_u128();
-    let a2 = a2u.low_u128();
+    prof.sub_add(11, prof.now() - tg);
+    let a1 = a1u.low_w();
+    let a2 = a2u.low_w();
     let m = a2.trailing_zeros() as usize;
     // `m = v₂(a2)` must lie in the protocol's small range. Out-of-range values
     // would otherwise drive the dim-4 gluing base change's `i128` products past
@@ -283,50 +460,63 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
     if m > MAX_GLUING_M {
         return Err(HdReject::GluingBound);
     }
-    let lamb4 = q4 & 3;
+    let lamb4 = q4.low_u64() & 3;
 
     let mut e_com = EcCurve::<L>::from_a(&sig.a_com).ok_or(HdReject::BadCurve)?;
     e_com.normalize_a24();
     let mut e_chal = chal.e_chal.clone();
     e_chal.normalize_a24();
 
-    // The full 2^e-torsion commitment basis (same recovery as recover_response,
-    // before the 2^(e-r) rescaling to R_com); P_com is the stage-6 input.
-    let (p_com, _q_com) = hd_torsion_basis::<L>(&sig.a_com, sig.hint_com_p, sig.hint_com_q)
-        .ok_or(HdReject::BadCurve)?;
+    // P_com, the stage-6 input, is the first point of the basis recover_response
+    // derived (the same hinted basis was computed a second time here before
+    // SECENG-2428).
+    let p_com = rsp.p_com.clone();
+    let t3 = prof.now();
+    prof.add(SLOT_SETUP, t3 - t1);
 
-    let to4 = L::R - 2;
-    let p1_4 = jac_dbl_n::<L>(&rsp.r_com, to4, &e_com);
-    let q1_4 = jac_dbl_n(&rsp.s_com, to4, &e_com);
+    // The doubling chains of the four base points, once (SECENG-2429): the
+    // 4-torsion points, points_m and every kernel generator read them.
+    let lambda = q4.inv_odd() & W::mask(L::R);
+    // one entry past the scalars' width, for the top digit of a non-adjacent form
+    let bits = L::R as usize + 1;
+    let tables = [
+        FixedBase::new(&rsp.r_com, bits, &e_com),
+        FixedBase::new(&rsp.s_com, bits, &e_com),
+        FixedBase::new(&rsp.phi_rsp_r_com, bits, &e_chal),
+        FixedBase::new(&rsp.phi_rsp_s_com, bits, &e_chal),
+    ];
+    let to4 = (L::R - 2) as usize;
+    let p1_4 = tables[0].pts[to4].clone();
+    let q1_4 = tables[1].pts[to4].clone();
     let (t1, t2, mt) = make_canonical(&p1_4, &q1_4, &mut e_com).ok_or(HdReject::CanonicalCom)?;
-    let r2_4 = jac_dbl_n(&rsp.phi_rsp_r_com, to4, &e_chal);
-    let mut s2_4 = jac_dbl_n(&rsp.phi_rsp_s_com, to4, &e_chal);
+    let r2_4 = tables[2].pts[to4].clone();
+    let mut s2_4 = tables[3].pts[to4].clone();
     if lamb4 == 3 {
         s2_4 = jac_add(&jac_dbl(&s2_4, &e_chal), &s2_4, &e_chal); // 3·S2_4
     }
     let (u1, _u2, mu) = make_canonical(&r2_4, &s2_4, &mut e_chal).ok_or(HdReject::CanonicalChal)?;
 
-    let e4 = weil4(&t1, &t2, &mut e_com).inv();
-    let zero12 = product_theta_dim2(&dim1_null(&t1), &dim1_null(&u1));
+    // e_4(T1, T2) is inverted: a vanishing value is no pairing of a basis
+    let e4 = inv_checked(&weil4(&t1, &t2, &mut e_com)).ok_or(HdReject::CanonicalCom)?;
+    let zero12 = product_theta_dim2(
+        &dim1_null(&t1).ok_or(HdReject::CanonicalCom)?,
+        &dim1_null(&u1).ok_or(HdReject::CanonicalChal)?,
+    );
     let m0 = m0_from_canon(&mt, &mu);
 
-    let k = L::R - 3 - m as u32;
-    let points_m = [
-        jac_dbl_n(&rsp.r_com, k, &e_com),
-        jac_dbl_n(&rsp.s_com, k, &e_com),
-        jac_dbl_n(&rsp.phi_rsp_r_com, k, &e_chal),
-        jac_dbl_n(&rsp.phi_rsp_s_com, k, &e_chal),
-    ];
+    let k = (L::R - 3 - m as u32) as usize;
+    let points_m: [JacPoint<L>; 4] = core::array::from_fn(|i| tables[i].pts[k].clone());
 
+    let t4 = prof.now();
+    prof.add(SLOT_SETUP, t4 - t3);
+    prof.sub_add(12, t4 - t3);
     Ok(Setup {
         e_com,
         e_chal,
         points_m,
         p_com,
-        r_com: rsp.r_com,
-        s_com: rsp.s_com,
-        phi_r: rsp.phi_rsp_r_com,
-        phi_s: rsp.phi_rsp_s_com,
+        lambda,
+        tables,
         zero12,
         m0,
         e4,
@@ -338,48 +528,77 @@ fn build_setup<L: HdLevel>(sig: &HdSignature<L>) -> Result<Setup<L>, HdReject> {
 }
 
 /// The output of one half-chain: its gluing chain plus the strategy-derived
-/// plain chain.
-type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>);
+/// plain chain, and whether it fell back to four points.
+type HalfResult<L> = (KaniGluingChainHalf<L>, StrategyChain<L>, bool);
 
 /// Run both independent half-chains (F1, F2_dual). Serial by default; with the
 /// `parallel` feature, on two threads (see below). Either way the results are
 /// bit-identical - the halves do not interact until the middle-codomain match.
-fn run_both_halves<L: HdLevel>(
+fn run_both_halves<L: HdLevel, P: Profiler>(
     s: &Setup<L>,
-    m1: &[[u128; 8]; 8],
+    m1: &[[W; 8]; 8],
     mg1: &[[i64; 8]; 8],
-    m2: &[[u128; 8]; 8],
+    m2: &[[W; 8]; 8],
     mg2: &[[i64; 8]; 8],
+    kernel_points: KernelPoints,
+    prof: &mut P,
 ) -> Option<(HalfResult<L>, HalfResult<L>)> {
-    let r1 = run_half(s, m1, mg1, false)?;
-    let r2 = run_half(s, m2, mg2, true)?;
+    let r1 = run_half(s, m1, mg1, false, kernel_points, prof)?;
+    let r2 = run_half(s, m2, mg2, true, kernel_points, prof)?;
     Some((r1, r2))
 }
 
 /// Self-derive both half-chains, then run stages 5 (middle-codomain match) and
 /// 6 (HD-image). Accept only if BOTH pass.
-fn self_derived_check<L: HdLevel>(s: &Setup<L>) -> Result<(), HdReject> {
-    let mask = (1u128 << L::R) - 1;
-    let (m1, m2) =
-        starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask).ok_or(HdReject::ChainFailed)?;
+fn self_derived_check<L: HdLevel, P: Profiler>(
+    s: &Setup<L>,
+    opts: &HdVerifyOptions,
+    prof: &mut P,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let none = HdVerifyReport::default();
+    let t0 = prof.now();
+    let mask = W::mask(L::R);
+    let (m1, m2) = match starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask) {
+        Some(m) => m,
+        None => return (Err(HdReject::ChainFailed), none),
+    };
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
+    let t1 = prof.now();
+    prof.add(SLOT_SETUP, t1 - t0);
+    prof.sub_add(13, t1 - t0);
 
-    let ((chain1, sc1), (chain2, sc2)) =
-        run_both_halves(s, &m1, &mg1, &m2, &mg2).ok_or(HdReject::ChainFailed)?;
+    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) =
+        match run_both_halves(s, &m1, &mg1, &m2, &mg2, opts.kernel_points, prof) {
+            Some(r) => r,
+            None => return (Err(HdReject::ChainFailed), none),
+        };
+    // From here on the report carries the halves' fall-back flags, whatever
+    // the verdict.
+    let report = HdVerifyReport {
+        fell_back: [fb1, fb2],
+    };
 
     // Stage 5: the projective middle-codomain match.
-    let c1 = sc1.last_codomain().ok_or(HdReject::ChainFailed)?;
-    let c2 = sc2.last_codomain().ok_or(HdReject::ChainFailed)?;
-    if !middle_codomain_matches(c1, c2) {
-        return Err(HdReject::MiddleCodomainMismatch);
+    let t1 = prof.now();
+    let (c1, c2) = match (sc1.last_codomain(), sc2.last_codomain()) {
+        (Some(c1), Some(c2)) => (c1, c2),
+        _ => return (Err(HdReject::ChainFailed), report),
+    };
+    let matches = middle_codomain_matches(c1, c2);
+    let t2 = prof.now();
+    prof.add(SLOT_COMPARE, t2 - t1);
+    if !matches {
+        return (Err(HdReject::MiddleCodomainMismatch), report);
     }
 
     // Stage 6: the HD-image condition F(T) = (±a₁P, ±a₂P, *, 0).
-    if !hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false) {
-        return Err(HdReject::HdImageMismatch);
+    let image_ok = hd_image_check(s, &chain1, &sc1, &chain2, &sc2).unwrap_or(false);
+    prof.add(SLOT_IMAGE, prof.now() - t2);
+    if !image_ok {
+        return (Err(HdReject::HdImageMismatch), report);
     }
-    Ok(())
+    (Ok(()), report)
 }
 
 /// Run the end-to-end self-contained Level-1 verification (all 6 FastVerify
@@ -388,10 +607,92 @@ fn self_derived_check<L: HdLevel>(s: &Setup<L>) -> Result<(), HdReject> {
 /// Performs (0/1) the challenge binding, then self-derives stages 2-4 from the
 /// signature, and checks (5) the dim-4 middle-codomain match and (6) the
 /// HD-image condition. Returns `Ok(())` on accept or the rejection reason. No
-/// oracle data is consulted.
+/// oracle data is consulted. This is [`hd_verify_with`] at the default
+/// options, the four-point verifier.
 pub fn hd_verify<L: HdLevel>(sig: &HdSignature<L>) -> Result<(), HdReject> {
-    let setup = build_setup(sig)?;
-    self_derived_check(&setup)
+    hd_verify_with::<L>(sig, &HdVerifyOptions::default()).0
+}
+
+/// [`hd_verify`] with options: the verdict, and the report of the run. The
+/// report's fall-back flags are those of the half-chains whatever the
+/// verdict once both half-chains have run; a signature rejected before or
+/// while they run reports no fall-back.
+pub fn hd_verify_with<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    hd_verify_prof(sig, opts, &mut NoProfiler)
+}
+
+fn hd_verify_prof<L: HdLevel, P: Profiler>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    prof: &mut P,
+) -> (Result<(), HdReject>, HdVerifyReport) {
+    let setup = match build_setup_prof(sig, true, prof) {
+        Ok(s) => s,
+        Err(e) => return (Err(e), HdVerifyReport::default()),
+    };
+    self_derived_check(&setup, opts, prof)
+}
+
+/// [`hd_verify_with`] without the canonical-hint check. Measurement only
+/// (feature `instrument`): it counts the hint pairs that would give a
+/// second encoding of a signature if the verifier did not check them. Not
+/// a verifier.
+#[cfg(feature = "instrument")]
+pub fn hd_verify_without_hint_check<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> Result<(), HdReject> {
+    let setup = build_setup_prof(sig, false, &mut NoProfiler)?;
+    self_derived_check(&setup, opts, &mut NoProfiler).0
+}
+
+/// [`hd_verify_with`] timed per phase with the caller's cycle counter
+/// `clock` (SECENG-2424): the verdict, the report, and the cycles of each
+/// slot of [`crate::hd::profile`] (both half-chains added), in the order of
+/// `SLOT_NAMES`. The timing calls sit on the phase boundaries of the
+/// shipped code; the computation is the same. Decoding the wire format is
+/// the caller's and is not in the slots.
+pub fn hd_verify_profiled<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (Result<(), HdReject>, HdVerifyReport, [u64; SLOTS]) {
+    let (verdict, report, slots, _) = hd_verify_profiled_full::<L>(sig, opts, clock);
+    (verdict, report, slots)
+}
+
+/// [`hd_verify_profiled`] with the sub-slots of [`crate::hd::profile::SUB_NAMES`]
+/// as a fourth value (SECENG-2428); the slots are the same.
+#[allow(clippy::type_complexity)] // the verdict, the report, the slots and the sub-slots.
+pub fn hd_verify_profiled_full<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (
+    Result<(), HdReject>,
+    HdVerifyReport,
+    [u64; SLOTS],
+    [u64; SUB_SLOTS],
+) {
+    let mut prof = CycleProfiler::new(clock);
+    let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
+    (verdict, report, prof.slots, prof.subs)
+}
+
+/// [`hd_verify_profiled_full`] with the whole [`ProfileRecord`]: the slots,
+/// the sub-slots and, with the cargo feature `op-counters`, the `Fp2`
+/// operation counts of each (SECENG-2434).
+pub fn hd_verify_profiled_record<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+    clock: &dyn Fn() -> u64,
+) -> (Result<(), HdReject>, HdVerifyReport, ProfileRecord) {
+    let mut prof = CycleProfiler::new(clock);
+    let (verdict, report) = hd_verify_prof(sig, opts, &mut prof);
+    (verdict, report, prof.record())
 }
 
 /// Convenience: `true` iff the signature verifies (self-contained).
@@ -409,21 +710,182 @@ pub fn hd_image<L: HdLevel>(
     sig: &HdSignature<L>,
 ) -> Option<(TuplePoint4<L>, JacPoint<L>, JacPoint<L>)> {
     let s = build_setup(sig).ok()?;
-    let mask = (1u128 << L::R) - 1;
+    let mask = W::mask(L::R);
     let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
     let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
     let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
-    let (chain1, sc1) = run_half(&s, &m1, &mg1, false)?;
-    let (chain2, sc2) = run_half(&s, &m2, &mg2, true)?;
+    let (chain1, sc1, _) = run_half(&s, &m1, &mg1, false, KernelPoints::Four, &mut NoProfiler)?;
+    let (chain2, sc2, _) = run_half(&s, &m2, &mg2, true, KernelPoints::Four, &mut NoProfiler)?;
 
     let id = JacPoint::<L>::identity();
     let t4 = TuplePoint4::new(s.p_com.clone(), id.clone(), id.clone(), id);
-    let mut pt = chain1.evaluate(&t4);
+    let mut pt = chain1.evaluate(&t4)?;
     for inv in &sc1.image_precomp {
-        pt = apply_plain_image(inv, &pt);
+        pt = apply_plain_image_checked(inv, &pt)?;
     }
     let ft = eval_f2_dual(&chain2, &sc2.codomains, &pt)?;
-    let a1p = jac_mul_u128(&s.p_com, s.a1, &s.e_com);
-    let a2p = jac_mul_u128(&s.p_com, s.a2, &s.e_com);
+    let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
+    let a2p = jac_mul_w(&s.p_com, &s.a2, &s.e_com);
     Some((ft, a1p, a2p))
+}
+
+/// Diagnostic: the codomain null points of both half-chains under `opts`,
+/// for comparing the two-point and four-point chains step by step. Returns
+/// `None` if the setup or a half-chain is not computable. The verdict is not
+/// evaluated here; [`hd_verify_with`] does that.
+pub fn hd_codomains<L: HdLevel>(
+    sig: &HdSignature<L>,
+    opts: &HdVerifyOptions,
+) -> Option<HdCodomains<L>> {
+    let s = build_setup(sig).ok()?;
+    let mask = W::mask(L::R);
+    let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
+    let mg1 = gluing_bc_dim4_f1(s.a1, s.a2, s.q4, s.m, &m1);
+    let mg2 = gluing_bc_dim4_f2(s.a1, s.a2, s.q4, s.m, &m2);
+    let ((chain1, sc1, fb1), (chain2, sc2, fb2)) = run_both_halves(
+        &s,
+        &m1,
+        &mg1,
+        &m2,
+        &mg2,
+        opts.kernel_points,
+        &mut NoProfiler,
+    )?;
+    let basis1 = b_kpp(&s, &m1);
+    let basis2 = b_kpp(&s, &m2);
+    Some(HdCodomains {
+        gluing: [
+            chain1.codomain_null().clone(),
+            chain2.codomain_null().clone(),
+        ],
+        plain: [sc1.codomains, sc2.codomains],
+        gluing_images: [chain1.evaluate4(&basis1)?, chain2.evaluate4(&basis2)?],
+        fell_back: [fb1, fb2],
+    })
+}
+
+/// The setup's derived integers and points (SECENG-2429): what the kernel
+/// generators are built from, and the generators themselves. For the record
+/// and the tests; not on the verification path.
+pub struct HdKernelSetup<L: FpBackend> {
+    /// The norm equation's `a1` (odd) and `a2`, and `m = v2(a2)`.
+    pub a1: W,
+    pub a2: W,
+    pub m: usize,
+    /// `lambda = q^-1 mod 2^r`.
+    pub lambda: W,
+    /// `[P1_m, Q1_m, R2_m, S2_m]` of order `2^(m+3)`.
+    pub points_m: [JacPoint<L>; 4],
+    /// The product null point, the dimension-2 base-change matrix over
+    /// `Z/4` and `e_4(T1, T2)^-1`.
+    pub zero12: [Fp2<L>; 4],
+    pub m0: [[u8; 4]; 4],
+    pub e4: Fp2<L>,
+    /// The four full-order generators of `F1` and of `F2_dual` (`b_kpp` of
+    /// `M1` and of `M2`).
+    pub generators: [[TuplePoint4<L>; 4]; 2],
+}
+
+/// [`HdKernelSetup`] of a signature; `None` where the verifier rejects
+/// before the kernel points.
+pub fn hd_kernel_setup<L: HdLevel>(sig: &HdSignature<L>) -> Option<HdKernelSetup<L>> {
+    let s = build_setup(sig).ok()?;
+    let mask = W::mask(L::R);
+    let (m1, m2) = starting_two_symplectic_matrices(s.a1, s.a2, s.q4, mask)?;
+    let generators = [b_kpp(&s, &m1), b_kpp(&s, &m2)];
+    Some(HdKernelSetup {
+        a1: s.a1,
+        a2: s.a2,
+        m: s.m,
+        lambda: s.lambda,
+        points_m: s.points_m.clone(),
+        zero12: s.zero12.clone(),
+        m0: s.m0,
+        e4: s.e4.clone(),
+        generators,
+    })
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// The inversion of `e_4(T1, T2)` in the setup: a vanishing pairing
+    /// value is a reject, not an inversion of zero.
+    /// `x_eq` compares two affine points: a point with `z = 0`, the
+    /// all-zero triple among them, equals nothing, on either side.
+    #[test]
+    fn x_eq_rejects_z_zero_on_either_side() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        let p = JacPoint::<P>::new(f(5), f(11), f(3));
+        // the same affine x: (5 * 4 : y : 3 * 2)
+        let same = JacPoint::<P>::new(f(20), f(1), f(6));
+        let other = JacPoint::<P>::new(f(6), f(11), f(3));
+        assert!(x_eq(&p, &same) && x_eq(&same, &p) && x_eq(&p, &p.neg()));
+        assert!(!x_eq(&p, &other));
+        let zero = JacPoint::<P>::new(f(0), f(0), f(0));
+        let x0 = JacPoint::<P>::new(f(0), f(1), f(0));
+        let id = JacPoint::<P>::identity();
+        for bad in [&zero, &x0, &id] {
+            assert!(!x_eq(bad, &p), "z = 0 on the left");
+            assert!(!x_eq(&p, bad), "z = 0 on the right");
+            for bad2 in [&zero, &x0, &id] {
+                assert!(!x_eq(bad, bad2), "z = 0 on both sides");
+            }
+        }
+    }
+
+    /// The image condition: the fourth component must be the identity,
+    /// well formed, and the first two affine points equal to their targets
+    /// up to sign. All-zero triples pass nowhere, on either side.
+    #[test]
+    fn image_condition_rejects_malformed_components() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        let a1p = JacPoint::<P>::new(f(5), f(11), f(3));
+        let a2p = JacPoint::<P>::new(f(9), f(2), f(7));
+        let id = JacPoint::<P>::identity();
+        let zero = JacPoint::<P>::new(f(0), f(0), f(0));
+        let x0 = JacPoint::<P>::new(f(0), f(1), f(0));
+        let y0 = JacPoint::<P>::new(f(1), f(0), f(0));
+        assert!(is_identity(&id));
+        for bad in [&zero, &x0, &y0, &a1p] {
+            assert!(!is_identity(bad));
+        }
+        let ft = |c0: &JacPoint<P>, c1: &JacPoint<P>, c3: &JacPoint<P>| {
+            TuplePoint4::new(c0.clone(), c1.clone(), a2p.clone(), c3.clone())
+        };
+        assert!(image_matches(&ft(&a1p, &a2p, &id), &a1p, &a2p));
+        assert!(image_matches(&ft(&a1p.neg(), &a2p, &id), &a1p, &a2p));
+        // the fourth component: z = 0 alone is not enough
+        for c3 in [&zero, &x0, &y0, &a1p] {
+            assert!(!image_matches(&ft(&a1p, &a2p, c3), &a1p, &a2p));
+        }
+        // the first two: nothing with z = 0, and on the target side neither
+        for bad in [&zero, &x0, &id] {
+            assert!(!image_matches(&ft(bad, &a2p, &id), &a1p, &a2p));
+            assert!(!image_matches(&ft(&a1p, bad, &id), &a1p, &a2p));
+            assert!(!image_matches(&ft(bad, bad, &id), bad, bad));
+            assert!(!image_matches(&ft(&a1p, &a2p, &id), bad, &a2p));
+            assert!(!image_matches(&ft(&a1p, &a2p, &id), &a1p, bad));
+        }
+        assert!(!image_matches(&ft(&zero, &zero, &zero), &zero, &zero));
+    }
+
+    /// The dimension-1 null point needs an affine point.
+    #[test]
+    fn dim1_null_rejects_z_zero() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        assert!(dim1_null(&JacPoint::<P>::new(f(5), f(11), f(3))).is_some());
+        assert!(dim1_null(&JacPoint::<P>::identity()).is_none());
+        assert!(dim1_null(&JacPoint::<P>::new(f(0), f(0), f(0))).is_none());
+    }
+
+    #[test]
+    fn a_vanishing_pairing_value_is_a_reject() {
+        let r: Result<Fp2<P>, HdReject> =
+            inv_checked(&Fp2::<P>::zero()).ok_or(HdReject::CanonicalCom);
+        assert_eq!(r.err(), Some(HdReject::CanonicalCom));
+        assert!(inv_checked(&Fp2::<P>::one()).is_some());
+    }
 }

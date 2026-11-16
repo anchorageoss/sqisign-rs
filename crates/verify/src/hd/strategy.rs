@@ -35,16 +35,12 @@ use crate::{Fp2, FpBackend};
 
 use crate::hd::isogeny::IsogenyDim4;
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N};
+use crate::hd::profile::{NoProfiler, Profiler, SLOT_PLAIN_CODOMAIN, SLOT_PLAIN_PUSHES};
 use crate::hd::structure::ThetaStructureDim4;
 
-/// Doubling-to-image cost ratio fed to [`optimised_strategy`]. Measured
-/// post-Phase-7 at Level 1 (`tests/hd_primitive_bench.rs`): one dim-4 doubling
-/// ≈ 5.7 µs, one isogeny image ≈ 3.6 µs, so a doubling costs ≈ 1.6 image
-/// evaluations. (Phase 7's batch inversion made `from_kernel`/`image` cheaper
-/// relative to doubling; the previous `1.0` assumed they were equal and so
-/// over-spent on doublings.) `from_kernel` is a fixed per-step cost and does not
-/// enter the doubling/image trade-off.
-const STRATEGY_MUL_C: f64 = 1.6;
+/// Doubling-to-image cost ratio fed to [`optimised_strategy`]: in the push slot of the
+/// two-point verifier a doubling is about 1.39 images (15.7 against 11.3 kilocycles).
+pub(crate) const STRATEGY_MUL_C: f64 = 1.4;
 
 /// Optimal `(2,2)`-chain strategy of `n` leaves (Algorithm 60, SIKE spec;
 /// `utilities/strategy.py::optimised_strategy`). Returns the `n - 1` internal
@@ -125,6 +121,19 @@ pub fn run_strategy_chain<L: FpBackend>(
     basis: &[ThetaPointDim4<L>; 4],
     l: usize,
 ) -> Option<StrategyChain<L>> {
+    run_strategy_chain_prof(start, basis, l, &mut NoProfiler)
+}
+
+/// [`run_strategy_chain`] with a [`Profiler`]: the doublings and the images
+/// of the saved bases go to `SLOT_PLAIN_PUSHES`, `IsogenyDim4::from_kernel`
+/// and the next structure's `precompute` to `SLOT_PLAIN_CODOMAIN`. With
+/// [`NoProfiler`] the timing calls are empty.
+pub fn run_strategy_chain_prof<L: FpBackend, P: Profiler>(
+    start: &ThetaStructureDim4<L>,
+    basis: &[ThetaPointDim4<L>; 4],
+    l: usize,
+    prof: &mut P,
+) -> Option<StrategyChain<L>> {
     if l == 0 {
         return Some(StrategyChain {
             kernels: Vec::new(),
@@ -150,6 +159,7 @@ pub fn run_strategy_chain<L: FpBackend>(
     for k in 0..l {
         let mut prev: u32 = level.iter().sum();
         let target = (l - 1 - k) as u32;
+        let t0 = prof.now();
         while prev != target {
             if !cur_ready {
                 return None; // non-suitable null met a required doubling
@@ -157,12 +167,19 @@ pub fn run_strategy_chain<L: FpBackend>(
             let s = strategy[strat_idx];
             level.push(s);
             prev += s;
-            let src = kernel_elements.last().expect("non-empty kernel stack");
-            let next: [ThetaPointDim4<L>; 4] =
-                core::array::from_fn(|i| cur.double_iter(&src[i], s));
+            // The doublings run in place on a copy of the top basis.
+            let mut next = kernel_elements
+                .last()
+                .expect("non-empty kernel stack")
+                .clone();
+            for pt in next.iter_mut() {
+                cur.double_iter_assign(pt, s);
+            }
             kernel_elements.push(next);
             strat_idx += 1;
         }
+        let t1 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t1 - t0);
 
         // The descended top-of-stack is the order-8 kernel of this step.
         let ker = kernel_elements
@@ -170,6 +187,8 @@ pub fn run_strategy_chain<L: FpBackend>(
             .expect("non-empty kernel stack")
             .clone();
         let iso = IsogenyDim4::from_kernel(&ker)?;
+        let t2 = prof.now();
+        prof.add(SLOT_PLAIN_CODOMAIN, t2 - t1);
         kernels.push(ker);
         codomains.push(iso.codomain_null().clone());
         image_precomp.push(iso.inv_dual_null().clone());
@@ -177,18 +196,19 @@ pub fn run_strategy_chain<L: FpBackend>(
         kernel_elements.pop();
         level.pop();
 
-        // Push the remaining saved bases through the isogeny.
-        let mut pushed: Vec<[ThetaPointDim4<L>; 4]> = Vec::with_capacity(kernel_elements.len());
-        for elt in &kernel_elements {
-            let mut img: [ThetaPointDim4<L>; 4] = core::array::from_fn(|_| elt[0].clone());
-            for (i, slot) in img.iter_mut().enumerate() {
-                *slot = iso.image(&elt[i])?;
+        // Push the remaining saved bases through the isogeny, in place.
+        for elt in kernel_elements.iter_mut() {
+            for slot in elt.iter_mut() {
+                if !iso.image_assign(slot) {
+                    return None;
+                }
             }
-            pushed.push(img);
         }
-        kernel_elements = pushed;
-        cur = iso.codomain().clone();
+        let t3 = prof.now();
+        prof.add(SLOT_PLAIN_PUSHES, t3 - t2);
+        cur = iso.into_codomain();
         cur_ready = cur.precompute();
+        prof.add(SLOT_PLAIN_CODOMAIN, prof.now() - t3);
     }
 
     Some(StrategyChain {

@@ -73,7 +73,9 @@ depend on [`sqisign-verify`](https://crates.io/crates/sqisign-verify):
 
 No compiler flags are needed or wanted: `-C target-cpu=native` made this
 build slower. `SQISIGN_FORCE_PORTABLE=1` runs the portable kernels for
-testing ([PORT.md](PORT.md)).
+testing ([PORT.md](PORT.md)); `RUSTFLAGS="--cfg sqisign_portable"` builds an
+x86-64 binary on the generated radix backends, the code path of the other
+architectures (aarch64 among them), also for testing.
 
 ## Performance
 
@@ -99,6 +101,19 @@ The numbers published for 0.4 were taken with `-C target-cpu=native` in
 `.cargo/config.toml` and against the C reference's `ref` build; neither
 holds here.
 
+## Running the bench on Apple Silicon
+
+```sh
+git clone https://github.com/anchorageoss/sqisign-rs && cd sqisign-rs
+git checkout agent/dim4-two-point
+scripts/bench-mac.sh            # add --with-c-reference for the C rows (needs cmake)
+```
+
+It needs rustup and the Xcode command line tools, installs nothing and needs no sudo.
+Two passes of the paper's run counts take roughly ten to twenty minutes (not measured on a Mac yet); close everything else and stay on mains power.
+The field arithmetic is the portable backend and times are wall-clock milliseconds; there is no cycle column on a Mac.
+The output lands in `results/<UTC>-m4/` (`TABLES.md`, `MACHINE.md`, raw logs) and in one `results/<UTC>-m4.tar.gz` to send back.
+
 ## Formats
 
 | format | I | III | V | verifies with |
@@ -112,20 +127,21 @@ already has. It is not in the specification.
 
 ### Compact (dimension 4), experimental
 
-Behind the `compact` feature, level I only: our instantiation of SQIsignHD
+Behind the `compact` feature, at levels I, III and V: our instantiation of SQIsignHD
 (Dartois, Leroux, Robert, Wesolowski, [ePrint 2023/436](https://eprint.iacr.org/2023/436))
 on the round-3 prime `3·2^324 − 1`, with the round-3 key generation,
 commitment and challenge and SQIsignHD's response, a degree-`q` isogeny
 embedded in a `(2^174)^4`-isogeny the verifier computes in the theta
 model. The SQIsignHD authors have published parameters only for their own
 primes; ours are derived in [docs/COMPACT_R3.md](docs/COMPACT_R3.md).
-Signatures are **142 bytes** and public keys 84 bytes; a compact key is
+Signatures are **139 / 212 / 278 bytes** and public keys 84 / 130 / 170
+bytes at levels I, III and V (the fields packed at bit granularity); a compact key is
 not a round-3 key (its basis convention is the SQIsignHD library's), and
 its signatures verify only with `CompactPublicKey`.
 
 | level I, own run 2026-09-25 | compact | round-3 standard |
 |---|---|---|
-| signature | 142 B | 200 B |
+| signature | 139 B | 200 B |
 | verify (Mcycles) | 122 | 12.3 |
 | sign (Mcycles, mean) | 538 | 119 |
 | keygen (Mcycles) | 43 | 39 |
@@ -144,15 +160,14 @@ of both rounds and both dimensions is in [paper-dim4/](paper-dim4/).
 use sqisign_rs::{generate_compact, CompactPublicKey, CompactSignature, Verifier};
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
 let (pk, sk) = generate_compact::<sqisign_rs::Level1, N>(sqisign_rs::sqisign::level1(), &mut rng)?;
-let sig = sk.sign(b"hello world", &mut rng)?;      // 142 bytes
+let sig = sk.sign(b"hello world", &mut rng)?;      // 139 bytes
 pk.verify(b"hello world", &sig)?;
 ```
 
 ## Not in this release
 
 SQIsign-RK (rerandomizable keys) is not planned for this crate; it lives
-in eclipse-rs on ECLIPSE keys. The compact format at levels III and V is
-derived in [docs/COMPACT_R3.md](docs/COMPACT_R3.md) but not built.
+in eclipse-rs on ECLIPSE keys.
 
 ## About
 

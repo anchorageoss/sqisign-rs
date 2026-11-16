@@ -1,0 +1,60 @@
+machine record, 2026-11-10T08:28:48Z
+== lscpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           48 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  16
+On-line CPU(s) list:                     0-15
+Vendor ID:                               AuthenticAMD
+Model name:                              AMD EPYC 7B13
+CPU family:                              25
+Model:                                   1
+Thread(s) per core:                      2
+Core(s) per socket:                      8
+Socket(s):                               1
+Stepping:                                0
+BogoMIPS:                                6099.98
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext invpcid_single ssbd ibrs ibpb stibp vmmcall fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 clzero xsaveerptr arat umip vaes vpclmulqdq rdpid fsrm
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               256 KiB (8 instances)
+L1i cache:                               256 KiB (8 instances)
+L2 cache:                                4 MiB (8 instances)
+L3 cache:                                64 MiB (2 instances)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-15
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Mitigation; safe RET
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Mitigation; Clear CPU buffers
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+== tsc flags: constant_tsc nonstop_tsc rdtscp tsc_known_freq 
+== dmesg tsc lines
+[    0.000000] [Firmware Bug]: TSC doesn't count with P0 frequency!
+[    0.003343] tsc: Detected 3049.994 MHz processor
+[    0.172055] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x2bf6c0e7d89, max_idle_ns: 440795213482 ns
+[    0.684962] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x2bf6c0e7d89, max_idle_ns: 440795213482 ns
+[    0.686578] clocksource: Switched to clocksource tsc
+== kernel: Linux eclipse-agent 6.1.0-54-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.190-1 (2026-10-16) x86_64 GNU/Linux
+== pinned core 3; the session runs every block as: taskset -c 3 <binary>
+== cpufreq governor of core 3: no cpufreq interface (virtual machine)
+== toolchain: rustc 1.99.1 (58cf8f9c3 2026-10-13); cargo 1.99.1 (5f94df478 2026-08-27); gcc (Debian 12.2.0-14+deb12u1) 12.2.0; cmake version 3.25.1
+== this crate: 860c95537d09cc8e0d96c7e0be6b24560debf367 on agent/dim4-two-point (0 uncommitted paths)
+== session binary: 2026-11-10T08:16:54Z /home/dustin_ray_anchorlabs_com/sqisign-rs-two-point/paper-dim4/bench/target/release/dim4-session; profile: release, lto fat, codegen-units 1, no target-cpu flag
+== the-sqisign: 6d017708db403bf83977fa70770fc4f7f9e9ff21 (nist-v3); build dir /home/dustin_ray_anchorlabs_com/the-sqisign/build/apps; CMAKE_BUILD_TYPE:STRING=Release CMAKE_C_FLAGS_RELEASE:STRING=-O3 -DNDEBUG SQISIGN_BUILD_TYPE:UNINITIALIZED=broadwell CMAKE_C_FLAGS_RELEASE-ADVANCED:INTERNAL=1 
+== the-sqisign binaries: 2026-10-27T05:55:48Z /home/dustin_ray_anchorlabs_com/the-sqisign/build/apps/benchmark_p324_3;2026-10-27T05:55:48Z /home/dustin_ray_anchorlabs_com/the-sqisign/build/apps/benchmark_p500_27;2026-10-27T05:55:54Z /home/dustin_ray_anchorlabs_com/the-sqisign/build/apps/benchmark_p664_17;
+== dpkg.log lines: 0; apt timers: inactive inactive 
+== memory: MemTotal:       65854756 kB

@@ -28,5 +28,15 @@ num-integer = { workspace = true }
 [features]
 default = []
 std = ["sha3/std"]
-# The dimension-4 compact format (experimental, level I): allocates.
+# The dimension-4 compact format (experimental, levels I, III, V): allocates.
 compact = []
+# Counters of the Fp2 operations, read by the phase profiler (SECENG-2434);
+# measurement builds only: one atomic increment per field operation.
+op-counters = []
+# Measurement builds only (the paper's bench): a verifier entry that skips
+# the canonical-hint check, to count the encodings that check removes.
+instrument = ["compact"]
+
+[lints.rust]
+# `--cfg sqisign_portable`: the non-x86-64 field backend on x86-64, for tests.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(sqisign_portable)"] }

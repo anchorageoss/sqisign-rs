@@ -11,7 +11,7 @@
 use sqisign_rs::compact::{compact_keygen, compact_public_key_to_bytes, compact_sign};
 use sqisign_rs::mp::ShakeRng;
 use sqisign_rs::sqisign::level1;
-use sqisign_verify::hd::{challenge_limbs, hd_verify_bytes, parse_public_key, parse_signature};
+use sqisign_verify::hd::{challenge_limbs, hd_verify_bytes, parse_public_key, parse_signature, W};
 use sqisign_verify::P324_3;
 
 const N: usize = sqisign_rs::precomp::p324_3::IBZ_NLIMBS;
@@ -55,7 +55,7 @@ fn vectors_level1() {
         let mut pkb = [0u8; 84];
         compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
         let msg = format!("message {i}").into_bytes();
-        let mut sig = [0u8; 142];
+        let mut sig = [0u8; 139];
         compact_sign::<P324_3, N>(&params, &pk, &sk, &msg, &mut rng, &mut sig).expect("sign");
         assert_eq!(hd_verify_bytes::<P324_3>(&sig, &pkb, &msg), Ok(()));
         let s = parse_signature::<P324_3>(&sig).unwrap();
@@ -68,14 +68,14 @@ fn vectors_level1() {
             p.hint_pk_p, p.hint_pk_q
         ));
 
-        let scalar = |v: i128| format!("{v:x}");
+        let scalar = |v: W| format!("{v:x}");
         let mut qb = s.q.to_le_bytes().to_vec();
         qb.truncate(32);
         let mut cb = Vec::new();
         for l in chal.iter() {
             cb.extend_from_slice(&l.to_le_bytes());
         }
-        let record = |a: i128, q_hex: &str, chal_hex: &str| {
+        let record = |a: W, q_hex: &str, chal_hex: &str| {
             format!(
                 "{}a = {}\nb = {}\nc_or_d = {}\nq = {}\nhint_com_P = {}\nhint_com_Q = {}\nchal = {}\n",
                 fp2_line("A_com", &s.a_com.encode()),
@@ -91,7 +91,7 @@ fn vectors_level1() {
         sigs.push_str(&record(s.a, &hex_be(&qb), &hex_be(&cb)));
         // negatives, one kind per vector in turn
         match i % 3 {
-            0 => bad.push_str(&record(s.a ^ 1, &hex_be(&qb), &hex_be(&cb))),
+            0 => bad.push_str(&record(s.a ^ W::ONE, &hex_be(&qb), &hex_be(&cb))),
             1 => {
                 let mut q2 = qb.clone();
                 q2[0] ^= 4; // still odd, still 3 mod 4

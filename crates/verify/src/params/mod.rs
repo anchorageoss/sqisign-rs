@@ -64,31 +64,46 @@ macro_rules! prime_set {
 
 prime_set!(
     /// `p = 3 * 2^324 - 1` (326 bits). SQIsign round 3, NIST level I.
-    P324_3, p324_3,
-    limbs = hybrid_array::sizes::U6, bytes = hybrid_array::sizes::U41, bytes2 = hybrid_array::sizes::U82,
-    c = 3, e = 324, words = 6
+    P324_3,
+    p324_3,
+    limbs = hybrid_array::sizes::U6,
+    bytes = hybrid_array::sizes::U41,
+    bytes2 = hybrid_array::sizes::U82,
+    c = 3,
+    e = 324,
+    words = 6
 );
 /// Limbs of a `P500_27` element: nine unsaturated 57-bit limbs in the
 /// generated radix backend (other architectures), eight saturated ones in
 /// the x86-64 backend.
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(not(target_arch = "x86_64"), sqisign_portable))]
 pub type P500_27Limbs = hybrid_array::sizes::U9;
 /// Limbs of a `P500_27` element on x86-64.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(sqisign_portable)))]
 pub type P500_27Limbs = hybrid_array::sizes::U8;
 
 prime_set!(
     /// `p = 27 * 2^500 - 1` (505 bits). SQIsign round 3, NIST level III
     /// (and round 2, NIST level V).
-    P500_27, p500_27,
-    limbs = P500_27Limbs, bytes = hybrid_array::sizes::U64, bytes2 = hybrid_array::sizes::U128,
-    c = 27, e = 500, words = 8
+    P500_27,
+    p500_27,
+    limbs = P500_27Limbs,
+    bytes = hybrid_array::sizes::U64,
+    bytes2 = hybrid_array::sizes::U128,
+    c = 27,
+    e = 500,
+    words = 8
 );
 prime_set!(
     /// `p = 17 * 2^664 - 1` (669 bits). SQIsign round 3, NIST level V.
-    P664_17, p664_17,
-    limbs = hybrid_array::sizes::U11, bytes = hybrid_array::sizes::U84, bytes2 = hybrid_array::sizes::U168,
-    c = 17, e = 664, words = 11
+    P664_17,
+    p664_17,
+    limbs = hybrid_array::sizes::U11,
+    bytes = hybrid_array::sizes::U84,
+    bytes2 = hybrid_array::sizes::U168,
+    c = 17,
+    e = 664,
+    words = 11
 );
 
 /// NIST level I (round-3 parameters).

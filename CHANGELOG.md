@@ -64,6 +64,36 @@ conversion of round-2 keys or signatures.
 - Benchmarks in `rdtsc` cycles (`cargo bench -p sqisign-rs --bench
   bench`), a one-session table in [BENCH.md](BENCH.md) with the C
   reference's `broadwell` and `ref` builds named.
+- The compact (dimension-4) format at levels III and V (`e = 264`, `346`;
+  `r = 134`, `175`), next to level I: the scalars modulo `2^r` are 192-bit
+  (`hd::W`), the degree and the norm equation 384-bit (`hd::U6`), and the
+  non-residue tables of the basis-from-hint convention at III and V follow
+  the rule of `hd::nqr_rule`.
+- The two-point compact verifier computes each step's codomain on the ten
+  orbits of its permutation: the dual null point and its inverse from the
+  two pushed kernel points along one tree through the orbits (25
+  multiplications each), the Hadamard transform of a fixed vector in 32
+  additions and 4 doublings, the doubling constants on the orbits and
+  only when a doubling follows. A step that reads a vanishing coordinate
+  runs the four-point computation.
+- The two-point compact verifier (`KernelPoints::TwoWithImageCheck`, not
+  the default) checks at the gluing that the images of `g2`, `g3` are the
+  permutations of those of `g0`, `g1` and that the gluing codomain's null
+  point is fixed by the permutation, in release builds too, and falls
+  back to four points otherwise.
+- The compact signature is bit-packed: `A_com` as two `⌈log2 p⌉`-bit
+  integers, `(q − 3)/4` in `e − 2` bits, three scalars of `r` bits, two
+  hint bytes, least significant bit first, zero padding: 139 / 212 / 278
+  bytes at levels I / III / V (142 / 214 / 280 with whole bytes). The
+  decoder rejects a coordinate not below `p` and a nonzero padding bit.
+- The compact verifier's checks before the chain: the goodness test on `q`
+  repeated before Cornacchia (`hd::is_good_degree`: `q < 2^e`, `2^e − q`
+  congruent to 1 modulo 4 and passing forty Miller-Rabin rounds with the
+  first forty primes as bases), the hints of both curves required to be
+  the canonical ones, both pairings required to have exact order `2^r`.
+  The compact signer applies the same degree test and the bound
+  `v_2(a_2) ≤ 40` to every candidate, and starts over with a fresh
+  commitment after 4096 samples without a good degree.
 - The compact (dimension-4) format at level I behind the `compact`
   feature, experimental ([docs/COMPACT_R3.md](docs/COMPACT_R3.md)): our
   instantiation of SQIsignHD (ePrint 2023/436) on `3·2^324 − 1` with
@@ -96,7 +126,6 @@ conversion of round-2 keys or signatures.
 ### Not in this release
 
 - SQIsign-RK on round 3: not planned; it lives in eclipse-rs on ECLIPSE keys.
-- The compact format at levels III and V (derived, not built).
 
 ### Migration
 

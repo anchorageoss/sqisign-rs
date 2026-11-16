@@ -30,9 +30,10 @@
 //! oracle. Comparisons are nevertheless projective (see
 //! [`ThetaPointDim4::projective_eq`]).
 
+use crate::hd::zero_trace;
 use crate::{Fp2, FpBackend};
 
-use crate::hd::arith::{hadamard, pointwise_square};
+use crate::hd::arith::{hadamard, hadamard_assign, pointwise_mul_assign, to_squared_theta_assign};
 use crate::hd::point::{ThetaPointDim4, THETA_DIM4_N as N};
 use crate::hd::structure::ThetaStructureDim4;
 
@@ -60,17 +61,24 @@ impl<L: FpBackend> IsogenyDim4<L> {
     /// documented as exceptional in large characteristic). At Level 1 this has
     /// not been observed.
     pub fn from_kernel(k8: &[ThetaPointDim4<L>; 4]) -> Option<Self> {
-        // Squared-dual coordinates of each kernel point.
-        let hsk: [[Fp2<L>; N]; 4] =
-            core::array::from_fn(|k| hadamard(&pointwise_square(k8[k].coords())));
+        // Squared-dual coordinates of each kernel point, one copy each.
+        let hsk: [[Fp2<L>; N]; 4] = core::array::from_fn(|k| {
+            let mut a = k8[k].coords().clone();
+            to_squared_theta_assign(&mut a);
+            a
+        });
 
-        // Plain step: four single-bit kernel directions. One batched inversion
-        // yields both the dual null `O` and its inverse `1/O` (image precomp).
+        // Plain step: the dual null and the image weights as products, no inversion,
+        // when no coordinate is zero; the inversion path with its zero handling otherwise.
         let (dual_null, inv_dual_null, dual_null_zero, has_zero_dual) =
-            codomain_dual_null_and_inverse(&hsk, &[1, 2, 4, 8])?;
+            match codomain_dual_null_projective(&hsk) {
+                Some((o, w)) => (o, w, [false; N], false),
+                None => codomain_dual_null_and_inverse(&hsk, &[1, 2, 4, 8])?,
+            };
 
         // Codomain (standard) theta null point is the Hadamard of the dual.
         let codomain_null = ThetaPointDim4::new(hadamard(&dual_null));
+        zero_trace::vector(zero_trace::D4_PLAIN_NULL, codomain_null.coords());
 
         Some(Self {
             codomain: ThetaStructureDim4::new(codomain_null),
@@ -78,6 +86,20 @@ impl<L: FpBackend> IsogenyDim4<L> {
             dual_null_zero,
             has_zero_dual,
         })
+    }
+
+    /// An isogeny from its codomain null point and the image weights `1/O`,
+    /// both without a zero coordinate (the two-point step computes them on
+    /// the orbits of its permutation).
+    #[inline]
+    pub(crate) fn from_parts(codomain_null: ThetaPointDim4<L>, inv_dual_null: [Fp2<L>; N]) -> Self {
+        zero_trace::vector(zero_trace::D4_PLAIN_NULL, codomain_null.coords());
+        Self {
+            codomain: ThetaStructureDim4::new(codomain_null),
+            inv_dual_null,
+            dual_null_zero: [false; N],
+            has_zero_dual: false,
+        }
     }
 
     /// The codomain theta structure.
@@ -123,12 +145,51 @@ impl<L: FpBackend> IsogenyDim4<L> {
         if self.has_zero_dual {
             return None;
         }
-        let mut hs = hadamard(&pointwise_square(p.coords()));
-        for (h, inv) in hs.iter_mut().zip(self.inv_dual_null.iter()) {
-            *h = h.mul(inv);
-        }
-        Some(ThetaPointDim4::new(hadamard(&hs)))
+        Some(apply_plain_image(&self.inv_dual_null, p))
     }
+
+    /// [`Self::image`] in place: `p <- image(p)`; `false`, with `p` untouched,
+    /// when the codomain has a zero dual null coordinate.
+    #[inline]
+    pub fn image_assign(&self, p: &mut ThetaPointDim4<L>) -> bool {
+        if self.has_zero_dual {
+            return false;
+        }
+        apply_plain_image_assign(&self.inv_dual_null, p);
+        true
+    }
+
+    /// The codomain structure, moved out (the chain continues on it).
+    #[inline]
+    pub fn into_codomain(self) -> ThetaStructureDim4<L> {
+        self.codomain
+    }
+}
+
+/// [`apply_plain_image`] for weights taken from a stored chain: `None`
+/// when a weight vanishes, which is the case of a codomain whose dual
+/// null point has a zero coordinate, where the weights are not `1 / O`.
+pub fn apply_plain_image_checked<L: FpBackend>(
+    inv_dual_null: &[Fp2<L>; N],
+    p: &ThetaPointDim4<L>,
+) -> Option<ThetaPointDim4<L>> {
+    if inv_dual_null.iter().any(|w| bool::from(w.ct_is_zero())) {
+        return None;
+    }
+    Some(apply_plain_image(inv_dual_null, p))
+}
+
+/// [`apply_plain_image`] in place on the point's coordinates.
+#[inline]
+pub fn apply_plain_image_assign<L: FpBackend>(
+    inv_dual_null: &[Fp2<L>; N],
+    p: &mut ThetaPointDim4<L>,
+) {
+    let a = p.coords_mut();
+    to_squared_theta_assign(a);
+    pointwise_mul_assign(a, inv_dual_null);
+    hadamard_assign(a);
+    zero_trace::vector(zero_trace::D4_PLAIN_IMAGE, a);
 }
 
 /// Apply a *plain*-step image map given its precomputed `1/O`:
@@ -140,11 +201,74 @@ pub fn apply_plain_image<L: FpBackend>(
     inv_dual_null: &[Fp2<L>; N],
     p: &ThetaPointDim4<L>,
 ) -> ThetaPointDim4<L> {
-    let mut hs = hadamard(&pointwise_square(p.coords()));
-    for (h, inv) in hs.iter_mut().zip(inv_dual_null.iter()) {
-        *h = h.mul(inv);
+    let mut a = p.coords().clone();
+    to_squared_theta_assign(&mut a);
+    pointwise_mul_assign(&mut a, inv_dual_null);
+    hadamard_assign(&mut a);
+    zero_trace::vector(zero_trace::D4_PLAIN_IMAGE, &a);
+    ThetaPointDim4::new(a)
+}
+
+/// The plain step's dual null `O` and weights `1/O` from the spanning tree of the 4-cube, up
+/// to common scalars (products, no inversion); `None` when no root spans it or a `p_num` is zero.
+#[allow(clippy::type_complexity)]
+fn codomain_dual_null_projective<L: FpBackend>(
+    hsk: &[[Fp2<L>; N]; 4],
+) -> Option<([Fp2<L>; N], [Fp2<L>; N])> {
+    let dirs = [1usize, 2, 4, 8];
+    for j0 in 0..N {
+        if (0..4).all(|k| bool::from(hsk[k][j0].ct_is_zero())) {
+            continue;
+        }
+        let mut covered = [false; N];
+        let mut queue = [0usize; N];
+        let (mut head, mut tail) = (0usize, 0usize);
+        let mut edge_j = [0usize; N];
+        let mut edge_jpk = [0usize; N];
+        let mut edge_k = [0usize; N];
+        let mut ne = 0usize;
+        covered[j0] = true;
+        queue[tail] = j0;
+        tail += 1;
+        while head < tail {
+            let j = queue[head];
+            head += 1;
+            for (k, hsk_k) in hsk.iter().enumerate() {
+                let jpk = j ^ dirs[k];
+                if !covered[jpk] && !bool::from(hsk_k[j].ct_is_zero()) {
+                    edge_j[ne] = j;
+                    edge_jpk[ne] = jpk;
+                    edge_k[ne] = k;
+                    ne += 1;
+                    covered[jpk] = true;
+                    queue[tail] = jpk;
+                    tail += 1;
+                }
+            }
+        }
+        if !covered.iter().all(|&c| c) {
+            continue;
+        }
+        let mut p_num: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
+        let mut p_den: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
+        p_num[j0] = Fp2::one();
+        p_den[j0] = Fp2::one();
+        for e in 0..ne {
+            let (j, jpk, k) = (edge_j[e], edge_jpk[e], edge_k[e]);
+            p_num[jpk] = p_num[j].mul(&hsk[k][jpk]);
+            p_den[jpk] = p_den[j].mul(&hsk[k][j]);
+        }
+        if p_num.iter().any(|x| bool::from(x.ct_is_zero())) {
+            return None;
+        }
+        // O = p_num (.) others(p_den), and 1/O up to a scalar is others(O) itself:
+        // 42 products in place of others(p_num) and the 16 products with p_den.
+        let others_den = crate::hd::field::products_of_others(&p_den);
+        let o: [Fp2<L>; N] = core::array::from_fn(|j| p_num[j].mul(&others_den[j]));
+        let w = crate::hd::field::products_of_others(&o);
+        return Some((o, w));
     }
-    ThetaPointDim4::new(hadamard(&hs))
+    None
 }
 
 /// Reconstruct a codomain dual theta null point `O` from kernel points'
@@ -259,4 +383,20 @@ pub(crate) fn codomain_dual_null_and_inverse<L: FpBackend>(
         return Some((o, inv_o, zero_mask, has_zero));
     }
     None
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// The image check applies stored weights: a vanishing one is `None`.
+    #[test]
+    fn stored_weights_with_a_zero_are_rejected() {
+        let p = ThetaPointDim4::<P>::new(core::array::from_fn(|_| Fp2::one()));
+        let mut w: [Fp2<P>; N] = core::array::from_fn(|_| Fp2::one());
+        assert!(apply_plain_image_checked(&w, &p).is_some());
+        w[7] = Fp2::zero();
+        assert!(apply_plain_image_checked(&w, &p).is_none());
+    }
 }

@@ -1,0 +1,150 @@
+2026-11-14T23:46:46Z build from clean: release, lto fat, codegen-units 1 (Cargo.toml), no target-cpu
+2026-11-14T23:46:46Z + other cargo clean
+2026-11-14T23:46:46Z + other cargo clean
+     Removed 303 files, 120.2MiB total
+2026-11-14T23:46:46Z + other cargo build --release --bin paper --bin paper_heap
+2026-11-14T23:46:46Z + other cargo build --release --bin paper --bin paper_heap
+   Compiling libc v0.2.189
+   Compiling proc-macro2 v1.0.107
+   Compiling version_check v0.9.5
+   Compiling unicode-ident v1.0.26
+   Compiling typenum v1.20.1
+   Compiling quote v1.0.47
+   Compiling cfg-if v1.0.5
+   Compiling zerocopy v0.8.59
+   Compiling keccak v0.1.6
+   Compiling subtle v2.6.1
+   Compiling generic-array v0.14.7
+   Compiling syn v2.0.119
+   Compiling hybrid-array v0.4.15
+   Compiling getrandom v0.2.17
+   Compiling rand_core v0.6.4
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling signature v2.2.0
+   Compiling digest v0.10.7
+   Compiling ppv-lite86 v0.2.21
+   Compiling zeroize_derive v1.5.0
+   Compiling rand_chacha v0.3.1
+   Compiling zeroize v1.9.0
+   Compiling sha3 v0.10.9
+   Compiling rand v0.8.8
+   Compiling sqisign-verify v0.6.0 (/home/user/sqisign-rs-two-point/crates/verify)
+   Compiling sqisign-rs v0.6.0 (/home/user/sqisign-rs-two-point/crates/sqisign-rs)
+   Compiling dim4-session v0.1.0 (/home/user/sqisign-rs-two-point/paper-dim4/bench)
+    Finished `release` profile [optimized] target(s) in 53.90s
+6610013a0b9bec52c13063b43f2e65ff09ce468201ce712fa5bf577c63660f8b  /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper
+6d5a39d17fe33de582a8d04dd76f2676ea918ddaa688a289f3895000a572788d  /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper_heap
+005b1ffa468b86a46193f78853285740cfa2f25d937a4e39470dc2cac47146bb  /home/user/the-sqisign/build/apps/benchmark_p324_3
+47d4744847f3d1743458844dbb96d008111d32f3863a8a2d5ba9c90b6c040d15  /home/user/the-sqisign/build/apps/benchmark_p500_27
+3ef8fab156fc2898f9025235fe70fa1d5a6228b908f409bd05b1d0276d389db4  /home/user/the-sqisign/build/apps/benchmark_p664_17
+2026-11-14T23:47:40Z session start
+2026-11-14T23:47:40Z waiting for quiet: 1-minute load under 0.10 for 300 s
+2026-11-15T00:00:40Z quiet: load 0.06 0.06 0.27 1/2209 3793780 after 780 s
+2026-11-15T00:00:40Z pass 1: Rust
+2026-11-15T00:00:40Z + taskset -c 13 /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper --out /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session/pass1
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim2-I: 4.3 s
+dim2-III: 15.1 s
+dim2-V: 32.3 s
+dim4-I: 30.6 s
+dim4-III: 42.3 s
+dim4-V: 100.3 s
+2026-11-15T00:04:25Z pass 1: C reference
+2026-11-15T00:04:25Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p324_3 --iterations=300
+2026-11-15T00:04:40Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p500_27 --iterations=100
+2026-11-15T00:04:58Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p664_17 --iterations=100
+2026-11-15T00:05:34Z waiting for quiet: 1-minute load under 0.10 for 300 s
+2026-11-15T00:35:35Z not quiet after 30 minutes: load 0.03 0.04 0.10 2/2211 3797901
+2026-11-15T00:36:27Z resume at pass 2 with the binaries of binaries.sha256
+/home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper: OK
+/home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper_heap: OK
+/home/user/the-sqisign/build/apps/benchmark_p324_3: OK
+/home/user/the-sqisign/build/apps/benchmark_p500_27: OK
+/home/user/the-sqisign/build/apps/benchmark_p664_17: OK
+2026-11-15T00:36:27Z waiting for quiet: 1-minute and 5-minute load averages under 0.10
+2026-11-15T00:36:27Z quiet: load 0.01 0.03 0.09 1/2204 3798040 after 0 s
+2026-11-15T00:36:27Z pass 2: Rust
+2026-11-15T00:36:27Z + taskset -c 13 /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper --out /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session/pass2
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim2-I: 4.4 s
+dim2-III: 15.1 s
+dim2-V: 32.4 s
+dim4-I: 30.4 s
+dim4-III: 42.4 s
+dim4-V: 100.4 s
+2026-11-15T00:40:12Z pass 2: C reference
+2026-11-15T00:40:12Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p324_3 --iterations=300
+2026-11-15T00:40:27Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p500_27 --iterations=100
+2026-11-15T00:40:45Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p664_17 --iterations=100
+noise: c-III-keygen: pass 1 106.248, pass 2 111.272 (4.7 percent)
+noise: c-III-sign: pass 1 347.945, pass 2 323.050 (7.7 percent)
+noise: c-V-keygen: pass 1 214.660, pass 2 220.421 (2.7 percent)
+noise: c-V-sign: pass 1 685.880, pass 2 666.726 (2.9 percent)
+2026-11-15T00:41:22Z a median moved by more than 0.015 between the two passes: third pass
+2026-11-15T00:41:22Z waiting for quiet: 1-minute and 5-minute load averages under 0.10
+2026-11-15T00:51:32Z quiet: load 0.00 0.09 0.19 1/2197 3799898 after 610 s
+2026-11-15T00:51:32Z pass 3: Rust
+2026-11-15T00:51:32Z + taskset -c 13 /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper --out /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session/pass3
+field kernels: x86-64 assembly (mulx, adcx, adox)
+timer: rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).
+dim2-I: 4.4 s
+dim2-III: 15.0 s
+dim2-V: 32.3 s
+dim4-I: 30.3 s
+dim4-III: 42.2 s
+dim4-V: 100.2 s
+2026-11-15T00:55:16Z pass 3: C reference
+2026-11-15T00:55:16Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p324_3 --iterations=300
+2026-11-15T00:55:31Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p500_27 --iterations=100
+2026-11-15T00:55:48Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p664_17 --iterations=100
+2026-11-15T00:56:24Z waiting for quiet: 1-minute and 5-minute load averages under 0.10
+2026-11-15T01:08:25Z quiet: load 0.03 0.09 0.21 1/2196 3801881 after 720 s
+2026-11-15T01:08:25Z heap
+2026-11-15T01:08:25Z + taskset -c 13 /home/user/sqisign-rs-two-point/paper-dim4/bench/target/release/paper_heap --out /home/user/work/results/20261114T224715Z-SECENG-2636-clean/session
+2026-11-15T01:08:32Z session end
+passes: 3; session value: median of the three passes' values
+
+| row | megacycles | ms | per pass (megacycles, or ms where there are no cycles) |
+|---|---:|---:|---|
+| c-I-keygen | 31.18 |  | 31.54, 31.18, 31.13 |
+| c-I-sign | 91.96 |  | 91.96, 92.29, 91.43 |
+| c-I-verify | 10.98 |  | 10.96, 11.03, 10.98 |
+| c-III-keygen | 106.25 |  | 106.25, 111.27, 99.61 |
+| c-III-sign | 323.05 |  | 347.94, 323.05, 319.37 |
+| c-III-verify | 29.05 |  | 29.05, 29.00, 29.05 |
+| c-V-keygen | 216.89 |  | 214.66, 220.42, 216.89 |
+| c-V-sign | 679.63 |  | 685.88, 666.73, 679.63 |
+| c-V-verify | 75.25 |  | 75.25, 74.81, 75.44 |
+| dim2-I-keygen | 32.94 | 11.76 | 32.94, 33.13, 32.92 |
+| dim2-I-sign | 100.02 | 35.72 | 99.56, 100.21, 100.02 |
+| dim2-I-verify | 11.19 | 4.00 | 11.19, 11.17, 11.19 |
+| dim2-I-verify-compressed | 13.27 | 4.74 | 13.27, 13.26, 13.28 |
+| dim2-III-keygen | 108.96 | 38.91 | 108.96, 109.67, 108.48 |
+| dim2-III-sign | 375.37 | 134.06 | 375.37, 377.48, 375.03 |
+| dim2-III-verify | 29.80 | 10.64 | 29.82, 29.80, 29.76 |
+| dim2-III-verify-compressed | 35.24 | 12.59 | 35.24, 35.24, 35.16 |
+| dim2-V-keygen | 248.62 | 88.79 | 248.21, 248.62, 249.82 |
+| dim2-V-sign | 769.67 | 274.89 | 769.05, 770.80, 769.67 |
+| dim2-V-verify | 80.02 | 28.58 | 79.93, 80.25, 80.02 |
+| dim2-V-verify-compressed | 93.63 | 33.44 | 93.63, 94.03, 93.62 |
+| dim4-I-keygen | 35.27 | 12.60 | 35.36, 35.25, 35.27 |
+| dim4-I-sign | 360.54 | 128.77 | 360.70, 357.59, 360.54 |
+| dim4-I-verify-four | 76.54 | 27.34 | 76.61, 76.54, 76.50 |
+| dim4-I-verify-two | 48.05 | 17.16 | 48.05, 48.12, 47.86 |
+| dim4-I-verify-two-nocheck | 47.30 | 16.89 | 47.38, 47.30, 46.99 |
+| dim4-III-keygen | 126.30 | 45.11 | 125.82, 126.30, 126.58 |
+| dim4-III-sign | 913.89 | 326.39 | 911.94, 922.25, 913.89 |
+| dim4-III-verify-four | 194.63 | 69.51 | 194.68, 194.63, 193.90 |
+| dim4-III-verify-two | 120.06 | 42.88 | 120.06, 120.13, 119.60 |
+| dim4-III-verify-two-nocheck | 118.57 | 42.35 | 118.57, 118.60, 118.19 |
+| dim4-V-keygen | 249.78 | 89.21 | 249.78, 250.75, 248.80 |
+| dim4-V-sign | 1714.48 | 612.32 | 1714.48, 1713.84, 1717.62 |
+| dim4-V-verify-four | 482.24 | 172.23 | 482.24, 482.62, 481.90 |
+| dim4-V-verify-two | 291.58 | 104.14 | 292.03, 291.31, 291.58 |
+| dim4-V-verify-two-nocheck | 289.16 | 103.27 | 289.70, 288.68, 289.16 |

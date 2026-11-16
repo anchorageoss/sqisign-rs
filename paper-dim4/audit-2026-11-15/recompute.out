@@ -1,0 +1,148 @@
+numbers.json reproduced from raw for 36 rows
+
+== Table 3 one-decimal cells
+c-I-keygen 31.2 31.185
+c-I-sign 92.0 91.960
+c-I-verify 11.0 10.982
+c-III-keygen 106.2 106.248
+c-III-sign 323.1 323.050
+c-III-verify 29.0 29.048
+c-V-keygen 216.9 216.893
+c-V-sign 679.6 679.626
+c-V-verify 75.3 75.253
+dim2-I-keygen 32.9 32.938
+dim2-I-sign 100.0 100.023
+dim2-I-verify 11.2 11.185
+dim2-I-verify-compressed 13.3 13.266
+dim2-III-keygen 109.0 108.955
+dim2-III-sign 375.4 375.368
+dim2-III-verify 29.8 29.798
+dim2-III-verify-compressed 35.2 35.242
+dim2-V-keygen 248.6 248.618
+dim2-V-sign 769.7 769.668
+dim2-V-verify 80.0 80.017
+dim2-V-verify-compressed 93.6 93.629
+dim4-I-keygen 35.3 35.269
+dim4-I-sign 360.5 360.544
+dim4-I-verify-four 76.5 76.540
+dim4-I-verify-two 48.0 48.048
+dim4-I-verify-two-nocheck 47.3 47.296
+dim4-III-keygen 126.3 126.298
+dim4-III-sign 913.9 913.887
+dim4-III-verify-four 194.6 194.632
+dim4-III-verify-two 120.1 120.059
+dim4-III-verify-two-nocheck 118.6 118.575
+dim4-V-keygen 249.8 249.781
+dim4-V-sign 1714.5 1714.477
+dim4-V-verify-four 482.2 482.237
+dim4-V-verify-two 291.6 291.583
+dim4-V-verify-two-nocheck 289.2 289.163
+
+== ms level I
+ms-dim2-I-keygen 11.8 11.764
+ms-dim2-I-sign 35.7 35.724
+ms-dim2-I-verify 4.0 3.995
+ms-dim2-I-verify-compressed 4.7 4.738
+ms-dim2-III-keygen 38.9 38.914
+ms-dim2-III-sign 134.1 134.063
+ms-dim2-III-verify 10.6 10.643
+ms-dim2-III-verify-compressed 12.6 12.587
+ms-dim2-V-keygen 88.8 88.794
+ms-dim2-V-sign 274.9 274.886
+ms-dim2-V-verify 28.6 28.578
+ms-dim2-V-verify-compressed 33.4 33.440
+ms-dim4-I-keygen 12.6 12.597
+ms-dim4-I-sign 128.8 128.768
+ms-dim4-I-verify-four 27.3 27.337
+ms-dim4-I-verify-two 17.2 17.161
+ms-dim4-I-verify-two-nocheck 16.9 16.892
+ms-dim4-III-keygen 45.1 45.107
+ms-dim4-III-sign 326.4 326.392
+ms-dim4-III-verify-four 69.5 69.513
+ms-dim4-III-verify-two 42.9 42.880
+ms-dim4-III-verify-two-nocheck 42.3 42.350
+ms-dim4-V-keygen 89.2 89.209
+ms-dim4-V-sign 612.3 612.321
+ms-dim4-V-verify-four 172.2 172.231
+ms-dim4-V-verify-two 104.1 104.139
+ms-dim4-V-verify-two-nocheck 103.3 103.275
+
+== ratios (from one-decimal cells | from full precision)
+I four/dim2 6.8 | 6.8  (6.8304 | 6.8428)
+I two/dim2  4.3 | 4.3  (4.2857 | 4.2956)
+I two/four  0.63 | 0.63  (0.6275 | 0.6278)
+I sign4/sign2 3.6 | 3.6  (3.6050 | 3.6046)
+I four/C verify 7.0 | 7.0  (6.9545 | 6.9696)
+I two/C verify 4.4 | 4.4  (4.3636 | 4.3752)
+I rust/C verify 1.02 | 1.02  (1.0182 | 1.0185)  keygen 1.05 | 1.06  (1.0545 | 1.0562)  sign 1.09 | 1.09  (1.0870 | 1.0877)
+I compressed/standard verify 1.19 | 1.19  (1.1875 | 1.1860)
+I nocheck/two 0.985 | 0.984  (0.9854 | 0.9843)
+I saving pct 37.22493806233123
+III four/dim2 6.5 | 6.5  (6.5302 | 6.5316)
+III two/dim2  4.0 | 4.0  (4.0302 | 4.0290)
+III two/four  0.62 | 0.62  (0.6172 | 0.6169)
+III sign4/sign2 2.4 | 2.4  (2.4345 | 2.4346)
+III four/C verify 6.7 | 6.7  (6.7103 | 6.7003)
+III two/C verify 4.1 | 4.1  (4.1414 | 4.1331)
+III rust/C verify 1.03 | 1.03  (1.0276 | 1.0258)  keygen 1.03 | 1.03  (1.0264 | 1.0255)  sign 1.16 | 1.16  (1.1619 | 1.1619)
+III compressed/standard verify 1.18 | 1.18  (1.1812 | 1.1827)
+III nocheck/two 0.988 | 0.988  (0.9875 | 0.9876)
+III saving pct 38.314881549844316
+V four/dim2 6.0 | 6.0  (6.0275 | 6.0267)
+V two/dim2  3.6 | 3.6  (3.6450 | 3.6440)
+V two/four  0.60 | 0.60  (0.6047 | 0.6046)
+V sign4/sign2 2.2 | 2.2  (2.2275 | 2.2276)
+V four/C verify 6.4 | 6.4  (6.4037 | 6.4082)
+V two/C verify 3.9 | 3.9  (3.8725 | 3.8747)
+V rust/C verify 1.06 | 1.06  (1.0624 | 1.0633)  keygen 1.15 | 1.15  (1.1462 | 1.1463)  sign 1.13 | 1.13  (1.1326 | 1.1325)
+V compressed/standard verify 1.17 | 1.17  (1.1700 | 1.1701)
+V nocheck/two 0.992 | 0.992  (0.9918 | 0.9917)
+V saving pct 39.53530060014292
+per step two points I: 0.27586206896551724 0.2761375833333333
+
+== profile (per pass medians of each column; shares of total)
+I four pass 1 n 50 total=76.702(100.0%) decode=0.020(0.0%) s0 basis=6.857(8.9%) s1 corn+kernel=4.761(6.2%) s2 dim2=0.407(0.5%) s3 gluing=3.195(4.2%) s4 pushes=45.763(59.7%) s5 codomain=11.493(15.0%) s6 final=0.015(0.0%) s7 image=3.465(4.5%) hints+pair=0.278(0.4%) goodness=0.940(1.2%)
+I four pass 2 n 50 total=76.543(100.0%) decode=0.020(0.0%) s0 basis=6.869(9.0%) s1 corn+kernel=4.776(6.2%) s2 dim2=0.399(0.5%) s3 gluing=3.166(4.1%) s4 pushes=45.642(59.6%) s5 codomain=11.530(15.1%) s6 final=0.015(0.0%) s7 image=3.443(4.5%) hints+pair=0.287(0.4%) goodness=0.952(1.2%)
+I four pass 3 n 50 total=76.391(100.0%) decode=0.019(0.0%) s0 basis=6.849(9.0%) s1 corn+kernel=4.764(6.2%) s2 dim2=0.399(0.5%) s3 gluing=3.155(4.1%) s4 pushes=45.654(59.8%) s5 codomain=11.500(15.1%) s6 final=0.015(0.0%) s7 image=3.441(4.5%) hints+pair=0.286(0.4%) goodness=0.956(1.3%)
+I two pass 1 n 50 total=48.172(100.0%) decode=0.020(0.0%) s0 basis=6.841(14.2%) s1 corn+kernel=4.769(9.9%) s2 dim2=0.378(0.8%) s3 gluing=3.186(6.6%) s4 pushes=24.825(51.5%) s5 codomain=3.954(8.2%) s6 final=0.013(0.0%) s7 image=3.454(7.2%) hints+pair=0.289(0.6%) goodness=0.942(2.0%)
+I two pass 2 n 50 total=48.089(100.0%) decode=0.020(0.0%) s0 basis=6.861(14.3%) s1 corn+kernel=4.771(9.9%) s2 dim2=0.376(0.8%) s3 gluing=3.151(6.6%) s4 pushes=24.807(51.6%) s5 codomain=3.924(8.2%) s6 final=0.013(0.0%) s7 image=3.428(7.1%) hints+pair=0.284(0.6%) goodness=0.953(2.0%)
+I two pass 3 n 50 total=47.858(100.0%) decode=0.019(0.0%) s0 basis=6.842(14.3%) s1 corn+kernel=4.749(9.9%) s2 dim2=0.377(0.8%) s3 gluing=3.117(6.5%) s4 pushes=24.694(51.6%) s5 codomain=3.924(8.2%) s6 final=0.013(0.0%) s7 image=3.419(7.1%) hints+pair=0.272(0.6%) goodness=0.953(2.0%)
+III four pass 1 n 60 total=194.915(100.0%) decode=0.023(0.0%) s0 basis=17.620(9.0%) s1 corn+kernel=12.014(6.2%) s2 dim2=1.591(0.8%) s3 gluing=5.634(2.9%) s4 pushes=120.050(61.6%) s5 codomain=28.604(14.7%) s6 final=0.024(0.0%) s7 image=8.465(4.3%) hints+pair=0.775(0.4%) goodness=2.423(1.2%)
+III four pass 2 n 60 total=194.927(100.0%) decode=0.023(0.0%) s0 basis=17.605(9.0%) s1 corn+kernel=11.995(6.2%) s2 dim2=1.602(0.8%) s3 gluing=5.615(2.9%) s4 pushes=119.800(61.5%) s5 codomain=28.660(14.7%) s6 final=0.024(0.0%) s7 image=8.472(4.3%) hints+pair=0.778(0.4%) goodness=2.399(1.2%)
+III four pass 3 n 60 total=194.134(100.0%) decode=0.022(0.0%) s0 basis=17.590(9.1%) s1 corn+kernel=11.995(6.2%) s2 dim2=1.594(0.8%) s3 gluing=5.578(2.9%) s4 pushes=119.319(61.5%) s5 codomain=28.555(14.7%) s6 final=0.024(0.0%) s7 image=8.472(4.4%) hints+pair=0.812(0.4%) goodness=2.397(1.2%)
+III two pass 1 n 60 total=120.093(100.0%) decode=0.023(0.0%) s0 basis=17.594(14.7%) s1 corn+kernel=11.984(10.0%) s2 dim2=1.595(1.3%) s3 gluing=5.581(4.6%) s4 pushes=64.445(53.7%) s5 codomain=9.335(7.8%) s6 final=0.023(0.0%) s7 image=8.496(7.1%) hints+pair=0.778(0.6%) goodness=2.420(2.0%)
+III two pass 2 n 60 total=119.930(100.0%) decode=0.021(0.0%) s0 basis=17.621(14.7%) s1 corn+kernel=11.970(10.0%) s2 dim2=1.591(1.3%) s3 gluing=5.609(4.7%) s4 pushes=64.175(53.5%) s5 codomain=9.328(7.8%) s6 final=0.023(0.0%) s7 image=8.478(7.1%) hints+pair=0.775(0.6%) goodness=2.397(2.0%)
+III two pass 3 n 60 total=119.785(100.0%) decode=0.023(0.0%) s0 basis=17.602(14.7%) s1 corn+kernel=12.012(10.0%) s2 dim2=1.598(1.3%) s3 gluing=5.581(4.7%) s4 pushes=64.188(53.6%) s5 codomain=9.364(7.8%) s6 final=0.023(0.0%) s7 image=8.483(7.1%) hints+pair=0.814(0.7%) goodness=2.396(2.0%)
+V four pass 1 n 60 total=485.918(100.0%) decode=0.031(0.0%) s0 basis=43.300(8.9%) s1 corn+kernel=26.399(5.4%) s2 dim2=1.699(0.3%) s3 gluing=9.208(1.9%) s4 pushes=309.284(63.6%) s5 codomain=73.681(15.2%) s6 final=0.035(0.0%) s7 image=20.526(4.2%) hints+pair=1.739(0.4%) goodness=3.757(0.8%)
+V four pass 2 n 60 total=482.860(100.0%) decode=0.030(0.0%) s0 basis=43.183(8.9%) s1 corn+kernel=26.336(5.5%) s2 dim2=1.695(0.4%) s3 gluing=9.170(1.9%) s4 pushes=306.384(63.5%) s5 codomain=73.632(15.2%) s6 final=0.035(0.0%) s7 image=20.469(4.2%) hints+pair=1.751(0.4%) goodness=3.769(0.8%)
+V four pass 3 n 60 total=484.946(100.0%) decode=0.031(0.0%) s0 basis=43.183(8.9%) s1 corn+kernel=26.363(5.4%) s2 dim2=1.691(0.3%) s3 gluing=9.161(1.9%) s4 pushes=307.947(63.5%) s5 codomain=74.063(15.3%) s6 final=0.035(0.0%) s7 image=20.489(4.2%) hints+pair=1.745(0.4%) goodness=3.770(0.8%)
+V two pass 1 n 60 total=291.901(100.0%) decode=0.032(0.0%) s0 basis=43.273(14.8%) s1 corn+kernel=26.319(9.0%) s2 dim2=1.705(0.6%) s3 gluing=9.192(3.1%) s4 pushes=164.404(56.3%) s5 codomain=23.987(8.2%) s6 final=0.039(0.0%) s7 image=20.587(7.1%) hints+pair=1.749(0.6%) goodness=3.758(1.3%)
+V two pass 2 n 60 total=291.339(100.0%) decode=0.030(0.0%) s0 basis=43.183(14.8%) s1 corn+kernel=26.374(9.1%) s2 dim2=1.695(0.6%) s3 gluing=9.177(3.1%) s4 pushes=164.219(56.4%) s5 codomain=23.893(8.2%) s6 final=0.039(0.0%) s7 image=20.478(7.0%) hints+pair=1.746(0.6%) goodness=3.769(1.3%)
+V two pass 3 n 60 total=291.368(100.0%) decode=0.030(0.0%) s0 basis=43.220(14.8%) s1 corn+kernel=26.423(9.1%) s2 dim2=1.709(0.6%) s3 gluing=9.151(3.1%) s4 pushes=164.197(56.4%) s5 codomain=23.950(8.2%) s6 final=0.037(0.0%) s7 image=20.470(7.0%) hints+pair=1.748(0.6%) goodness=3.767(1.3%)
+
+== signing spread and loop
+I pass 1 n 100 median 360.7 min 45.6 max 1546.3 quartiles incl 152-508 excl 150-509 samples mean 108.94 median 95.0 min 1 max 446 tests mean 54.87 restarts 0
+I pass 2 n 100 median 357.6 min 45.4 max 1528.9 quartiles incl 151-507 excl 149-507 samples mean 108.94 median 95.0 min 1 max 446 tests mean 54.87 restarts 0
+I pass 3 n 100 median 360.5 min 45.5 max 1524.1 quartiles incl 152-506 excl 152-511 samples mean 108.94 median 95.0 min 1 max 446 tests mean 54.87 restarts 0
+III pass 1 n 52 median 911.9 min 103.1 max 3631.2 quartiles incl 406-1465 excl 398-1471 samples mean 181.81 median 159.0 min 1 max 701 tests mean 90.88 restarts 0
+III pass 2 n 52 median 922.3 min 104.3 max 3649.7 quartiles incl 408-1471 excl 400-1472 samples mean 181.81 median 159.0 min 1 max 701 tests mean 90.88 restarts 0
+III pass 3 n 52 median 913.9 min 102.9 max 3624.3 quartiles incl 404-1460 excl 398-1460 samples mean 181.81 median 159.0 min 1 max 701 tests mean 90.88 restarts 0
+V pass 1 n 52 median 1714.5 min 400.6 max 10386.0 quartiles incl 913-3381 excl 869-3391 samples mean 282.19 median 196.5 min 17 max 1350 tests mean 139.52 restarts 0
+V pass 2 n 52 median 1713.8 min 401.2 max 10405.1 quartiles incl 912-3398 excl 868-3400 samples mean 282.19 median 196.5 min 17 max 1350 tests mean 139.52 restarts 0
+V pass 3 n 52 median 1717.6 min 402.8 max 10379.2 quartiles incl 915-3380 excl 870-3392 samples mean 282.19 median 196.5 min 17 max 1350 tests mean 139.52 restarts 0
+
+== heap
+dim4-I-four mean bytes 1694442 = 1654.7 KiB = 1.616 MiB n 5 min 1602 max 1680 KiB
+dim4-I-two mean bytes 1669866 = 1630.7 KiB = 1.593 MiB n 5 min 1578 max 1656 KiB
+dim4-III-four mean bytes 3525398 = 3442.8 KiB = 3.362 MiB n 5 min 3430 max 3451 KiB
+dim4-III-two mean bytes 3459862 = 3378.8 KiB = 3.300 MiB n 5 min 3366 max 3387 KiB
+dim4-V-four mean bytes 6307749 = 6159.9 KiB = 6.016 MiB n 5 min 6126 max 6183 KiB
+dim4-V-two mean bytes 6217637 = 6071.9 KiB = 5.930 MiB n 5 min 6038 max 6095 KiB
+dim2-I-verify mean bytes 0 = 0.0 KiB = 0.000 MiB n 1 min 0 max 0 KiB
+dim2-III-verify mean bytes 0 = 0.0 KiB = 0.000 MiB n 1 min 0 max 0 KiB
+dim2-V-verify mean bytes 0 = 0.0 KiB = 0.000 MiB n 1 min 0 max 0 KiB
+
+== expectations
+I e ln2 = 120.60760941743048 x2 = 241.21521883486096
+III e ln2 = 182.99085566782554 x2 = 365.9817113356511
+V e ln2 = 239.82892447374107 x2 = 479.65784894748214

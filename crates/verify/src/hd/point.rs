@@ -1,6 +1,7 @@
 //! [`ThetaPointDim4`]: a point in the dimension-4 level-2 theta model, given by
 //! 16 projective 𝔽p² coordinates.
 
+use crate::hd::zero_trace;
 use crate::{Fp2, FpBackend};
 
 /// Number of theta coordinates in dimension 4 (`2⁴`).
@@ -29,6 +30,12 @@ impl<L: FpBackend> ThetaPointDim4<L> {
         &self.coords
     }
 
+    /// The 16 coordinates, for the in-place image and doubling.
+    #[inline]
+    pub fn coords_mut(&mut self) -> &mut [Fp2<L>; THETA_DIM4_N] {
+        &mut self.coords
+    }
+
     /// The pivot: index of the first non-zero coordinate (capped at 15, to
     /// match the sage `ThetaPointDim4.__eq__` convention). For any genuine
     /// (non-zero) theta point this is the smallest `k` with `P[k] ≠ 0`.
@@ -50,10 +57,19 @@ impl<L: FpBackend> ThetaPointDim4<L> {
     /// Returns `true` iff `self` and `other` represent the same projective
     /// point, i.e. `self[l]·other[k₀] == other[l]·self[k₀]` for every `l`,
     /// where `k₀` is the pivot of `self`. This mirrors
-    /// `ThetaPointDim4.__eq__` in the sage reference exactly. **Never** compare
-    /// theta points coordinate-by-coordinate.
+    /// `ThetaPointDim4.__eq__` in the sage reference on points. **Never**
+    /// compare theta points coordinate-by-coordinate.
+    ///
+    /// The all-zero vector is no projective point and equals nothing:
+    /// `false` when `self` or `other` is all zero (the cross-multiplication
+    /// alone would hold for it against every vector).
     #[inline]
     pub fn projective_eq(&self, other: &Self) -> bool {
+        zero_trace::vector(zero_trace::EQ_LEFT, &self.coords);
+        zero_trace::vector(zero_trace::EQ_RIGHT, &other.coords);
+        if self.is_zero() || other.is_zero() {
+            return false;
+        }
         let k0 = self.pivot();
         let p = &self.coords;
         let q = &other.coords;
@@ -82,12 +98,13 @@ impl<L: FpBackend> ThetaPointDim4<L> {
     /// This matches the `normalized` / `pivot` fields emitted by the Phase 0
     /// oracle: divide every coordinate by the first non-zero one. Two equal
     /// projective points have the same pivot and identical normalised
-    /// coordinates.
+    /// coordinates. `None` for the all-zero vector, which has no pivot to
+    /// divide by.
     #[inline]
-    pub fn normalize(&self) -> (usize, Self) {
+    pub fn normalize(&self) -> Option<(usize, Self)> {
         let k0 = self.pivot();
-        let inv = crate::hd::field::inv(&self.coords[k0]);
-        (k0, self.scale(&inv))
+        let inv = crate::hd::field::inv_checked(&self.coords[k0])?;
+        Some((k0, self.scale(&inv)))
     }
 
     /// `true` iff every coordinate is zero (a degenerate, non-projective
@@ -95,5 +112,43 @@ impl<L: FpBackend> ThetaPointDim4<L> {
     #[inline]
     pub fn is_zero(&self) -> bool {
         self.coords.iter().all(|c| bool::from(c.ct_is_zero()))
+    }
+}
+
+#[cfg(test)]
+mod all_zero_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    fn point(f: impl Fn(usize) -> u64) -> ThetaPointDim4<P> {
+        ThetaPointDim4::new(core::array::from_fn(|k| Fp2::from_small(f(k))))
+    }
+
+    /// The all-zero vector is no projective point: it equals nothing, on
+    /// either side, itself included.
+    #[test]
+    fn projective_eq_rejects_the_zero_vector() {
+        let zero = point(|_| 0);
+        let p = point(|k| k as u64 + 1);
+        assert!(zero.is_zero() && !p.is_zero());
+        assert!(!zero.projective_eq(&p), "zero on the left");
+        assert!(!p.projective_eq(&zero), "zero on the right");
+        assert!(!zero.projective_eq(&zero), "zero on both sides");
+        // the comparison of points is unchanged
+        assert!(p.projective_eq(&p.scale(&Fp2::from_small(7))));
+        assert!(!p.projective_eq(&point(|k| k as u64 + 2)));
+        // a first coordinate of zero moves the pivot, nothing else
+        let q = point(|k| k as u64);
+        assert!(q.projective_eq(&q.scale(&Fp2::from_small(3))));
+        assert!(!q.projective_eq(&p) && !p.projective_eq(&q));
+    }
+
+    /// The zero vector has no normal form; a point's has pivot one.
+    #[test]
+    fn normalize_rejects_the_zero_vector() {
+        assert!(point(|_| 0).normalize().is_none());
+        let (k0, n) = point(|k| k as u64).normalize().unwrap();
+        assert_eq!(k0, 1);
+        assert!(bool::from(n.coords()[1].ct_equal(&Fp2::one())));
     }
 }

@@ -67,14 +67,15 @@ impl<L: FpBackend> ThetaStructureDim1<L> {
 
     /// Map a Montgomery point `(X : Z)` to its dim-1 theta point
     /// `(a·(X - Z), b·(X + Z))` (`montgomery_point_to_theta_point`). The
-    /// identity `(0 : 0)` maps to the theta null point.
+    /// identity `(X : 0)` maps to the theta null point by the formula;
+    /// `(0 : 0)` is no point: `None`.
     #[inline]
-    pub fn montgomery_to_theta(&self, x: &Fp2<L>, z: &Fp2<L>) -> [Fp2<L>; 2] {
+    pub fn montgomery_to_theta(&self, x: &Fp2<L>, z: &Fp2<L>) -> Option<[Fp2<L>; 2]> {
         if bool::from(x.ct_is_zero()) && bool::from(z.ct_is_zero()) {
-            return self.null.clone();
+            return None;
         }
         let (a, b) = (&self.null[0], &self.null[1]);
-        [a.mul(&x.sub(z)), b.mul(&x.add(z))]
+        Some([a.mul(&x.sub(z)), b.mul(&x.add(z))])
     }
 }
 
@@ -102,4 +103,21 @@ pub fn product_null_dim2<L: FpBackend>(
     t2: &ThetaStructureDim1<L>,
 ) -> [Fp2<L>; 4] {
     product_theta_dim2(t1.null(), t2.null())
+}
+
+#[cfg(test)]
+mod all_zero_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// `(0 : 0)` has no theta point; the identity `(X : 0)` has the null
+    /// point, up to the scalar `X`.
+    #[test]
+    fn montgomery_to_theta_rejects_zero_zero() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        let s = ThetaStructureDim1::<P>::from_null([f(3), f(5)]);
+        assert!(s.montgomery_to_theta(&f(0), &f(0)).is_none());
+        let t = s.montgomery_to_theta(&f(2), &f(0)).unwrap();
+        assert!(bool::from(t[0].ct_equal(&f(6))) && bool::from(t[1].ct_equal(&f(10))));
+    }
 }

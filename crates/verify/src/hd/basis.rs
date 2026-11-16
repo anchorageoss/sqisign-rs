@@ -61,6 +61,21 @@ fn hd_lift_basis<L: FpBackend>(
     a: &Fp2<L>,
 ) -> (JacPoint<L>, JacPoint<L>) {
     let yp = hd_recover_y(xp, a);
+    let p = JacPoint::new(xp.clone(), yp.clone(), Fp2::one());
+    let q = hd_lift_q(xp, &yp, kq, kpq, a);
+    (p, q)
+}
+
+/// The Okeya-Sakurai half of [`hd_lift_basis`]: `Q` as a full point from
+/// the affine `P = (x_P, y_P)`, `(X : Z)(Q)` and `(X : Z)(P - Q)`, the sign
+/// of `Q` being the one with `P - Q` above the given `x`.
+pub(crate) fn hd_lift_q<L: FpBackend>(
+    xp: &Fp2<L>,
+    yp: &Fp2<L>,
+    kq: &EcPoint<L>,
+    kpq: &EcPoint<L>,
+    a: &Fp2<L>,
+) -> JacPoint<L> {
     let v1 = xp.mul(&kq.z);
     let v2 = kq.x.add(&v1);
     let v3 = kq.x.sub(&v1);
@@ -76,7 +91,7 @@ fn hd_lift_basis<L: FpBackend>(
     let v2 = v2.sub(&v1);
     let v2 = v2.mul(&kpq.z);
     let yq = v3.sub(&v2);
-    let v1 = yp.add(&yp);
+    let v1 = yp.add(yp);
     let v1 = v1.mul(&kq.z);
     let v1 = v1.mul(&kpq.z);
     let xq = kq.x.mul(&v1);
@@ -84,14 +99,7 @@ fn hd_lift_basis<L: FpBackend>(
     // (xq : yq : zq) in projective (X : Y : Z) with x = X/Z, y = Y/Z, to
     // Jacobian (X Z : Y Z^2 : Z)
     let zq2 = zq.sqr();
-    let p = JacPoint::new(xp.clone(), yp, Fp2::one());
-    let q = JacPoint::new(xq.mul(&zq), yq.mul(&zq2), zq);
-    (p, q)
-}
-
-#[inline]
-fn fp2_from_le<L: FpBackend>(bytes: &[u8]) -> Fp2<L> {
-    Fp2::<L>::decode(bytes).expect("non-residue table entry must be a canonical field element")
+    JacPoint::new(xq.mul(&zq), yq.mul(&zq2), zq)
 }
 
 /// Affine `(x, y)` of a Jacobian point (not the identity).
@@ -156,8 +164,8 @@ pub fn torsion_basis_2f_from_hint<L: FpBackend>(
 /// give points on the curve. `None` if no entry does (a crafted curve).
 pub fn canonical_hints<L: HdLevel>(curve_a: &Fp2<L>) -> Option<(u32, u32)> {
     let curve = EcCurve::from_a(curve_a)?;
-    let nqr: [Fp2<L>; 20] = core::array::from_fn(|k| fp2_from_le::<L>(L::nqr_table()[k]));
-    let z_nqr: [Fp2<L>; 20] = core::array::from_fn(|k| fp2_from_le::<L>(L::z_nqr_table()[k]));
+    let nqr = L::nqr_table();
+    let z_nqr = L::z_nqr_table();
 
     let hp = (0..20).find(|&k| bool::from(is_on_curve(&nqr[k], &curve)))? as u32;
 
@@ -175,8 +183,8 @@ pub fn hd_torsion_basis<L: HdLevel>(
     hp: u32,
     hq: u32,
 ) -> Option<(JacPoint<L>, JacPoint<L>)> {
-    let nqr: [Fp2<L>; 20] = core::array::from_fn(|k| fp2_from_le::<L>(L::nqr_table()[k]));
-    let z_nqr: [Fp2<L>; 20] = core::array::from_fn(|k| fp2_from_le::<L>(L::z_nqr_table()[k]));
+    let nqr = L::nqr_table();
+    let z_nqr = L::z_nqr_table();
     let (cof, bits) = L::cofactor();
     torsion_basis_2f_from_hint(curve_a, hp, hq, &nqr, &z_nqr, &cof, bits)
 }

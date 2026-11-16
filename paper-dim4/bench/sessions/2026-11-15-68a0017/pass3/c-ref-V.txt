@@ -1,0 +1,6 @@
+2026-11-15T00:55:48Z + taskset -c 13 /home/user/the-sqisign/build/apps/benchmark_p664_17 --iterations=100
+Random seed: "--seed={ 0xd225c177, 0xe485d681, 0x6b949777, 0xeb2e2dff, 0x5755b62b, 0xbd5c24aa, 0x6a2dbd6a, 0xde64306f, 0xaaf135f1, 0x37d92658, 0xd57a1f7c, 0xf7d58548 }"
+SQIsign_p664_17 (100 iterations)
+  keypair    | average   235.584 | stddev    48.549 | median   216.893 | min   188.921 | max   439.606  (megacycles)
+  sign       | average   702.083 | stddev   111.340 | median   679.626 | min   542.991 | max  1075.870  (megacycles)
+  verify     | average    75.948 | stddev     1.379 | median    75.438 | min    74.404 | max    79.981  (megacycles)

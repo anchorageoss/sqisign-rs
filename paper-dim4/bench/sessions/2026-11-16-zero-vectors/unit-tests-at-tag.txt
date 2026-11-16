@@ -1,0 +1,12 @@
+The five tests below were written before the fixes and run on the code of tag
+paper-dim4-2026-11 (cargo test -p sqisign-verify --features compact --lib).
+Each calls one helper directly with an all-zero input. All five failed there:
+
+hd::point::all_zero_tests::projective_eq_rejects_the_zero_vector          FAILED (zero on the left)
+hd::chain::all_zero_tests::middle_match_rejects_the_zero_vector           FAILED (zero on the left)
+hd::two_point::tests::the_checks_at_the_gluing_reject_the_zero_vector     FAILED (null_fixed_by_pi of the zero vector)
+hd::self_contained::zero_divisor_tests::x_eq_rejects_z_zero_on_either_side FAILED (z = 0 on the left)
+hd::dim2::zero_divisor_tests::dual_gluing_rejects_the_zero_vector         FAILED (the pair of identities returned)
+
+So the helpers accepted an all-zero input when called directly, while no
+tampered signature reached them with one (at-tag/). All pass after the fixes.

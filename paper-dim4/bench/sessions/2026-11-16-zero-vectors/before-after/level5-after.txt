@@ -1,0 +1,85 @@
+level 5: 1 signatures of one key; each tampered input in the three verifier modes (a run is one input in one mode; an input the decoder rejects is one run)
+
+[honest]
+  inputs 1, runs 3, accepted runs 3, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 3
+
+[sig-bit]
+  inputs 2224, runs 6666, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 1029, MalformedInput 3, MiddleCodomainMismatch 1578, NonCanonicalHint 3978, ResponseRecovery 78
+
+[pk-bit]
+  inputs 1360, runs 4064, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 1065, MalformedInput 8, NonCanonicalHint 2991
+
+[msg-bit]
+  inputs 33, runs 99, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 99
+
+[acom-bit+canonical-hints]
+  inputs 1336, runs 4008, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 4008
+
+[acom-bit, hint check off]
+  inputs 1336, runs 4008, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 4008
+
+[apk-bit+canonical-hints]
+  inputs 1336, runs 4008, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 4008
+
+[top-bit]
+  inputs 3, runs 9, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 9
+
+[top-bit, with the third scalar]
+  inputs 4, runs 12, accepted runs 3, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 3, MiddleCodomainMismatch 9
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 top bits 111 (c_or_d, b, a) [two] zero vector: false
+
+[negation of some scalars]
+  inputs 6, runs 18, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 18
+
+[negation]
+  inputs 1, runs 3, accepted runs 3, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ACCEPTED 3
+  accepted: sig 0 negated 111 (c_or_d, b, a) [four] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two+check] zero vector: false
+  accepted: sig 0 negated 111 (c_or_d, b, a) [two] zero vector: false
+
+[both-even]
+  inputs 18, runs 54, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ResponseRecovery 54
+
+[zero-and-one scalars]
+  inputs 14, runs 42, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 42
+
+[other degree]
+  inputs 29, runs 87, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 6, GluingBound 12, MiddleCodomainMismatch 69
+
+[other degree, scalars (1, 0, 0)]
+  inputs 29, runs 87, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 6, GluingBound 12, MiddleCodomainMismatch 69
+
+[other degree, random scalars]
+  inputs 29, runs 87, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: DegreeNotGood 6, GluingBound 12, MiddleCodomainMismatch 69
+
+[random scalars]
+  inputs 10, runs 30, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 21, ResponseRecovery 9
+
+[crafted commitment curve]
+  inputs 40, runs 120, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: MiddleCodomainMismatch 72, NonCanonicalHint 6, ResponseRecovery 42
+
+[crafted key curve]
+  inputs 13, runs 39, accepted runs 0, runs with an all-zero vector 0, accepted runs with an all-zero vector 0
+  verdicts: ChallengeRecovery 12, MiddleCodomainMismatch 21, NonCanonicalHint 6
+
+total over the tampered classes: inputs 7821, runs 23441, accepted runs 6 (unexpected 0), runs with an all-zero vector 0, accepted runs with an all-zero vector 0

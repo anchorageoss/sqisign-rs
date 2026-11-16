@@ -11,8 +11,45 @@ pub fn batched_inv<L: FpBackend>(x: &mut [Fp2<L>], t1: &mut [Fp2<L>], t2: &mut [
     Fp2::batched_inv(x, t1, t2)
 }
 
+/// Whether one of `xs` is zero: the test before a division by them.
+#[inline]
+pub fn any_zero<L: FpBackend>(xs: &[&Fp2<L>]) -> bool {
+    xs.iter().any(|x| bool::from(x.ct_is_zero()))
+}
+
+/// `1 / x`, or `None` for `x = 0`.
+#[inline]
+pub fn inv_checked<L: FpBackend>(x: &Fp2<L>) -> Option<Fp2<L>> {
+    if bool::from(x.ct_is_zero()) {
+        None
+    } else {
+        Some(x.inv())
+    }
+}
+
 /// `1 / x` (`0` for `x = 0`).
 #[inline]
 pub fn inv<L: FpBackend>(x: &Fp2<L>) -> Fp2<L> {
     x.inv()
+}
+
+/// `out[i] = prod_{j != i} x[j]`: `1 / x` up to the common factor `prod_j x[j]`, with no
+/// inversion: the prefix products in place, then the running suffix (`3n - 6` products).
+#[inline]
+pub fn products_of_others<L: FpBackend, const N: usize>(x: &[Fp2<L>; N]) -> [Fp2<L>; N] {
+    let mut out: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::one());
+    if N < 2 {
+        return out;
+    }
+    out[1] = x[0].clone();
+    for i in 2..N {
+        out[i] = out[i - 1].mul(&x[i - 1]);
+    }
+    let mut suf = x[N - 1].clone();
+    for i in (1..N - 1).rev() {
+        out[i].mul_assign(&suf);
+        suf.mul_assign(&x[i]);
+    }
+    out[0] = suf;
+    out
 }

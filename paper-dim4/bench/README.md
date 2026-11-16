@@ -23,3 +23,15 @@ the `median (ms)` column is the one to keep. Copy those thirteen
 `median (ms)` values into the "M4 Pro" table of paper-dim4/BENCH.md's session
 section (same rows, in place of `pending`) and run `make figures` in
 `paper-dim4`: Table 4 and `\MFourAvailable` pick them up.
+
+## The paper's own protocol (2026-11)
+
+`paper_session.sh <out-dir> [core]` runs the session that Section "Setup"
+of `main_standalone.tex` describes, on one pinned core: the machine
+record, a build from clean (release, fat LTO, no target-cpu flag), then
+two passes of `paper` (the run counts of the Setup section at the three
+levels, verification from bytes with the packed layout) and of the C
+reference's benchmark, a third pass when a median moved by more than 3
+percent, and `paper_heap` (heap peaks with a counting allocator around one
+verification). `paper_report.py <out-dir>` recomputes every statistic from
+the raw files into `numbers.json` and `table.md`.

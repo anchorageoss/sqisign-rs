@@ -1,0 +1,112 @@
+2026-11-10T08:30:48Z session start; out /home/dustin_ray_anchorlabs_com/work/results/20261110T081700Z-SECENG-2617/session; core 3; rounds 4; per round: dim2 keygen/sign/verify 13/13/50, dim4 keygen/sign/verify/profile 13/25/50/25 over 5 signatures, fp2-ops once; C iterations p324_3:300 p500_27:100 p664_17:100
+2026-11-10T08:30:48Z commit 860c95537d09cc8e0d96c7e0be6b24560debf367 (0 uncommitted paths)
+2026-11-10T08:30:48Z binaries: 2026-11-10T08:16:54Z /home/dustin_ray_anchorlabs_com/sqisign-rs-two-point/paper-dim4/bench/target/release/dim4-session sha256 4003d3db59d57c09; C reference: the-sqisign 6d01770 /home/dustin_ray_anchorlabs_com/the-sqisign/build/apps (2026-10-27T05:55:48Z)
+2026-11-10T08:30:48Z process check before: clean
+2026-11-10T08:30:48Z dpkg.log lines before the window: 0
+2026-11-10T08:30:48Z apt timers: inactive inactive 
+2026-11-10T08:30:48Z cpu AMD EPYC 7B13; tsc constant_tsc nonstop_tsc tsc_known_freq ; kernel 6.1.0-54-cloud-amd64; tsc from dmesg: Detected 3049.994 MHz processor
+2026-11-10T08:30:48Z round 1 start
+2026-11-10T08:30:48Z block dim2-I r1 start
+2026-11-10T08:30:50Z block dim2-I r1 end rc=0
+2026-11-10T08:30:50Z block dim2-III r1 start
+2026-11-10T08:30:53Z block dim2-III r1 end rc=0
+2026-11-10T08:30:53Z block dim2-V r1 start
+2026-11-10T08:31:01Z block dim2-V r1 end rc=0
+2026-11-10T08:31:01Z block dim4-keygen r1 start
+2026-11-10T08:31:02Z block dim4-keygen r1 end rc=0
+2026-11-10T08:31:02Z block dim4-sign r1 start
+2026-11-10T08:31:05Z block dim4-sign r1 end rc=0
+2026-11-10T08:31:05Z block dim4-verify-four r1 start
+2026-11-10T08:31:07Z block dim4-verify-four r1 end rc=0
+2026-11-10T08:31:07Z block dim4-verify-two-check r1 start
+2026-11-10T08:31:08Z block dim4-verify-two-check r1 end rc=0
+2026-11-10T08:31:08Z block dim4-verify-two-nocheck r1 start
+2026-11-10T08:31:10Z block dim4-verify-two-nocheck r1 end rc=0
+2026-11-10T08:31:10Z block profile-two-check r1 start
+2026-11-10T08:31:11Z block profile-two-check r1 end rc=0
+2026-11-10T08:31:11Z block profile-four r1 start
+2026-11-10T08:31:13Z block profile-four r1 end rc=0
+2026-11-10T08:31:13Z block fp2-ops r1 start
+2026-11-10T08:31:37Z block fp2-ops r1 end rc=0
+2026-11-10T08:31:37Z block sqisign-c p324_3 start (300 iterations)
+2026-11-10T08:31:52Z block sqisign-c p324_3 end rc=0
+2026-11-10T08:31:52Z round 1 end
+2026-11-10T08:31:52Z round 2 start
+2026-11-10T08:31:52Z block dim2-I r2 start
+2026-11-10T08:31:53Z block dim2-I r2 end rc=0
+2026-11-10T08:31:53Z block dim2-III r2 start
+2026-11-10T08:31:57Z block dim2-III r2 end rc=0
+2026-11-10T08:31:57Z block dim2-V r2 start
+2026-11-10T08:32:05Z block dim2-V r2 end rc=0
+2026-11-10T08:32:05Z block dim4-keygen r2 start
+2026-11-10T08:32:05Z block dim4-keygen r2 end rc=0
+2026-11-10T08:32:05Z block dim4-sign r2 start
+2026-11-10T08:32:09Z block dim4-sign r2 end rc=0
+2026-11-10T08:32:09Z block dim4-verify-four r2 start
+2026-11-10T08:32:12Z block dim4-verify-four r2 end rc=0
+2026-11-10T08:32:12Z block dim4-verify-two-check r2 start
+2026-11-10T08:32:13Z block dim4-verify-two-check r2 end rc=0
+2026-11-10T08:32:13Z block dim4-verify-two-nocheck r2 start
+2026-11-10T08:32:15Z block dim4-verify-two-nocheck r2 end rc=0
+2026-11-10T08:32:15Z block profile-two-check r2 start
+2026-11-10T08:32:16Z block profile-two-check r2 end rc=0
+2026-11-10T08:32:16Z block profile-four r2 start
+2026-11-10T08:32:18Z block profile-four r2 end rc=0
+2026-11-10T08:32:18Z block fp2-ops r2 start
+2026-11-10T08:32:41Z block fp2-ops r2 end rc=0
+2026-11-10T08:32:41Z block sqisign-c p500_27 start (100 iterations)
+2026-11-10T08:33:00Z block sqisign-c p500_27 end rc=0
+2026-11-10T08:33:00Z round 2 end
+2026-11-10T08:33:00Z round 3 start
+2026-11-10T08:33:00Z block dim2-I r3 start
+2026-11-10T08:33:01Z block dim2-I r3 end rc=0
+2026-11-10T08:33:01Z block dim2-III r3 start
+2026-11-10T08:33:05Z block dim2-III r3 end rc=0
+2026-11-10T08:33:05Z block dim2-V r3 start
+2026-11-10T08:33:12Z block dim2-V r3 end rc=0
+2026-11-10T08:33:12Z block dim4-keygen r3 start
+2026-11-10T08:33:13Z block dim4-keygen r3 end rc=0
+2026-11-10T08:33:13Z block dim4-sign r3 start
+2026-11-10T08:33:16Z block dim4-sign r3 end rc=0
+2026-11-10T08:33:16Z block dim4-verify-four r3 start
+2026-11-10T08:33:18Z block dim4-verify-four r3 end rc=0
+2026-11-10T08:33:18Z block dim4-verify-two-check r3 start
+2026-11-10T08:33:19Z block dim4-verify-two-check r3 end rc=0
+2026-11-10T08:33:19Z block dim4-verify-two-nocheck r3 start
+2026-11-10T08:33:21Z block dim4-verify-two-nocheck r3 end rc=0
+2026-11-10T08:33:21Z block profile-two-check r3 start
+2026-11-10T08:33:21Z block profile-two-check r3 end rc=0
+2026-11-10T08:33:21Z block profile-four r3 start
+2026-11-10T08:33:23Z block profile-four r3 end rc=0
+2026-11-10T08:33:23Z block fp2-ops r3 start
+2026-11-10T08:33:46Z block fp2-ops r3 end rc=0
+2026-11-10T08:33:46Z block sqisign-c p664_17 start (100 iterations)
+2026-11-10T08:34:23Z block sqisign-c p664_17 end rc=0
+2026-11-10T08:34:23Z round 3 end
+2026-11-10T08:34:23Z round 4 start
+2026-11-10T08:34:23Z block dim2-I r4 start
+2026-11-10T08:34:24Z block dim2-I r4 end rc=0
+2026-11-10T08:34:24Z block dim2-III r4 start
+2026-11-10T08:34:28Z block dim2-III r4 end rc=0
+2026-11-10T08:34:28Z block dim2-V r4 start
+2026-11-10T08:34:36Z block dim2-V r4 end rc=0
+2026-11-10T08:34:36Z block dim4-keygen r4 start
+2026-11-10T08:34:36Z block dim4-keygen r4 end rc=0
+2026-11-10T08:34:36Z block dim4-sign r4 start
+2026-11-10T08:34:39Z block dim4-sign r4 end rc=0
+2026-11-10T08:34:39Z block dim4-verify-four r4 start
+2026-11-10T08:34:42Z block dim4-verify-four r4 end rc=0
+2026-11-10T08:34:42Z block dim4-verify-two-check r4 start
+2026-11-10T08:34:43Z block dim4-verify-two-check r4 end rc=0
+2026-11-10T08:34:43Z block dim4-verify-two-nocheck r4 start
+2026-11-10T08:34:45Z block dim4-verify-two-nocheck r4 end rc=0
+2026-11-10T08:34:45Z block profile-two-check r4 start
+2026-11-10T08:34:47Z block profile-two-check r4 end rc=0
+2026-11-10T08:34:47Z block profile-four r4 start
+2026-11-10T08:34:48Z block profile-four r4 end rc=0
+2026-11-10T08:34:48Z block fp2-ops r4 start
+2026-11-10T08:35:12Z block fp2-ops r4 end rc=0
+2026-11-10T08:35:12Z round 4 end
+2026-11-10T08:35:12Z process check after: clean
+2026-11-10T08:35:12Z dpkg.log lines after the window: 0; entries in the window:
+2026-11-10T08:35:12Z session end

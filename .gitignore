@@ -69,3 +69,9 @@ scripts/precomp/deps/
 
 # Sage precomp logs
 scripts/precomp/logs/
+
+# bench-mac.sh output
+/results/
+
+# the forced-portable test build (RUSTFLAGS="--cfg sqisign_portable")
+target-portable/

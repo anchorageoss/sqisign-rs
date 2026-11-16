@@ -1,0 +1,619 @@
+{
+ "passes": 2,
+ "rule": "pass 1 (two passes within 3 percent on every row)",
+ "noisy_rows_between_pass_1_and_2": [
+  {
+   "row": "dim2-I-keygen",
+   "pass1": 6.676354,
+   "pass2": 6.4100415
+  }
+ ],
+ "rows": {
+  "dim2-I-keygen": {
+   "mc": null,
+   "ms": 6.676354,
+   "passes_mc": [],
+   "passes_ms": [
+    6.676354,
+    6.4100415
+   ]
+  },
+  "dim2-I-sign": {
+   "mc": null,
+   "ms": 19.2335415,
+   "passes_mc": [],
+   "passes_ms": [
+    19.2335415,
+    19.326021
+   ]
+  },
+  "dim2-I-verify": {
+   "mc": null,
+   "ms": 2.1891875,
+   "passes_mc": [],
+   "passes_ms": [
+    2.1891875,
+    2.1951245
+   ]
+  },
+  "dim2-I-verify-compressed": {
+   "mc": null,
+   "ms": 2.5967085,
+   "passes_mc": [],
+   "passes_ms": [
+    2.5967085,
+    2.608917
+   ]
+  },
+  "dim2-III-keygen": {
+   "mc": null,
+   "ms": 23.118208,
+   "passes_mc": [],
+   "passes_ms": [
+    23.118208,
+    23.507292
+   ]
+  },
+  "dim2-III-sign": {
+   "mc": null,
+   "ms": 80.635146,
+   "passes_mc": [],
+   "passes_ms": [
+    80.635146,
+    80.5130625
+   ]
+  },
+  "dim2-III-verify": {
+   "mc": null,
+   "ms": 6.408125,
+   "passes_mc": [],
+   "passes_ms": [
+    6.408125,
+    6.457542
+   ]
+  },
+  "dim2-III-verify-compressed": {
+   "mc": null,
+   "ms": 7.5419795,
+   "passes_mc": [],
+   "passes_ms": [
+    7.5419795,
+    7.606854
+   ]
+  },
+  "dim2-V-keygen": {
+   "mc": null,
+   "ms": 42.1835625,
+   "passes_mc": [],
+   "passes_ms": [
+    42.1835625,
+    42.5608125
+   ]
+  },
+  "dim2-V-sign": {
+   "mc": null,
+   "ms": 128.1429585,
+   "passes_mc": [],
+   "passes_ms": [
+    128.1429585,
+    129.6221255
+   ]
+  },
+  "dim2-V-verify": {
+   "mc": null,
+   "ms": 12.3606875,
+   "passes_mc": [],
+   "passes_ms": [
+    12.3606875,
+    12.4709375
+   ]
+  },
+  "dim2-V-verify-compressed": {
+   "mc": null,
+   "ms": 14.452646,
+   "passes_mc": [],
+   "passes_ms": [
+    14.452646,
+    14.577021
+   ]
+  },
+  "dim4-I-keygen": {
+   "mc": null,
+   "ms": 6.791604,
+   "passes_mc": [],
+   "passes_ms": [
+    6.791604,
+    6.858333
+   ]
+  },
+  "dim4-I-sign": {
+   "mc": null,
+   "ms": 65.8792295,
+   "passes_mc": [],
+   "passes_ms": [
+    65.8792295,
+    67.4822915
+   ]
+  },
+  "dim4-I-verify-four": {
+   "mc": null,
+   "ms": 14.713292,
+   "passes_mc": [],
+   "passes_ms": [
+    14.713292,
+    14.868229
+   ]
+  },
+  "dim4-I-verify-two": {
+   "mc": null,
+   "ms": 9.0697915,
+   "passes_mc": [],
+   "passes_ms": [
+    9.0697915,
+    9.1457295
+   ]
+  },
+  "dim4-I-verify-two-nocheck": {
+   "mc": null,
+   "ms": 8.8918745,
+   "passes_mc": [],
+   "passes_ms": [
+    8.8918745,
+    8.9809995
+   ]
+  },
+  "dim4-III-keygen": {
+   "mc": null,
+   "ms": 28.022459,
+   "passes_mc": [],
+   "passes_ms": [
+    28.022459,
+    28.416979
+   ]
+  },
+  "dim4-III-sign": {
+   "mc": null,
+   "ms": 166.941646,
+   "passes_mc": [],
+   "passes_ms": [
+    166.941646,
+    167.9195835
+   ]
+  },
+  "dim4-III-verify-four": {
+   "mc": null,
+   "ms": 42.1734585,
+   "passes_mc": [],
+   "passes_ms": [
+    42.1734585,
+    42.43096533333333
+   ]
+  },
+  "dim4-III-verify-two": {
+   "mc": null,
+   "ms": 25.429291666666668,
+   "passes_mc": [],
+   "passes_ms": [
+    25.429291666666668,
+    25.609590333333333
+   ]
+  },
+  "dim4-III-verify-two-nocheck": {
+   "mc": null,
+   "ms": 25.09647216666667,
+   "passes_mc": [],
+   "passes_ms": [
+    25.09647216666667,
+    25.339472166666667
+   ]
+  },
+  "dim4-V-keygen": {
+   "mc": null,
+   "ms": 41.4665625,
+   "passes_mc": [],
+   "passes_ms": [
+    41.4665625,
+    41.85575
+   ]
+  },
+  "dim4-V-sign": {
+   "mc": null,
+   "ms": 307.463771,
+   "passes_mc": [],
+   "passes_ms": [
+    307.463771,
+    310.868
+   ]
+  },
+  "dim4-V-verify-four": {
+   "mc": null,
+   "ms": 77.83796533333333,
+   "passes_mc": [],
+   "passes_ms": [
+    77.83796533333333,
+    78.74240283333333
+   ]
+  },
+  "dim4-V-verify-two": {
+   "mc": null,
+   "ms": 46.385368166666666,
+   "passes_mc": [],
+   "passes_ms": [
+    46.385368166666666,
+    46.78690983333333
+   ]
+  },
+  "dim4-V-verify-two-nocheck": {
+   "mc": null,
+   "ms": 45.96806933333333,
+   "passes_mc": [],
+   "passes_ms": [
+    45.96806933333333,
+    46.350958166666665
+   ]
+  }
+ },
+ "loop": {
+  "sign_ms_median": 65.87922950000001,
+  "sign_ms_min": 8.906333,
+  "sign_ms_max": 284.265125,
+  "signatures": 100,
+  "samples_mean": 108.94,
+  "samples_median": 95.0,
+  "samples_min": 1,
+  "samples_max": 446,
+  "primality_tests_mean": 54.87,
+  "restarts": 0,
+  "sign_mc_median": NaN,
+  "sign_mc_min": NaN,
+  "sign_mc_max": NaN
+ },
+ "sign_quartiles": {
+  "I": {
+   "unit": "ms",
+   "q1": 27.43317725,
+   "q3": 93.30700050000002,
+   "min": 8.906333,
+   "max": 284.265125
+  },
+  "III": {
+   "unit": "ms",
+   "q1": 78.35695825,
+   "q3": 265.12771899999996,
+   "min": 20.93575,
+   "max": 654.980208
+  },
+  "V": {
+   "unit": "ms",
+   "q1": 153.18106275,
+   "q3": 614.6168124999999,
+   "min": 69.125834,
+   "max": 1895.46775
+  }
+ },
+ "profile": {
+  "I-four": {
+   "total_mc": 14.7273745,
+   "decode_share": 6.219710105151465e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.09054713044745348,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.06502778210739464,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.0034516335549150327,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.04135577593956071,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5730459967593001,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.17105601544932533,
+   "final comparisons: middle_codomain_matches": 0.00015277672201518335,
+   "image check: hd_image_check": 0.04766351938697559,
+   "decode_mc": 0.000916,
+   "checks_hints_pairing_mc": 0.0532085,
+   "checks_goodness_mc": 0.186271
+  },
+  "I-two": {
+   "total_mc": 9.094604,
+   "decode_share": 9.621089604341212e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14807087807231628,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.10569910465590365,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.005873427804003341,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.06725597947970027,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.4961231407106895,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.0928431848159634,
+   "final comparisons: middle_codomain_matches": 0.000247399446968774,
+   "image check: hd_image_check": 0.07544083282790542,
+   "decode_mc": 0.000875,
+   "checks_hints_pairing_mc": 0.055354,
+   "checks_goodness_mc": 0.186187
+  },
+  "III-four": {
+   "total_mc": 42.1449165,
+   "decode_share": 3.955399935363497e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08787338563121842,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.059794684846510494,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.00691464176942906,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.028929443957968218,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6037815023313666,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16472359127820316,
+   "final comparisons: middle_codomain_matches": 9.491061632545885e-05,
+   "image check: hd_image_check": 0.04470834578590279,
+   "decode_mc": 0.001667,
+   "checks_hints_pairing_mc": 0.1458745,
+   "checks_goodness_mc": 0.5022915
+  },
+  "III-two": {
+   "total_mc": 25.477958,
+   "decode_share": 6.378062166520567e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14532086912145786,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.09900799349775205,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.011043879576220356,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.0476964244936741,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5285558010575259,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09020628733276034,
+   "final comparisons: middle_codomain_matches": 0.0001553892191831072,
+   "image check: hd_image_check": 0.07386204184809474,
+   "decode_mc": 0.001625,
+   "checks_hints_pairing_mc": 0.1398125,
+   "checks_goodness_mc": 0.5048335
+  },
+  "V-four": {
+   "total_mc": 78.1382495,
+   "decode_share": 2.2396201747519312e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08596062162871974,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.05510666066303418,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.003057081538536386,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.019258596265328415,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6310211748472814,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16204522216740982,
+   "final comparisons: middle_codomain_matches": 7.146308031894162e-05,
+   "image check: hd_image_check": 0.042467197835037246,
+   "decode_mc": 0.00175,
+   "checks_hints_pairing_mc": 0.2121245,
+   "checks_goodness_mc": 0.7869165
+  },
+  "V-two": {
+   "total_mc": 46.55775,
+   "decode_share": 3.670710032164355e-05,
+   "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14421471183637524,
+   "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.09234992026032186,
+   "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.005172769302640269,
+   "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.03231070015196181,
+   "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5585752318357309,
+   "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09066784799523173,
+   "final comparisons: middle_codomain_matches": 0.00011901348325466759,
+   "image check: hd_image_check": 0.0711844429767332,
+   "decode_mc": 0.001709,
+   "checks_hints_pairing_mc": 0.204834,
+   "checks_goodness_mc": 0.790271
+  }
+ },
+ "profile_per_pass": [
+  {
+   "I-four": {
+    "total_mc": 14.7273745,
+    "decode_share": 6.219710105151465e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.09054713044745348,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.06502778210739464,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.0034516335549150327,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.04135577593956071,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5730459967593001,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.17105601544932533,
+    "final comparisons: middle_codomain_matches": 0.00015277672201518335,
+    "image check: hd_image_check": 0.04766351938697559,
+    "decode_mc": 0.000916,
+    "checks_hints_pairing_mc": 0.0532085,
+    "checks_goodness_mc": 0.186271
+   },
+   "I-two": {
+    "total_mc": 9.094604,
+    "decode_share": 9.621089604341212e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14807087807231628,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.10569910465590365,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.005873427804003341,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.06725597947970027,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.4961231407106895,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.0928431848159634,
+    "final comparisons: middle_codomain_matches": 0.000247399446968774,
+    "image check: hd_image_check": 0.07544083282790542,
+    "decode_mc": 0.000875,
+    "checks_hints_pairing_mc": 0.055354,
+    "checks_goodness_mc": 0.186187
+   },
+   "III-four": {
+    "total_mc": 42.1449165,
+    "decode_share": 3.955399935363497e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08787338563121842,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.059794684846510494,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.00691464176942906,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.028929443957968218,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6037815023313666,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16472359127820316,
+    "final comparisons: middle_codomain_matches": 9.491061632545885e-05,
+    "image check: hd_image_check": 0.04470834578590279,
+    "decode_mc": 0.001667,
+    "checks_hints_pairing_mc": 0.1458745,
+    "checks_goodness_mc": 0.5022915
+   },
+   "III-two": {
+    "total_mc": 25.477958,
+    "decode_share": 6.378062166520567e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14532086912145786,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.09900799349775205,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.011043879576220356,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.0476964244936741,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5285558010575259,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09020628733276034,
+    "final comparisons: middle_codomain_matches": 0.0001553892191831072,
+    "image check: hd_image_check": 0.07386204184809474,
+    "decode_mc": 0.001625,
+    "checks_hints_pairing_mc": 0.1398125,
+    "checks_goodness_mc": 0.5048335
+   },
+   "V-four": {
+    "total_mc": 78.1382495,
+    "decode_share": 2.2396201747519312e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08596062162871974,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.05510666066303418,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.003057081538536386,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.019258596265328415,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6310211748472814,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16204522216740982,
+    "final comparisons: middle_codomain_matches": 7.146308031894162e-05,
+    "image check: hd_image_check": 0.042467197835037246,
+    "decode_mc": 0.00175,
+    "checks_hints_pairing_mc": 0.2121245,
+    "checks_goodness_mc": 0.7869165
+   },
+   "V-two": {
+    "total_mc": 46.55775,
+    "decode_share": 3.670710032164355e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14421471183637524,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.09234992026032186,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.005172769302640269,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.03231070015196181,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5585752318357309,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09066784799523173,
+    "final comparisons: middle_codomain_matches": 0.00011901348325466759,
+    "image check: hd_image_check": 0.0711844429767332,
+    "decode_mc": 0.001709,
+    "checks_hints_pairing_mc": 0.204834,
+    "checks_goodness_mc": 0.790271
+   }
+  },
+  {
+   "I-four": {
+    "total_mc": 14.8539165,
+    "decode_share": 6.173456004010795e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.0906102441063271,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.06521986978989683,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.003593328399281092,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.04099087267657658,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.575484957115519,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.17133959249064043,
+    "final comparisons: middle_codomain_matches": 0.00015147520184323105,
+    "image check: hd_image_check": 0.046779177734033985,
+    "decode_mc": 0.000917,
+    "checks_hints_pairing_mc": 0.0528745,
+    "checks_goodness_mc": 0.1951875
+   },
+   "I-two": {
+    "total_mc": 9.1760835,
+    "decode_share": 9.535658650011194e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14690139861957446,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.1058798669388743,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.005805472454560816,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.06630464947272985,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.4988004413865676,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09316289460530737,
+    "final comparisons: middle_codomain_matches": 0.0002678702738483145,
+    "image check: hd_image_check": 0.07557467191749072,
+    "decode_mc": 0.000875,
+    "checks_hints_pairing_mc": 0.050229,
+    "checks_goodness_mc": 0.1995835
+   },
+   "III-four": {
+    "total_mc": 42.5749585,
+    "decode_share": 3.915447151874499e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08740270410363407,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.06008373443276521,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.006766982520957713,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.028673463063974565,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6039038769703088,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16478824048648222,
+    "final comparisons: middle_codomain_matches": 9.395194125673664e-05,
+    "image check: hd_image_check": 0.044534194907083706,
+    "decode_mc": 0.001667,
+    "checks_hints_pairing_mc": 0.1469995,
+    "checks_goodness_mc": 0.5135835
+   },
+   "III-two": {
+    "total_mc": 25.6478335,
+    "decode_share": 6.335817799191499e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.1452957420360671,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.0996348288053258,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.011131563997403523,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.04756816984171392,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.5303538016183706,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09086038397746149,
+    "final comparisons: middle_codomain_matches": 0.00015595859198009845,
+    "image check: hd_image_check": 0.07400722560055609,
+    "decode_mc": 0.001625,
+    "checks_hints_pairing_mc": 0.1420415,
+    "checks_goodness_mc": 0.5065835
+   },
+   "V-four": {
+    "total_mc": 79.574875,
+    "decode_share": 2.1991866151219212e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.08534545608774126,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.05477282873520065,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.00308043210875292,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.019203360357147908,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.6301591237183848,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.16200027332747932,
+    "final comparisons: middle_codomain_matches": 7.121594598797673e-05,
+    "image check: hd_image_check": 0.042159192835678344,
+    "decode_mc": 0.00175,
+    "checks_hints_pairing_mc": 0.208979,
+    "checks_goodness_mc": 0.802625
+   },
+   "V-two": {
+    "total_mc": 46.922604,
+    "decode_share": 3.729545785651623e-05,
+    "basis generation: recover_challenge, recover_response, hd_torsion_basis": 0.14389563716455292,
+    "Cornacchia and kernel setup: norm_equation_2f_minus_q, make_canonical, product null, starting_two_symplectic_matrices, gluing base changes, b_kpp": 0.09222590246696453,
+    "dimension-2 steps: IsogenyChainDim2::new, both halves": 0.00519828353942164,
+    "gluing: KaniGluingChainHalf::new after the dimension-2 chain, and the gluing images of the generators, both halves": 0.032362707321187886,
+    "plain dimension-4 steps, point pushes: double_iter and image of the saved bases, both halves": 0.558092907631469,
+    "plain dimension-4 steps, codomain: IsogenyDim4::from_kernel and the next structure's precompute, both halves": 0.09076712792836476,
+    "final comparisons: middle_codomain_matches": 0.00011810938710903598,
+    "image check: hd_image_check": 0.07107093843299915,
+    "decode_mc": 0.00175,
+    "checks_hints_pairing_mc": 0.22025,
+    "checks_goodness_mc": 0.8056665
+   }
+  }
+ ],
+ "heap": {
+  "dim4-I-four": {
+   "peak_kib_mean": 1654.728125,
+   "peak_kib_max": 1679.609375,
+   "signatures": 5
+  },
+  "dim4-I-two": {
+   "peak_kib_mean": 1630.728125,
+   "peak_kib_max": 1655.609375,
+   "signatures": 5
+  },
+  "dim4-III-four": {
+   "peak_kib_mean": 3873.04609375,
+   "peak_kib_max": 3882.37890625,
+   "signatures": 5
+  },
+  "dim4-III-two": {
+   "peak_kib_mean": 3801.04609375,
+   "peak_kib_max": 3810.37890625,
+   "signatures": 5
+  },
+  "dim4-V-four": {
+   "peak_kib_mean": 6159.9109375,
+   "peak_kib_max": 6182.7265625,
+   "signatures": 5
+  },
+  "dim4-V-two": {
+   "peak_kib_mean": 6071.9109375,
+   "peak_kib_max": 6094.7265625,
+   "signatures": 5
+  },
+  "dim2-I-verify": {
+   "peak_kib_mean": 0.0,
+   "peak_kib_max": 0.0,
+   "signatures": 1
+  },
+  "dim2-III-verify": {
+   "peak_kib_mean": 0.0,
+   "peak_kib_max": 0.0,
+   "signatures": 1
+  },
+  "dim2-V-verify": {
+   "peak_kib_mean": 0.0,
+   "peak_kib_max": 0.0,
+   "signatures": 1
+  }
+ }
+}

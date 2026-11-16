@@ -1,0 +1,2 @@
+rdtsc and the monotonic wall clock
+no QoS class on this system; pin the process with taskset (paper_session.sh does).

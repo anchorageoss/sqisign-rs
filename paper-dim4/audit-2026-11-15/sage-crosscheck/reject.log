@@ -1,0 +1,11 @@
+vector 0: rejected by exception: ZeroDivisionError: inverse of Mod(344977174989367839002759306, 618970019642690137449562112) does not exist [misc.py:2222 return a.inverse_mod(m); integer.pyx:7143 raise ZeroDivisionError(f"inverse of Mod({self}, {m}) does not exist")]
+vector 0: rejected
+vector 1: rejected by exception: AssertionError:  [Verify.py:251 self.compute_HD(); Verify.py:189 assert is_prime(N)&(N%4==1)]
+vector 1: rejected
+vector 2: rejected by exception: AssertionError:  [isogeny_chain_dim2.py:171 P = self._phis[i](P); gluing_isogeny_dim2.py:270 assert X1*Z1X2==X1X2]
+vector 2: rejected
+vector 3: rejected by exception: AssertionError:  [isogeny_chain_dim2.py:171 P = self._phis[i](P); gluing_isogeny_dim2.py:270 assert X1*Z1X2==X1X2]
+vector 3: rejected
+vector 4: rejected by exception: AssertionError:  [Verify.py:251 self.compute_HD(); Verify.py:189 assert is_prime(N)&(N%4==1)]
+vector 4: rejected
+ALL REJECTED

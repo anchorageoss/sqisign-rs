@@ -1,0 +1,838 @@
+{
+ "c_reference": {
+  "I": {
+   "ops": {
+    "keygen": {
+     "average": 35.605,
+     "max": 57.754,
+     "median": 34.825,
+     "min": 30.262
+    },
+    "sign": {
+     "average": 104.959,
+     "max": 188.076,
+     "median": 101.572,
+     "min": 89.496
+    },
+    "verify from bytes": {
+     "average": 12.674,
+     "max": 13.441,
+     "median": 12.54,
+     "min": 12.431
+    }
+   },
+   "runs": 300
+  },
+  "III": {
+   "ops": {
+    "keygen": {
+     "average": 132.613,
+     "max": 741.099,
+     "median": 107.255,
+     "min": 80.526
+    },
+    "sign": {
+     "average": 398.064,
+     "max": 1108.083,
+     "median": 373.414,
+     "min": 240.575
+    },
+    "verify from bytes": {
+     "average": 31.356,
+     "max": 33.249,
+     "median": 31.028,
+     "min": 30.884
+    }
+   },
+   "runs": 100
+  },
+  "V": {
+   "ops": {
+    "keygen": {
+     "average": 250.747,
+     "max": 491.839,
+     "median": 229.433,
+     "min": 194.21
+    },
+    "sign": {
+     "average": 778.408,
+     "max": 1389.495,
+     "median": 729.884,
+     "min": 568.435
+    },
+    "verify from bytes": {
+     "average": 77.981,
+     "max": 82.304,
+     "median": 77.161,
+     "min": 76.719
+    }
+   },
+   "runs": 100
+  }
+ },
+ "costs": {
+  "add/dep": {
+   "median": 20.075,
+   "min": 20.03,
+   "rounds": 4
+  },
+  "add/lane16": {
+   "median": 21.005000000000003,
+   "min": 20.94,
+   "rounds": 4
+  },
+  "add_out/dep": {
+   "median": 20.075,
+   "min": 20.03,
+   "rounds": 4
+  },
+  "double/composite": {
+   "median": 14472.064999999999,
+   "min": 14442.82,
+   "rounds": 4
+  },
+  "from_kernel_precompute/composite": {
+   "median": 76739.245,
+   "min": 76493.41,
+   "rounds": 4
+  },
+  "hadamard16/composite": {
+   "median": 1513.775,
+   "min": 1507.59,
+   "rounds": 4
+  },
+  "half/dep": {
+   "median": 19.2,
+   "min": 19.14,
+   "rounds": 4
+  },
+  "image/composite": {
+   "median": 8813.61,
+   "min": 8800.04,
+   "rounds": 4
+  },
+  "inv/dep": {
+   "median": 20230.87,
+   "min": 20204.05,
+   "rounds": 4
+  },
+  "legendre_plus_add/dep": {
+   "median": 20119.415,
+   "min": 20092.47,
+   "rounds": 4
+  },
+  "mul/dep": {
+   "median": 213.89,
+   "min": 213.64,
+   "rounds": 4
+  },
+  "mul/lane16": {
+   "median": 213.065,
+   "min": 212.82,
+   "rounds": 4
+  },
+  "mul_out/dep": {
+   "median": 217.965,
+   "min": 217.58,
+   "rounds": 4
+  },
+  "mul_small/dep": {
+   "median": 240.96499999999997,
+   "min": 240.56,
+   "rounds": 4
+  },
+  "neg/dep": {
+   "median": 22.755000000000003,
+   "min": 22.68,
+   "rounds": 4
+  },
+  "pointwise_mul16/composite": {
+   "median": 3423.95,
+   "min": 3421.48,
+   "rounds": 4
+  },
+  "pointwise_sqr16/composite": {
+   "median": 2011.3600000000001,
+   "min": 2008.93,
+   "rounds": 4
+  },
+  "products_of_others16/composite": {
+   "median": 9658.19,
+   "min": 9639.28,
+   "rounds": 4
+  },
+  "sqr/dep": {
+   "median": 130.73,
+   "min": 130.47,
+   "rounds": 4
+  },
+  "sqr/lane16": {
+   "median": 137.315,
+   "min": 136.39,
+   "rounds": 4
+  },
+  "sqr_out/dep": {
+   "median": 131.96499999999997,
+   "min": 131.18,
+   "rounds": 4
+  },
+  "sqrt/dep": {
+   "median": 40134.009999999995,
+   "min": 40085.01,
+   "rounds": 4
+  },
+  "sub/dep": {
+   "median": 19.125,
+   "min": 18.96,
+   "rounds": 4
+  },
+  "sub/lane16": {
+   "median": 20.925,
+   "min": 20.88,
+   "rounds": 4
+  },
+  "to_squared_theta16/composite": {
+   "median": 3528.6099999999997,
+   "min": 3521.82,
+   "rounds": 4
+  }
+ },
+ "profile": {
+  "four": {
+   "median_total_mcycles": 84.3960615,
+   "n": 100,
+   "phases": {
+    "decode": {
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
+     "median_mcycles": 0.005856,
+     "share": 6.987255995573641e-05
+    },
+    "slot0": {
+     "description": "basis generation (recover_challenge, recover_response, hd_torsion_basis)",
+     "median_mcycles": 7.4326365,
+     "share": 0.08868465496506914
+    },
+    "slot1": {
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
+     "median_mcycles": 4.1851185,
+     "share": 0.04993595343461606
+    },
+    "slot2": {
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
+     "median_mcycles": 0.5201475,
+     "share": 0.00620629053612985
+    },
+    "slot3": {
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
+     "median_mcycles": 3.591482,
+     "share": 0.042852807611842236
+    },
+    "slot4": {
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
+     "median_mcycles": 50.9822735,
+     "share": 0.6083097612377906
+    },
+    "slot5": {
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
+     "median_mcycles": 13.231230499999999,
+     "share": 0.157872258606458
+    },
+    "slot6": {
+     "description": "final comparisons (middle_codomain_matches)",
+     "median_mcycles": 0.0113155,
+     "share": 0.00013501416533113648
+    },
+    "slot7": {
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
+     "median_mcycles": 3.8496645000000003,
+     "share": 0.04593338688280739
+    }
+   },
+   "plain_steps": {
+    "codomain_fraction": 0.20605059178829432,
+    "median_mcycles": 64.213504,
+    "pushes_fraction": 0.7939494082117057
+   },
+   "sub_slots": [
+    [
+     "chal: hd_torsion_basis on E_pk",
+     0.193324
+    ],
+    [
+     "chal: x-only doublings of the basis and ec_ladder3pt",
+     0.959362
+    ],
+    [
+     "chal: the challenge isogeny chain with its image points",
+     1.3024565
+    ],
+    [
+     "chal: the lifts of the image points",
+     0.265075
+    ],
+    [
+     "chal: the Weil pairing(s), the lambda squarings and the sign of phi Q",
+     0.9912345
+    ],
+    [
+     "chal: P_resc and Q_resc",
+     0.9243635
+    ],
+    [
+     "resp: hd_torsion_basis on E_com",
+     0.191967
+    ],
+    [
+     "resp: the (f - r) doublings to R_com and S_com",
+     0.90434
+    ],
+    [
+     "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
+     0.659227
+    ],
+    [
+     "resp: recover_response_cd and the images phi R, phi S",
+     0.991555
+    ],
+    [
+     "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
+     0.0
+    ],
+    [
+     "setup: norm_equation_2f_minus_q (Cornacchia)",
+     0.034099
+    ],
+    [
+     "setup: the four fixed-base doubling chains, the 4-torsion points, make_canonical x2, weil4, the nulls, points_m",
+     1.5924965
+    ],
+    [
+     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
+     0.018589500000000002
+    ],
+    [
+     "b_kpp, both halves: the kernel generators from the fixed-base chains",
+     2.5023264999999997
+    ],
+    [
+     "ThetaStructureDim4::new of the start, both halves",
+     0.0021045
+    ]
+   ],
+   "sum_of_phase_medians": 83.80972449999999,
+   "unslotted_median_total_minus_sum": 0.5863370000000145
+  },
+  "two-check": {
+   "median_total_mcycles": 59.899773499999995,
+   "n": 100,
+   "phases": {
+    "decode": {
+     "description": "decode, in the harness (parse_signature, parse_public_key, challenge_limbs)",
+     "median_mcycles": 0.005795,
+     "share": 9.764422070353864e-05
+    },
+    "slot0": {
+     "description": "basis generation (recover_challenge, recover_response, hd_torsion_basis)",
+     "median_mcycles": 7.424264,
+     "share": 0.1250968891419045
+    },
+    "slot1": {
+     "description": "Cornacchia and kernel setup (norm_equation_2f_minus_q, make_canonical, the product null, starting_two_symplectic_matrices, the gluing base changes, b_kpp)",
+     "median_mcycles": 4.1846605,
+     "share": 0.07051042509601042
+    },
+    "slot2": {
+     "description": "dimension-2 steps (IsogenyChainDim2::new)",
+     "median_mcycles": 0.5189575,
+     "share": 0.008744296922477421
+    },
+    "slot3": {
+     "description": "gluing (KaniGluingChainHalf::new except the dimension-2 chain: the base changes, the kernel points, the five evaluations, the gluing step, the translates; and the gluing images of the generators, four in the four-point and the checked two-point modes, two without the check)",
+     "median_mcycles": 3.5631015,
+     "share": 0.060037319974997345
+    },
+    "slot4": {
+     "description": "plain dimension-4 steps, point pushes (double_iter and image of the saved bases or pairs)",
+     "median_mcycles": 26.668408,
+     "share": 0.4493556370257145
+    },
+    "slot5": {
+     "description": "plain dimension-4 steps, codomain (kernel_from_pair in the two-point mode, IsogenyDim4::from_kernel, the next structure's precompute)",
+     "median_mcycles": 13.1211515,
+     "share": 0.22108794011226354
+    },
+    "slot6": {
+     "description": "final comparisons (middle_codomain_matches)",
+     "median_mcycles": 0.011346,
+     "share": 0.00019117710579850725
+    },
+    "slot7": {
+     "description": "the stage-6 image check (hd_image_check), run in every mode; the two-point option's own comparison gluing_images_paired is in the remainder",
+     "median_mcycles": 3.8504265,
+     "share": 0.0648786704001301
+    }
+   },
+   "plain_steps": {
+    "codomain_fraction": 0.32976367833375986,
+    "median_mcycles": 39.789559499999996,
+    "pushes_fraction": 0.6702363216662401
+   },
+   "sub_slots": [
+    [
+     "chal: hd_torsion_basis on E_pk",
+     0.193004
+    ],
+    [
+     "chal: x-only doublings of the basis and ec_ladder3pt",
+     0.9570289999999999
+    ],
+    [
+     "chal: the challenge isogeny chain with its image points",
+     1.307718
+    ],
+    [
+     "chal: the lifts of the image points",
+     0.265106
+    ],
+    [
+     "chal: the Weil pairing(s), the lambda squarings and the sign of phi Q",
+     0.98881
+    ],
+    [
+     "chal: P_resc and Q_resc",
+     0.9213899999999999
+    ],
+    [
+     "resp: hd_torsion_basis on E_com",
+     0.19175350000000002
+    ],
+    [
+     "resp: the (f - r) doublings to R_com and S_com",
+     0.903929
+    ],
+    [
+     "resp: the Weil pairing at 2^r, the inverse and fp2_dlog_2e",
+     0.6591965
+    ],
+    [
+     "resp: recover_response_cd and the images phi R, phi S",
+     0.9855465
+    ],
+    [
+     "setup: the second hd_torsion_basis on E_com (removed in SECENG-2428, zero since)",
+     0.0
+    ],
+    [
+     "setup: norm_equation_2f_minus_q (Cornacchia)",
+     0.033641500000000005
+    ],
+    [
+     "setup: the four fixed-base doubling chains, the 4-torsion points, make_canonical x2, weil4, the nulls, points_m",
+     1.5906055000000001
+    ],
+    [
+     "matrices: starting_two_symplectic_matrices and the two gluing base changes",
+     0.018407
+    ],
+    [
+     "b_kpp, both halves: the kernel generators from the fixed-base chains",
+     2.511919
+    ],
+    [
+     "ThetaStructureDim4::new of the start, both halves",
+     0.0023639999999999998
+    ]
+   ],
+   "sum_of_phase_medians": 59.348110500000004,
+   "unslotted_median_total_minus_sum": 0.5516629999999907
+  }
+ },
+ "ratios_from_cells": {
+  "four_point_over_c_reference_verify_I": 6.8,
+  "four_point_over_dim2_standard_verify_I": 6.4,
+  "two_point_with_check_over_c_reference_verify_I": 4.8,
+  "two_point_with_check_over_dim2_standard_verify_I": 4.5,
+  "two_point_with_check_over_four_point": 0.71,
+  "two_point_without_check_over_four_point": 0.7
+ },
+ "rows": {
+  "dim2-I-keygen": {
+   "max": 58.354522,
+   "mean": 39.37447528846154,
+   "median": 38.522857,
+   "median_ms": 12.630599,
+   "min": 33.330065,
+   "n": 52,
+   "per_round_median": {
+    "1": 36.856566,
+    "2": 39.532514,
+    "3": 40.103017,
+    "4": 37.553155
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-sign": {
+   "max": 165.062767,
+   "mean": 114.49013451923078,
+   "median": 112.301976,
+   "median_ms": 36.820478,
+   "min": 97.371524,
+   "n": 52,
+   "per_round_median": {
+    "1": 116.687388,
+    "2": 114.116055,
+    "3": 112.013019,
+    "4": 108.763885
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-verify": {
+   "max": 13.764711,
+   "mean": 13.15868854,
+   "median": 13.288697500000001,
+   "median_ms": 4.3570545,
+   "min": 12.839707,
+   "n": 200,
+   "per_round_median": {
+    "1": 12.891069,
+    "2": 13.398574,
+    "3": 12.8872265,
+    "4": 13.390766
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-I-verify-compressed": {
+   "max": 16.057579,
+   "mean": 15.397871434999999,
+   "median": 15.270800999999999,
+   "median_ms": 5.0069645,
+   "min": 15.178599,
+   "n": 200,
+   "per_round_median": {
+    "1": 15.2665005,
+    "2": 15.771779,
+    "3": 15.240804,
+    "4": 15.2516315
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-keygen": {
+   "max": 794.228357,
+   "mean": 167.6575474807692,
+   "median": 141.280514,
+   "median_ms": 46.3216575,
+   "min": 89.117736,
+   "n": 52,
+   "per_round_median": {
+    "1": 128.295993,
+    "2": 139.96816,
+    "3": 133.892682,
+    "4": 148.772138
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-sign": {
+   "max": 1437.599779,
+   "mean": 437.5980033461538,
+   "median": 392.091073,
+   "median_ms": 128.554674,
+   "min": 260.661723,
+   "n": 52,
+   "per_round_median": {
+    "1": 373.377218,
+    "2": 418.610975,
+    "3": 367.609698,
+    "4": 406.994775
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-verify": {
+   "max": 34.641137,
+   "mean": 33.03311999,
+   "median": 33.274021000000005,
+   "median_ms": 10.9096495,
+   "min": 32.322558,
+   "n": 200,
+   "per_round_median": {
+    "1": 33.542009,
+    "2": 33.625060500000004,
+    "3": 32.4518175,
+    "4": 32.390908499999995
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-III-verify-compressed": {
+   "max": 39.642894,
+   "mean": 38.787656405,
+   "median": 38.963978999999995,
+   "median_ms": 12.775244,
+   "min": 38.148942,
+   "n": 200,
+   "per_round_median": {
+    "1": 39.2901605,
+    "2": 38.24036649999999,
+    "3": 39.286317999999994,
+    "4": 38.257568500000005
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-keygen": {
+   "max": 421.759246,
+   "mean": 268.79932003846153,
+   "median": 255.3006465,
+   "median_ms": 83.7053255,
+   "min": 213.964423,
+   "n": 52,
+   "per_round_median": {
+    "1": 236.360116,
+    "2": 272.062684,
+    "3": 247.089528,
+    "4": 244.279929
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-sign": {
+   "max": 1524.81578,
+   "mean": 832.7663404423076,
+   "median": 782.2112195,
+   "median_ms": 256.4629125,
+   "min": 624.133242,
+   "n": 52,
+   "per_round_median": {
+    "1": 788.113046,
+    "2": 736.510767,
+    "3": 799.016369,
+    "4": 800.465332
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-verify": {
+   "max": 80.651272,
+   "mean": 80.18058775,
+   "median": 80.229396,
+   "median_ms": 26.304829,
+   "min": 79.695921,
+   "n": 200,
+   "per_round_median": {
+    "1": 80.30380099999999,
+    "2": 80.29211950000001,
+    "3": 79.84521799999999,
+    "4": 80.227841
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim2-V-verify-compressed": {
+   "max": 97.507158,
+   "mean": 95.47414053,
+   "median": 95.7617195,
+   "median_ms": 31.3974285,
+   "min": 93.515654,
+   "n": 200,
+   "per_round_median": {
+    "1": 94.4575545,
+    "2": 96.73439450000001,
+    "3": 93.6808415,
+    "4": 96.936183
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-keygen": {
+   "max": 56.22123,
+   "mean": 41.916764692307694,
+   "median": 40.5091235,
+   "median_ms": 13.28182,
+   "min": 36.693116,
+   "n": 52,
+   "per_round_median": {
+    "1": 40.278026,
+    "2": 41.812908,
+    "3": 41.169968,
+    "4": 39.432413
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-sign": {
+   "loop": {
+    "samples_max": 523,
+    "samples_mean": 111.55,
+    "samples_median": 79.5,
+    "samples_min": 2,
+    "signatures": 100,
+    "tests_mean": 54.75
+   },
+   "max": 1880.931066,
+   "mean": 436.40912164,
+   "median": 326.775536,
+   "median_ms": 107.139735,
+   "min": 48.421098,
+   "n": 100,
+   "per_round_median": {
+    "1": 295.509407,
+    "2": 423.835076,
+    "3": 224.901998,
+    "4": 302.142089
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-four": {
+   "fell_back": 0,
+   "max": 86.64379,
+   "mean": 84.48159116500001,
+   "median": 84.6794835,
+   "median_ms": 27.763959,
+   "min": 82.279179,
+   "n": 200,
+   "per_round_median": {
+    "1": 84.8841075,
+    "2": 84.7877585,
+    "3": 84.26610199999999,
+    "4": 84.5964015
+   },
+   "per_signature_median": {
+    "0": 84.775314,
+    "1": 84.7381805,
+    "2": 84.2360285,
+    "3": 84.88532749999999,
+    "4": 84.6221735
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-two-check": {
+   "fell_back": 0,
+   "max": 60.991368,
+   "mean": 59.91844376,
+   "median": 59.930792,
+   "median_ms": 19.649669,
+   "min": 58.943232,
+   "n": 200,
+   "per_round_median": {
+    "1": 60.098069499999994,
+    "2": 59.907841,
+    "3": 59.533453,
+    "4": 59.8797505
+   },
+   "per_signature_median": {
+    "0": 59.947368499999996,
+    "1": 59.9503275,
+    "2": 59.8024485,
+    "3": 60.059746000000004,
+    "4": 60.016451
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "dim4-verify-two-nocheck": {
+   "fell_back": 0,
+   "max": 60.577179,
+   "mean": 58.927320945,
+   "median": 58.989729999999994,
+   "median_ms": 19.341089,
+   "min": 57.815007,
+   "n": 200,
+   "per_round_median": {
+    "1": 59.051171499999995,
+    "2": 59.0409395,
+    "3": 58.8717255,
+    "4": 58.677791
+   },
+   "per_signature_median": {
+    "0": 59.0514465,
+    "1": 58.9138305,
+    "2": 58.768056,
+    "3": 59.0221965,
+    "4": 59.0738945
+   },
+   "rounds": [
+    1,
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ "session": {
+  "commit": "860c95537d09cc8e0d96c7e0be6b24560debf367",
+  "end": "2026-11-10T08:35:12Z",
+  "start": "2026-11-10T08:30:48Z",
+  "tsc_mhz": 3049.994
+ }
+}

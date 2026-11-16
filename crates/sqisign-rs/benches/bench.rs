@@ -219,7 +219,7 @@ fn compact_level1(c: &mut Criterion<Cycles>) {
     let mut pkb = [0u8; 84];
     compact_public_key_to_bytes(&pk, &mut pkb).unwrap();
     let mut i = 0u64;
-    let mut sig = [0u8; 142];
+    let mut sig = [0u8; 139];
     g.bench_function(BenchmarkId::new("sign", "level I"), |b| {
         b.iter(|| {
             i += 1;
@@ -231,7 +231,7 @@ fn compact_level1(c: &mut Criterion<Cycles>) {
     compact_sign::<P324_3, N>(&params, &pk, &sk, msg, &mut r, &mut sig).unwrap();
     g.sample_size(30).measurement_time(Duration::from_secs(20));
     g.bench_function(
-        BenchmarkId::new("verify from bytes (142 B)", "level I"),
+        BenchmarkId::new("verify from bytes (139 B)", "level I"),
         |b| b.iter(|| assert!(hd_verify_bytes::<P324_3>(&sig, &pkb, msg).is_ok())),
     );
     g.finish();

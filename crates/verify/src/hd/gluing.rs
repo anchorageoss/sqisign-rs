@@ -26,6 +26,7 @@
 //! is part of the chain orchestration; here the gluing domain and kernel are
 //! taken as given (the oracle supplies the base-changed inputs at Level 1).
 
+use crate::hd::zero_trace;
 use crate::{Fp2, FpBackend};
 
 use crate::hd::arith::{hadamard, pointwise_square};
@@ -71,6 +72,7 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
             codomain_dual_null_and_inverse(&hsk, dirs)?;
 
         let codomain_null = ThetaPointDim4::new(hadamard(&dual_null));
+        zero_trace::vector(zero_trace::D4_GLUING_NULL, codomain_null.coords());
 
         Some(Self {
             codomain: ThetaStructureDim4::new(codomain_null),
@@ -107,7 +109,7 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
         p: &ThetaPointDim4<L>,
         l_trans: &[ThetaPointDim4<L>],
         l_trans_ind: &[usize],
-    ) -> ThetaPointDim4<L> {
+    ) -> Option<ThetaPointDim4<L>> {
         let nt = l_trans.len();
         assert!(nt <= MAX_TRANS && nt == l_trans_ind.len());
 
@@ -122,37 +124,119 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
         // λₖ⁻¹: the projective factor relating P + Tₖ to the reference
         // representative. Pick any (j, j⊕indₖ) with both HSL[k][j] ≠ 0 and
         // O[j⊕indₖ] ≠ 0, and set λₖ⁻¹ = (HS_P[j⊕indₖ]·O[j]) / (HSL[k][j]·O[j⊕indₖ]).
-        let mut lambda_inv: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
+        // The quotient is never formed: the image is scaled by the product of the
+        // denominators, each translate's entries by its numerator and the others'
+        // denominators, so no inversion is needed.
+        let mut lam_num: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
+        let mut lam_den: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|_| Fp2::one());
         for (k, ind) in l_trans_ind.iter().enumerate() {
+            let mut found = false;
             for j in 0..N {
                 let jpk = j ^ ind;
                 if !bool::from(hsl[k][j].ct_is_zero()) && !bool::from(o[jpk].ct_is_zero()) {
-                    let num = hs_p[jpk].mul(&o[j]);
-                    let den = hsl[k][j].mul(&o[jpk]);
-                    lambda_inv[k] = num.mul(&den.inv());
+                    lam_num[k] = hs_p[jpk].mul(&o[j]);
+                    lam_den[k] = hsl[k][j].mul(&o[jpk]);
+                    found = true;
                     break;
                 }
             }
+            // no index gives the factor of this translate: its divisor
+            // vanishes everywhere
+            if !found {
+                return None;
+            }
         }
+        let mut den_all = Fp2::<L>::one();
+        for d in lam_den.iter().take(nt) {
+            den_all = den_all.mul(d);
+        }
+        let lam_scaled: [Fp2<L>; MAX_TRANS] = core::array::from_fn(|k| {
+            let mut s = lam_num[k].clone();
+            for (j, d) in lam_den.iter().enumerate().take(nt) {
+                if j != k {
+                    s = s.mul(d);
+                }
+            }
+            s
+        });
 
         // U_χ(f(P)): direct where O[i] ≠ 0, else via a translate.
         let mut u: [Fp2<L>; N] = core::array::from_fn(|_| Fp2::zero());
         for (i, ui) in u.iter_mut().enumerate() {
             if !self.dual_null_zero[i] {
-                *ui = hs_p[i].mul(&self.inv_dual_null[i]);
+                *ui = hs_p[i].mul(&self.inv_dual_null[i]).mul(&den_all);
             } else {
+                let mut found = false;
                 for (k, ind) in l_trans_ind.iter().enumerate() {
                     let ipk = i ^ ind;
                     if !self.dual_null_zero[ipk] {
                         *ui = self.inv_dual_null[ipk]
                             .mul(&hsl[k][ipk])
-                            .mul(&lambda_inv[k]);
+                            .mul(&lam_scaled[k]);
+                        found = true;
                         break;
                     }
+                }
+                // every way to this coordinate divides by a zero of the
+                // dual null point
+                if !found {
+                    return None;
                 }
             }
         }
 
-        ThetaPointDim4::new(hadamard(&u))
+        let image = hadamard(&u);
+        zero_trace::vector(zero_trace::D4_GLUING_IMAGE, &image);
+        // the zero vector is no theta point: an input that is no point of
+        // the domain can give it
+        if image.iter().all(|x| bool::from(x.ct_is_zero())) {
+            return None;
+        }
+        Some(ThetaPointDim4::new(image))
+    }
+}
+
+#[cfg(test)]
+mod zero_divisor_tests {
+    use super::*;
+    use crate::P324_3 as P;
+
+    /// With a dual null point that vanishes everywhere, no index gives the
+    /// factor of a translate: the image is `None`, not a division by zero.
+    #[test]
+    fn special_image_rejects_when_every_divisor_vanishes() {
+        let ones = || ThetaPointDim4::<P>::new(core::array::from_fn(|_| Fp2::one()));
+        let zeros = || core::array::from_fn(|_| Fp2::<P>::zero());
+        let g = GluingIsogenyDim4::<P> {
+            codomain: ThetaStructureDim4::new(ones()),
+            dual_null: zeros(),
+            inv_dual_null: zeros(),
+            dual_null_zero: [true; N],
+        };
+        assert!(g
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_none());
+        // every divisor usable, and the zero vector as the point and as
+        // its translates: the image would be the zero vector
+        let mut g3 = g.clone();
+        g3.dual_null = core::array::from_fn(|_| Fp2::one());
+        g3.inv_dual_null = core::array::from_fn(|_| Fp2::one());
+        g3.dual_null_zero = [false; N];
+        let zero = || ThetaPointDim4::<P>::new(zeros());
+        assert!(g3
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_some());
+        assert!(g3
+            .special_image(&zero(), &[ones(), ones()], &[1, 2])
+            .is_none());
+        assert!(g3
+            .special_image(&zero(), &[zero(), zero()], &[1, 2])
+            .is_none());
+        // a usable factor but a coordinate no translate reaches
+        let mut g2 = g.clone();
+        g2.dual_null = core::array::from_fn(|_| Fp2::one());
+        assert!(g2
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_none());
     }
 }
