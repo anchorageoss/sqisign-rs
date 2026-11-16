@@ -1631,6 +1631,28 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
         \end{threeparttable}
     \end{table}
 
+    Table~\ref{tab:budget} sets the three level-I signatures against the
+    byte budgets reported for barcodes~\cite{SQI26i19}.
+
+    \begin{table}[t]
+        \centering
+        \caption{Level I: signature bytes, and the bytes left for all other
+            data under a budget of 250 and of 300 bytes for the signature and
+            the data together. The budgets are the range reported
+            in~\cite{SQI26i19}; the signature sizes are those of
+            Table~\ref{tab:sizes} and the remainders are subtractions.}
+        \label{tab:budget}
+        \begin{tabular}{l r r r}
+            \toprule
+            format & signature & left of 250 & left of 300 \\
+            \midrule
+            standard (specification) & 200 & 50 & 100 \\
+            compressed, dimension 2 & 176 & 74 & 124 \\
+            compact, dimension 4 & 139 & 111 & 161 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
     These savings come at a cost in time, which Table~\ref{tab:cycles} gives in
     megacycles. At level I the dimension-4 verifier costs 6.8 times the
     dimension-2 verifier of the same crate, and dimension-4 signing costs 3.6
