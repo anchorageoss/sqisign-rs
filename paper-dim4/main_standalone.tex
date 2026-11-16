@@ -1860,7 +1860,11 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
     where bandwidth or storage dominates and a verification of a few tens of
     milliseconds at level I (Table~\ref{tab:ms}), and of 43 to 172
     milliseconds at levels III and V on the same machine, is acceptable, while the specification's dimension-2 format
-    remains the better general-purpose choice.
+    remains the better general-purpose choice. Under the 250-byte budget
+    reported for barcodes~\cite{SQI26i19}, the compact signature at level I
+    leaves 111 bytes for data where the standard format leaves 50
+    (Table~\ref{tab:budget}), at 4.3 times the verification cost of
+    dimension 2 with two points (Table~\ref{tab:cycles}).
 
     Apart from the image check, the security argument is SQIsignHD's with our
     parameters substituted and has not been re-examined. That every class
