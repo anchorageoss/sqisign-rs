@@ -30,6 +30,7 @@
 //! oracle. Comparisons are nevertheless projective (see
 //! [`ThetaPointDim4::projective_eq`]).
 
+use crate::hd::zero_trace;
 use crate::{Fp2, FpBackend};
 
 use crate::hd::arith::{hadamard, hadamard_assign, pointwise_mul_assign, to_squared_theta_assign};
@@ -77,6 +78,7 @@ impl<L: FpBackend> IsogenyDim4<L> {
 
         // Codomain (standard) theta null point is the Hadamard of the dual.
         let codomain_null = ThetaPointDim4::new(hadamard(&dual_null));
+        zero_trace::vector(zero_trace::D4_PLAIN_NULL, codomain_null.coords());
 
         Some(Self {
             codomain: ThetaStructureDim4::new(codomain_null),
@@ -91,6 +93,7 @@ impl<L: FpBackend> IsogenyDim4<L> {
     /// the orbits of its permutation).
     #[inline]
     pub(crate) fn from_parts(codomain_null: ThetaPointDim4<L>, inv_dual_null: [Fp2<L>; N]) -> Self {
+        zero_trace::vector(zero_trace::D4_PLAIN_NULL, codomain_null.coords());
         Self {
             codomain: ThetaStructureDim4::new(codomain_null),
             inv_dual_null,
@@ -186,6 +189,7 @@ pub fn apply_plain_image_assign<L: FpBackend>(
     to_squared_theta_assign(a);
     pointwise_mul_assign(a, inv_dual_null);
     hadamard_assign(a);
+    zero_trace::vector(zero_trace::D4_PLAIN_IMAGE, a);
 }
 
 /// Apply a *plain*-step image map given its precomputed `1/O`:
@@ -201,6 +205,7 @@ pub fn apply_plain_image<L: FpBackend>(
     to_squared_theta_assign(&mut a);
     pointwise_mul_assign(&mut a, inv_dual_null);
     hadamard_assign(&mut a);
+    zero_trace::vector(zero_trace::D4_PLAIN_IMAGE, &a);
     ThetaPointDim4::new(a)
 }
 

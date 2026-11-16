@@ -40,6 +40,7 @@ use crate::hd::point::ThetaPointDim4;
 use crate::hd::product_theta::product_theta_dim2to4;
 use crate::hd::profile::{NoProfiler, Profiler, SLOT_DIM2, SLOT_GLUING};
 use crate::hd::wide::W;
+use crate::hd::zero_trace;
 
 /// `[k]·P` on a Montgomery/Weierstrass curve for an arbitrary `u128` scalar,
 /// MSB-first double-and-add. `jac_add`/`jac_dbl` handle identity / `P=±Q`.
@@ -467,6 +468,7 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
         let inv_dbc: [Fp2<L>; 16] = crate::hd::field::products_of_others(&dbc_null);
         let hs = hadamard(&pointwise_square(y.coords()));
         let q: [Fp2<L>; 16] = core::array::from_fn(|i| hs[i].mul(&inv_dbc[i])); // hadamard=false
+        zero_trace::vector(zero_trace::D4_SPLIT_PRE, &q);
 
         // product Am^2 coords, up to a scalar
         let q = match self.n_dim4.apply_inverse_scaled(&q) {
@@ -477,7 +479,10 @@ impl<L: FpBackend> KaniGluingChainHalf<L> {
             }
         };
 
+        zero_trace::vector(zero_trace::D4_SPLIT_PRODUCT, &q);
         let (q1, q2) = product_to_theta_points_dim4_dim2(&q)?;
+        zero_trace::vector(zero_trace::D4_SPLIT_FACTOR, &q1);
+        zero_trace::vector(zero_trace::D4_SPLIT_FACTOR, &q2);
         let q1h = hadamard2(&q1);
         let q2h = hadamard2(&q2);
         let tp1 = self.isogenies_dim2.dual_eval(&q1h)?;
@@ -533,5 +538,7 @@ fn self_eval_to_dim4<L: FpBackend>(
     let ta = chain.eval(&a)?;
     let tb = chain.eval(&b)?;
     let prod = product_theta_dim2to4(&ta, &tb);
-    Some(ThetaPointDim4::new(n_dim4.apply(&prod)))
+    let image = n_dim4.apply(&prod);
+    zero_trace::vector(zero_trace::D4_SPLIT_EVAL, &image);
+    Some(ThetaPointDim4::new(image))
 }

@@ -26,6 +26,7 @@
 //! is part of the chain orchestration; here the gluing domain and kernel are
 //! taken as given (the oracle supplies the base-changed inputs at Level 1).
 
+use crate::hd::zero_trace;
 use crate::{Fp2, FpBackend};
 
 use crate::hd::arith::{hadamard, pointwise_square};
@@ -71,6 +72,7 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
             codomain_dual_null_and_inverse(&hsk, dirs)?;
 
         let codomain_null = ThetaPointDim4::new(hadamard(&dual_null));
+        zero_trace::vector(zero_trace::D4_GLUING_NULL, codomain_null.coords());
 
         Some(Self {
             codomain: ThetaStructureDim4::new(codomain_null),
@@ -183,7 +185,14 @@ impl<L: FpBackend> GluingIsogenyDim4<L> {
             }
         }
 
-        Some(ThetaPointDim4::new(hadamard(&u)))
+        let image = hadamard(&u);
+        zero_trace::vector(zero_trace::D4_GLUING_IMAGE, &image);
+        // the zero vector is no theta point: an input that is no point of
+        // the domain can give it
+        if image.iter().all(|x| bool::from(x.ct_is_zero())) {
+            return None;
+        }
+        Some(ThetaPointDim4::new(image))
     }
 }
 
@@ -206,6 +215,22 @@ mod zero_divisor_tests {
         };
         assert!(g
             .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_none());
+        // every divisor usable, and the zero vector as the point and as
+        // its translates: the image would be the zero vector
+        let mut g3 = g.clone();
+        g3.dual_null = core::array::from_fn(|_| Fp2::one());
+        g3.inv_dual_null = core::array::from_fn(|_| Fp2::one());
+        g3.dual_null_zero = [false; N];
+        let zero = || ThetaPointDim4::<P>::new(zeros());
+        assert!(g3
+            .special_image(&ones(), &[ones(), ones()], &[1, 2])
+            .is_some());
+        assert!(g3
+            .special_image(&zero(), &[ones(), ones()], &[1, 2])
+            .is_none());
+        assert!(g3
+            .special_image(&zero(), &[zero(), zero()], &[1, 2])
             .is_none());
         // a usable factor but a coordinate no translate reaches
         let mut g2 = g.clone();

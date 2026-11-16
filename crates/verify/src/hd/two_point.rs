@@ -216,7 +216,13 @@ fn isogeny_from_pair<L: FpBackend>(pair: &[ThetaPointDim4<L>; 2]) -> Option<Isog
 /// When the four fixed coordinates are all zero, `k0` is the pivot of `o`
 /// and one more comparison, `o[k0]^2 == o[PI[k0]]^2`, pins `t^2 = 1`, which
 /// with the six makes the condition complete in that case too.
+///
+/// The all-zero vector is no null point: `false` (every comparison above
+/// would hold for it).
 pub fn null_fixed_by_pi<L: FpBackend>(o: &ThetaPointDim4<L>) -> bool {
+    if o.is_zero() {
+        return false;
+    }
     let c = o.coords();
     let fixed = PI_FIXED
         .iter()
@@ -427,6 +433,40 @@ mod tests {
         let a = F::from_small(seed.wrapping_mul(0x9e37_79b9).wrapping_add(17) % 1_000_003);
         let b = F::from_small(seed.wrapping_mul(0x85eb_ca6b).wrapping_add(5) % 999_983);
         a.sqr().add(&b.mul(&F::i_element())).add(&b.sqr().sqr())
+    }
+
+    /// The zero vector is not fixed by `PI` (it is no null point), and it
+    /// is paired with nothing, on either side.
+    #[test]
+    fn the_checks_at_the_gluing_reject_the_zero_vector() {
+        let zero = || ThetaPointDim4::<P324_3>::new(core::array::from_fn(|_| F::zero()));
+        let p =
+            |s: u64| ThetaPointDim4::<P324_3>::new(core::array::from_fn(|k| value(s + k as u64)));
+        assert!(!null_fixed_by_pi(&zero()));
+        let sym = ThetaPointDim4::<P324_3>::new(expand_orbits(&core::array::from_fn(|k| {
+            value(k as u64)
+        })));
+        assert!(null_fixed_by_pi(&sym));
+        let good = [p(1), p(40), permute_pi(&p(1)), permute_pi(&p(40))];
+        assert!(gluing_images_paired(&good));
+        for z in 0..4 {
+            let mut post = good.clone();
+            post[z] = zero();
+            assert!(!gluing_images_paired(&post), "image {z} zero");
+        }
+        assert!(!gluing_images_paired(&[zero(), zero(), zero(), zero()]));
+        assert!(!gluing_images_paired(&[
+            zero(),
+            p(40),
+            zero(),
+            permute_pi(&p(40))
+        ]));
+        assert!(!gluing_images_paired(&[
+            p(1),
+            zero(),
+            permute_pi(&p(1)),
+            zero()
+        ]));
     }
 
     #[test]

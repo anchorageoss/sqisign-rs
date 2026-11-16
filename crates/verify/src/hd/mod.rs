@@ -73,6 +73,7 @@ pub mod two_point;
 pub mod uint;
 pub mod wide;
 pub mod wire;
+pub mod zero_trace;
 
 pub use arith::{
     act_point, hadamard, hadamard_assign, pointwise_mul_assign, pointwise_square,

@@ -58,6 +58,7 @@ use crate::hd::structure::ThetaStructureDim4;
 use crate::hd::two_point::{
     run_strategy_chain_two_point_checked_prof, run_strategy_chain_two_point_prof,
 };
+use crate::hd::zero_trace;
 
 /// Upper bound on `m = v_2(a_2)` accepted by [`build_setup`]: the gluing base
 /// change reduces values mod `2^(m+2)` and multiplies them as `i128`, with
@@ -163,11 +164,19 @@ fn m0_from_canon(mt: &[[u8; 2]; 2], mu: &[[u8; 2]; 2]) -> [[u8; 4]; 4] {
     ]
 }
 
-fn dim1_null<L: HdLevel>(u1: &JacPoint<L>) -> [Fp2<L>; 2] {
+/// The dimension-1 null point from a point of order 4; `None` for a point
+/// with `z = 0`, which has no affine `x` (its inverse would be taken of
+/// zero).
+fn dim1_null<L: HdLevel>(u1: &JacPoint<L>) -> Option<[Fp2<L>; 2]> {
+    if bool::from(u1.z.ct_is_zero()) {
+        return None;
+    }
     let (x, _) = crate::hd::basis::jac_to_affine(u1);
-    ThetaStructureDim1::<L>::from_torsion(&x, &Fp2::<L>::one())
-        .null()
-        .clone()
+    Some(
+        ThetaStructureDim1::<L>::from_torsion(&x, &Fp2::<L>::one())
+            .null()
+            .clone(),
+    )
 }
 
 // Low 128 bits of a `U256`. Byte-oriented so it does not depend on the
@@ -261,8 +270,19 @@ fn run_half<L: HdLevel, P: Profiler>(
 }
 
 /// Projective equality of the affine `x`-coordinates of two Jacobian points
-/// (`x(A) = x(B) ⟺ A = ±B`): `A.x·B.z² = B.x·A.z²`.
+/// (`x(A) = x(B) ⟺ A = ±B`): `A.x·B.z² = B.x·A.z²`, for two affine points.
+/// `false` when either has `z = 0`: the identity has no affine `x`, and for
+/// the triple `(0, y, 0)` the cross-multiplication would hold against every
+/// point.
 fn x_eq<L: HdLevel>(a: &JacPoint<L>, b: &JacPoint<L>) -> bool {
+    let zero = |c: &Fp2<L>| bool::from(c.ct_is_zero());
+    zero_trace::flag(zero_trace::XEQ_LEFT_Z0, zero(&a.z));
+    zero_trace::flag(zero_trace::XEQ_LEFT_00, zero(&a.z) && zero(&a.x));
+    zero_trace::flag(zero_trace::XEQ_RIGHT_Z0, zero(&b.z));
+    zero_trace::flag(zero_trace::XEQ_RIGHT_00, zero(&b.z) && zero(&b.x));
+    if zero(&a.z) || zero(&b.z) {
+        return false;
+    }
     let (az2, bz2) = (a.z.sqr(), b.z.sqr());
     bool::from(a.x.mul(&bz2).ct_equal(&b.x.mul(&az2)))
 }
@@ -294,6 +314,7 @@ fn eval_f2_dual<L: HdLevel>(
         let hs = hadamard(&pointwise_square(&coords));
         let prod: [Fp2<L>; 16] = core::array::from_fn(|t| hs[t].mul(&inv[t]));
         coords = hadamard(&prod); // hadamard = true
+        zero_trace::vector(zero_trace::D4_DUAL_PLAIN, &coords);
     }
     chain2.splitting_eval(&ThetaPointDim4::new(coords))
 }
@@ -322,10 +343,31 @@ fn hd_image_check<L: HdLevel>(
 
     let a1p = jac_mul_w(&s.p_com, &s.a1, &s.e_com);
     let a2p = jac_mul_w(&s.p_com, &s.a2, &s.e_com);
-    let ok0 = x_eq(&ft.c[0], &a1p);
-    let ok1 = x_eq(&ft.c[1], &a2p);
-    let ok3 = bool::from(ft.c[3].z.ct_is_zero()); // FT[3] = 0_{E_chal}
-    Some(ok0 && ok1 && ok3)
+    Some(image_matches(&ft, &a1p, &a2p))
+}
+
+/// Whether a Jacobian triple is the identity in a well-formed
+/// representation: `z = 0` with `x` and `y` not zero (the point at infinity
+/// is `(t² : t³ : 0)`). The triples `(0, y, 0)` and `(x, 0, 0)`, the
+/// all-zero one among them, are no point.
+fn is_identity<L: HdLevel>(p: &JacPoint<L>) -> bool {
+    let zero = |c: &Fp2<L>| bool::from(c.ct_is_zero());
+    zero(&p.z) && !zero(&p.x) && !zero(&p.y)
+}
+
+/// The image condition on `F(T)`: its first two components are
+/// `±a₁·P_com` and `±a₂·P_com`, compared as affine points, and its fourth
+/// is the identity of `E_chal`, well formed.
+fn image_matches<L: HdLevel>(ft: &TuplePoint4<L>, a1p: &JacPoint<L>, a2p: &JacPoint<L>) -> bool {
+    let ok0 = x_eq(&ft.c[0], a1p);
+    let ok1 = x_eq(&ft.c[1], a2p);
+    let ok3 = is_identity(&ft.c[3]); // FT[3] = 0_{E_chal}
+    zero_trace::flag(zero_trace::IMAGE_C3_NOT_ID, !ok3);
+    zero_trace::flag(
+        zero_trace::IMAGE_C3_00,
+        bool::from(ft.c[3].z.ct_is_zero()) && bool::from(ft.c[3].x.ct_is_zero()),
+    );
+    ok0 && ok1 && ok3
 }
 
 /// Recover the response basis and assemble the completion-independent setup.
@@ -456,7 +498,10 @@ fn build_setup_prof<L: HdLevel, P: Profiler>(
 
     // e_4(T1, T2) is inverted: a vanishing value is no pairing of a basis
     let e4 = inv_checked(&weil4(&t1, &t2, &mut e_com)).ok_or(HdReject::CanonicalCom)?;
-    let zero12 = product_theta_dim2(&dim1_null(&t1), &dim1_null(&u1));
+    let zero12 = product_theta_dim2(
+        &dim1_null(&t1).ok_or(HdReject::CanonicalCom)?,
+        &dim1_null(&u1).ok_or(HdReject::CanonicalChal)?,
+    );
     let m0 = m0_from_canon(&mt, &mu);
 
     let k = (L::R - 3 - m as u32) as usize;
@@ -768,6 +813,74 @@ mod zero_divisor_tests {
 
     /// The inversion of `e_4(T1, T2)` in the setup: a vanishing pairing
     /// value is a reject, not an inversion of zero.
+    /// `x_eq` compares two affine points: a point with `z = 0`, the
+    /// all-zero triple among them, equals nothing, on either side.
+    #[test]
+    fn x_eq_rejects_z_zero_on_either_side() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        let p = JacPoint::<P>::new(f(5), f(11), f(3));
+        // the same affine x: (5 * 4 : y : 3 * 2)
+        let same = JacPoint::<P>::new(f(20), f(1), f(6));
+        let other = JacPoint::<P>::new(f(6), f(11), f(3));
+        assert!(x_eq(&p, &same) && x_eq(&same, &p) && x_eq(&p, &p.neg()));
+        assert!(!x_eq(&p, &other));
+        let zero = JacPoint::<P>::new(f(0), f(0), f(0));
+        let x0 = JacPoint::<P>::new(f(0), f(1), f(0));
+        let id = JacPoint::<P>::identity();
+        for bad in [&zero, &x0, &id] {
+            assert!(!x_eq(bad, &p), "z = 0 on the left");
+            assert!(!x_eq(&p, bad), "z = 0 on the right");
+            for bad2 in [&zero, &x0, &id] {
+                assert!(!x_eq(bad, bad2), "z = 0 on both sides");
+            }
+        }
+    }
+
+    /// The image condition: the fourth component must be the identity,
+    /// well formed, and the first two affine points equal to their targets
+    /// up to sign. All-zero triples pass nowhere, on either side.
+    #[test]
+    fn image_condition_rejects_malformed_components() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        let a1p = JacPoint::<P>::new(f(5), f(11), f(3));
+        let a2p = JacPoint::<P>::new(f(9), f(2), f(7));
+        let id = JacPoint::<P>::identity();
+        let zero = JacPoint::<P>::new(f(0), f(0), f(0));
+        let x0 = JacPoint::<P>::new(f(0), f(1), f(0));
+        let y0 = JacPoint::<P>::new(f(1), f(0), f(0));
+        assert!(is_identity(&id));
+        for bad in [&zero, &x0, &y0, &a1p] {
+            assert!(!is_identity(bad));
+        }
+        let ft = |c0: &JacPoint<P>, c1: &JacPoint<P>, c3: &JacPoint<P>| {
+            TuplePoint4::new(c0.clone(), c1.clone(), a2p.clone(), c3.clone())
+        };
+        assert!(image_matches(&ft(&a1p, &a2p, &id), &a1p, &a2p));
+        assert!(image_matches(&ft(&a1p.neg(), &a2p, &id), &a1p, &a2p));
+        // the fourth component: z = 0 alone is not enough
+        for c3 in [&zero, &x0, &y0, &a1p] {
+            assert!(!image_matches(&ft(&a1p, &a2p, c3), &a1p, &a2p));
+        }
+        // the first two: nothing with z = 0, and on the target side neither
+        for bad in [&zero, &x0, &id] {
+            assert!(!image_matches(&ft(bad, &a2p, &id), &a1p, &a2p));
+            assert!(!image_matches(&ft(&a1p, bad, &id), &a1p, &a2p));
+            assert!(!image_matches(&ft(bad, bad, &id), bad, bad));
+            assert!(!image_matches(&ft(&a1p, &a2p, &id), bad, &a2p));
+            assert!(!image_matches(&ft(&a1p, &a2p, &id), &a1p, bad));
+        }
+        assert!(!image_matches(&ft(&zero, &zero, &zero), &zero, &zero));
+    }
+
+    /// The dimension-1 null point needs an affine point.
+    #[test]
+    fn dim1_null_rejects_z_zero() {
+        let f = |v: u64| Fp2::<P>::from_small(v);
+        assert!(dim1_null(&JacPoint::<P>::new(f(5), f(11), f(3))).is_some());
+        assert!(dim1_null(&JacPoint::<P>::identity()).is_none());
+        assert!(dim1_null(&JacPoint::<P>::new(f(0), f(0), f(0))).is_none());
+    }
+
     #[test]
     fn a_vanishing_pairing_value_is_a_reject() {
         let r: Result<Fp2<P>, HdReject> =

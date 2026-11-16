@@ -34,6 +34,13 @@ name = "paper_instrument"
 path = "src/paper_instrument.rs"
 required-features = ["instrument"]
 
+# All-zero vectors in the verifier under tampering (zero_trace.rs): feature
+# `instrument`, never in a session build.
+[[bin]]
+name = "zero_trace"
+path = "src/zero_trace.rs"
+required-features = ["instrument"]
+
 [dependencies]
 sqisign-rs = { path = "../../crates/sqisign-rs", features = ["compact"] }
 sqisign-verify = { path = "../../crates/verify", features = ["compact"] }

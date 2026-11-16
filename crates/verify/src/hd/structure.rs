@@ -163,6 +163,7 @@ impl<L: FpBackend> ThetaStructureDim4<L> {
         pointwise_mul_assign(a, &self.inv_dual_sq);
         hadamard_assign(a);
         pointwise_mul_assign(a, &self.inv_null);
+        crate::hd::zero_trace::vector(crate::hd::zero_trace::D4_DOUBLE, a);
     }
 
     /// Iterated doubling: `P ↦ 2ⁿ·P`. Returns `P` unchanged for `n == 0`.

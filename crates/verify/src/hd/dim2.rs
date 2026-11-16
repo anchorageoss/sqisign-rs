@@ -24,6 +24,7 @@ use crate::{Fp2, FpBackend};
 
 use crate::hd::field::any_zero;
 use crate::hd::strategy::optimised_strategy;
+use crate::hd::zero_trace;
 
 /// A pair of dim-2 theta points (two kernel generators living on one codomain).
 type ThetaPair<L> = ([Fp2<L>; 4], [Fp2<L>; 4]);
@@ -62,10 +63,14 @@ pub fn mat_inverse<L: FpBackend, const N: usize>(m: &[[Fp2<L>; N]; N]) -> Option
 
 /// Lift a Montgomery `(X : Z)` Kummer coordinate to a Jacobian point on
 /// `y² = x³ + A x² + x`. The `y`-sign is arbitrary (the HD-image check compares
-/// only `x`, i.e. up to `±`). `Z = 0` is the identity.
-fn lift_kummer<L: FpBackend>(curve: &EcCurve<L>, x: &Fp2<L>, z: &Fp2<L>) -> JacPoint<L> {
+/// only `x`, i.e. up to `±`). `(X : 0)` with `X` not zero is the identity;
+/// `(0 : 0)` is no point: `None`.
+fn lift_kummer<L: FpBackend>(curve: &EcCurve<L>, x: &Fp2<L>, z: &Fp2<L>) -> Option<JacPoint<L>> {
     if bool::from(z.ct_is_zero()) {
-        return JacPoint::identity();
+        if bool::from(x.ct_is_zero()) {
+            return None;
+        }
+        return Some(JacPoint::identity());
     }
     let xa = if bool::from(z.ct_equal(&Fp2::one())) {
         x.clone()
@@ -73,7 +78,7 @@ fn lift_kummer<L: FpBackend>(curve: &EcCurve<L>, x: &Fp2<L>, z: &Fp2<L>) -> JacP
         x.mul(&crate::hd::field::inv(z))
     };
     let y2 = xa.mul(&xa.sqr().add(&curve.a.mul(&xa)).add(&Fp2::one()));
-    JacPoint::new(xa, y2.sqrt(), Fp2::one())
+    Some(JacPoint::new(xa, y2.sqrt(), Fp2::one()))
 }
 
 // 4-coordinate theta arithmetic.
@@ -163,7 +168,9 @@ impl<L: FpBackend> ThetaStructureDim2<L> {
         let zp = big_z0.mul(&st[2].sqr());
         let tp = big_t0.mul(&st[3].sqr());
         let h = hadamard2(&[xp, yp, zp, tp]);
-        [h[0].clone(), y0.mul(&h[1]), z0.mul(&h[2]), t0.mul(&h[3])]
+        let doubled = [h[0].clone(), y0.mul(&h[1]), z0.mul(&h[2]), t0.mul(&h[3])];
+        zero_trace::vector(zero_trace::D2_DOUBLE, &doubled);
+        doubled
     }
 
     /// `2ⁿ·P`.
@@ -320,17 +327,21 @@ impl<L: FpBackend> FoldedBaseChangeDim2<L> {
                 }
             }
         }
+        // the inverse divides by every coordinate of zero12: with a zero
+        // among them there is none in this form (the dense path decides)
+        let invertible = !zero12.iter().any(|x| bool::from(x.ct_is_zero()));
         Some(Self {
             zero12: zero12.clone(),
             inv_zero12_scaled: crate::hd::field::products_of_others(zero12),
             rows,
-            unitary,
+            unitary: unitary && invertible,
         })
     }
 
     /// `M2^{-1} v` up to a scalar: `S (zero12^{-1} (N^* v))` with `S^{-T} = S / 4`,
     /// `zero12^{-1}` as products of the others and `N^{-1}` the conjugate
-    /// transpose; `None` when `N N^*` is not a scalar.
+    /// transpose; `None` when `N N^*` is not a scalar or a coordinate of
+    /// `zero12` is zero.
     pub fn apply_inverse_scaled(&self, v: &[Fp2<L>; 4]) -> Option<[Fp2<L>; 4]> {
         if !self.unitary {
             return None;
@@ -456,24 +467,29 @@ impl<L: FpBackend> TuplePoint<L> {
     }
 }
 
-/// `(X1·X2, X1·Z2, Z1·X2, Z1·Z2)` of a `TuplePoint`, with `(0:0)` components
-/// normalised to `(1:0)` (`GluingThetaIsogenyDim2.base_change`'s prelude).
-fn tuple_product_xz<L: FpBackend>(p: &TuplePoint<L>) -> [Fp2<L>; 4] {
+/// `(X1·X2, X1·Z2, Z1·X2, Z1·Z2)` of a `TuplePoint`
+/// (`GluingThetaIsogenyDim2.base_change`'s prelude). `None` when a
+/// component is a Jacobian triple `(0, y, 0)`: its Kummer coordinates are
+/// `(0 : 0)`, which is no point and is not read as the identity here (the
+/// identity is `(X : Y : 0)` with `X` not zero).
+fn tuple_product_xz<L: FpBackend>(p: &TuplePoint<L>) -> Option<[Fp2<L>; 4]> {
     // (X : Z) of each component, from Jacobian (X : Y : Z) → (X/Z² : 1) - but we
     // only need projective (X:Z), and to_xz gives (X : Z²).
     let q1 = p.p1.to_xz();
     let q2 = p.p2.to_xz();
-    let (mut x1, mut z1) = (q1.x, q1.z);
-    let (mut x2, mut z2) = (q2.x, q2.z);
-    if bool::from(x1.ct_is_zero()) && bool::from(z1.ct_is_zero()) {
-        x1 = Fp2::one();
-        z1 = Fp2::zero();
+    let (x1, z1) = (q1.x, q1.z);
+    let (x2, z2) = (q2.x, q2.z);
+    // `to_xz` sends a Jacobian `(0 : y : 0)` to `(1 : 0)`: the test is on
+    // the Jacobian coordinates.
+    let zero = |c: &Fp2<L>| bool::from(c.ct_is_zero());
+    let bad1 = zero(&p.p1.x) && zero(&p.p1.z);
+    let bad2 = zero(&p.p2.x) && zero(&p.p2.z);
+    zero_trace::flag(zero_trace::D2_KUMMER_00, bad1);
+    zero_trace::flag(zero_trace::D2_KUMMER_00, bad2);
+    if bad1 || bad2 {
+        return None;
     }
-    if bool::from(x2.ct_is_zero()) && bool::from(z2.ct_is_zero()) {
-        x2 = Fp2::one();
-        z2 = Fp2::zero();
-    }
-    [x1.mul(&x2), x1.mul(&z2), z1.mul(&x2), z1.mul(&z2)]
+    Some([x1.mul(&x2), x1.mul(&z2), z1.mul(&x2), z1.mul(&z2)])
 }
 
 // The (2,2)-isogeny gluing step (elliptic product → theta).
@@ -511,8 +527,10 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
             None => apply_mat4(&base_change_matrix, v),
         };
         let t_shift = k1_8.double(e1, e2); // 2·K1_8 (4-torsion shift)
-        let t1 = bc(&tuple_product_xz(k1_8));
-        let t2 = bc(&tuple_product_xz(k2_8));
+        let t1 = bc(&tuple_product_xz(k1_8)?);
+        let t2 = bc(&tuple_product_xz(k2_8)?);
+        zero_trace::vector(zero_trace::D2_BASE_CHANGE, &t1);
+        zero_trace::vector(zero_trace::D2_BASE_CHANGE, &t2);
         let (codomain, precomp, zero_idx) = Self::special_compute_codomain(&t1, &t2)?;
         Some(Self {
             base_change_matrix,
@@ -570,6 +588,7 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         precomp[3 ^ zero_idx] = Fp2::one();
 
         let null = hadamard2(&abcd);
+        zero_trace::vector(zero_trace::D2_GLUING_NULL, &null);
         Some((ThetaStructureDim2::new(null), precomp, zero_idx))
     }
 
@@ -601,15 +620,20 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
         xyzt[1 ^ z0] = y.mul(&den);
         xyzt[2 ^ z0] = z.mul(&den);
         xyzt[3 ^ z0] = t.mul(&den);
-        Some(hadamard2(&xyzt))
+        let image = hadamard2(&xyzt);
+        zero_trace::vector(zero_trace::D2_GLUING_IMAGE, &image);
+        Some(image)
     }
 
     /// Evaluate on a `TuplePoint` → codomain theta point. `None` when the
-    /// projective factor of the translate is undefined.
+    /// projective factor of the translate is undefined, or a component of
+    /// the point or of its translate is the triple `(0, y, 0)`.
     pub fn eval(&self, p: &TuplePoint<L>) -> Option<[Fp2<L>; 4]> {
         let p_sum = p.add(&self.t_shift, &self.e1, &self.e2);
-        let iso_p = self.base_change(&tuple_product_xz(p));
-        let iso_p_sum = self.base_change(&tuple_product_xz(&p_sum));
+        let iso_p = self.base_change(&tuple_product_xz(p)?);
+        let iso_p_sum = self.base_change(&tuple_product_xz(&p_sum)?);
+        zero_trace::vector(zero_trace::D2_BASE_CHANGE, &iso_p);
+        zero_trace::vector(zero_trace::D2_BASE_CHANGE, &iso_p_sum);
         self.special_image(&iso_p, &iso_p_sum)
     }
 
@@ -645,29 +669,43 @@ impl<L: FpBackend> GluingThetaIsogenyDim2<L> {
             None => apply_mat4(&mat_inverse(&self.base_change_matrix)?, &img),
         };
         let (x1x2, x1z2, z1x2, z1z2) = (bc[0].clone(), bc[1].clone(), bc[2].clone(), bc[3].clone());
+        zero_trace::vector(zero_trace::D2_DUAL_PRODUCT, &bc);
+        {
+            // a product point has x1x2 * z1z2 = x1z2 * z1x2
+            let product = bool::from(x1x2.mul(&z1z2).ct_equal(&x1z2.mul(&z1x2)));
+            zero_trace::flag(zero_trace::D2_DUAL_NOT_PRODUCT, !product);
+        }
 
         let (p1, p2) = if !bool::from(z1z2.ct_is_zero()) {
             let z2_inv = crate::hd::field::inv(&z1z2);
             let x2 = z1x2.mul(&z2_inv);
             let x1 = x1z2.mul(&z2_inv);
             (
-                lift_kummer(&self.e1, &x1, &Fp2::one()),
-                lift_kummer(&self.e2, &x2, &Fp2::one()),
+                lift_kummer(&self.e1, &x1, &Fp2::one())?,
+                lift_kummer(&self.e2, &x2, &Fp2::one())?,
             )
         } else if bool::from(z1x2.ct_is_zero()) && !bool::from(x1z2.ct_is_zero()) {
             let x2 = x1x2.mul(&crate::hd::field::inv(&x1z2));
             (
                 JacPoint::identity(),
-                lift_kummer(&self.e2, &x2, &Fp2::one()),
+                lift_kummer(&self.e2, &x2, &Fp2::one())?,
             )
         } else if !bool::from(z1x2.ct_is_zero()) && bool::from(x1z2.ct_is_zero()) {
             let x1 = x1x2.mul(&crate::hd::field::inv(&z1x2));
             (
-                lift_kummer(&self.e1, &x1, &Fp2::one()),
+                lift_kummer(&self.e1, &x1, &Fp2::one())?,
                 JacPoint::identity(),
             )
-        } else {
+        } else if bool::from(z1x2.ct_is_zero())
+            && bool::from(x1z2.ct_is_zero())
+            && !bool::from(x1x2.ct_is_zero())
+        {
+            // (X1 X2 : 0 : 0 : 0) with X1 X2 not zero: both are the identity
             (JacPoint::identity(), JacPoint::identity())
+        } else {
+            // the zero vector, or Z1 Z2 = 0 with X1 Z2 and Z1 X2 both not
+            // zero: the product coordinates of no pair of points
+            return None;
         };
         Some(TuplePoint::new(p1, p2))
     }
@@ -731,6 +769,7 @@ impl<L: FpBackend> ThetaIsogenyDim2<L> {
         // codomain dual null (A,B,C,D) with A=1, then Hadamard to standard.
         let abcd = [Fp2::<L>::one(), big_b, big_c, big_d];
         let null = hadamard2(&abcd);
+        zero_trace::vector(zero_trace::D2_PLAIN_NULL, &null);
         Some(Self {
             codomain: ThetaStructureDim2::new(null),
             precomp: [b_inv, c_inv, d_inv],
@@ -750,7 +789,9 @@ impl<L: FpBackend> ThetaIsogenyDim2<L> {
             st[2].mul(&self.precomp[1]),
             st[3].mul(&self.precomp[2]),
         ];
-        hadamard2(&img)
+        let image = hadamard2(&img);
+        zero_trace::vector(zero_trace::D2_PLAIN_IMAGE, &image);
+        image
     }
 }
 
@@ -889,6 +930,7 @@ impl<L: FpBackend> IsogenyChainDim2<L> {
             let st = squared_theta2(&cur);
             let prod: [Fp2<L>; 4] = core::array::from_fn(|k| st[k].mul(&inv[k]));
             cur = hadamard2(&prod);
+            zero_trace::vector(zero_trace::D2_DUAL_PLAIN, &cur);
         }
         self.gluing.dual_eval(&cur)
     }
@@ -943,6 +985,133 @@ mod zero_divisor_tests {
         assert!(g
             .special_image(&v([0, 0, 0, 0]), &v([0, 0, 0, 0]))
             .is_none());
+    }
+
+    fn gluing_with(null_bc: [Fp2<P>; 4]) -> GluingThetaIsogenyDim2<P> {
+        let id = || JacPoint::<P>::identity();
+        let e = EcCurve::<P>::from_a(&Fp2::from_small(6)).unwrap();
+        // an invertible base change: the Hadamard matrix
+        let h: [[Fp2<P>; 4]; 4] = core::array::from_fn(|i| {
+            core::array::from_fn(|j| {
+                if (i & j).count_ones() % 2 == 0 {
+                    Fp2::one()
+                } else {
+                    Fp2::one().neg()
+                }
+            })
+        });
+        GluingThetaIsogenyDim2::<P> {
+            base_change_matrix: h,
+            folded: None,
+            null_bc,
+            codomain: ThetaStructureDim2::new(v([1, 1, 1, 1])),
+            precomp: v([1, 1, 1, 1]),
+            zero_idx: 0,
+            t_shift: TuplePoint::new(id(), id()),
+            e1: e.clone(),
+            e2: e,
+        }
+    }
+
+    /// The splitting of the zero vector is no pair of points: `None`, not
+    /// the pair of identities.
+    #[test]
+    fn dual_gluing_rejects_the_zero_vector() {
+        let g = gluing_with(v([1, 1, 1, 1]));
+        assert!(g.dual_eval(&v([0, 0, 0, 0])).is_none());
+    }
+
+    /// The four cases of the splitting on product coordinates
+    /// `(X1X2, X1Z2, Z1X2, Z1Z2)`, through an identity base change: two
+    /// affine points, one identity on either side, two identities, and the
+    /// vectors that are the coordinates of no pair.
+    #[test]
+    fn dual_gluing_reads_only_product_coordinates() {
+        let mut g = gluing_with(v([1, 1, 1, 1]));
+        g.base_change_matrix = core::array::from_fn(|i| {
+            core::array::from_fn(|j| if i == j { Fp2::one() } else { Fp2::zero() })
+        });
+        // dual_eval squares through the Hadamard first: feed it the vector
+        // whose squared-theta is the wanted one, the wanted one being a
+        // Hadamard image of squares
+        let through = |want: [u8; 4]| -> Option<TuplePoint<P>> {
+            // squared_theta2(c) = H(c^2); with c in {0, 1} c^2 = c, so
+            // H(c) = want up to 4 when c = H(want) / 4 has entries 0 or 1
+            let h = hadamard2(&v(want));
+            let c: [Fp2<P>; 4] = core::array::from_fn(|k| {
+                if bool::from(h[k].ct_is_zero()) {
+                    Fp2::zero()
+                } else {
+                    Fp2::one()
+                }
+            });
+            let st = squared_theta2(&c);
+            let nonzero = |x: &Fp2<P>| !bool::from(x.ct_is_zero());
+            assert_eq!(
+                core::array::from_fn::<bool, 4, _>(|k| nonzero(&st[k])),
+                want.map(|x| x != 0),
+                "the test vector has the wanted zero pattern"
+            );
+            g.dual_eval(&c)
+        };
+        let is_id = |p: &JacPoint<P>| bool::from(p.z.ct_is_zero());
+        // (1, 0, 0, 0): both identities
+        let both = through([1, 0, 0, 0]).expect("two identities");
+        assert!(is_id(&both.p1) && is_id(&both.p2));
+        // (1, 1, 1, 1): two affine points
+        let aff = through([1, 1, 1, 1]).expect("two affine points");
+        assert!(!is_id(&aff.p1) && !is_id(&aff.p2));
+        // (0, 0, 0, 0): no pair
+        assert!(through([0, 0, 0, 0]).is_none());
+    }
+
+    /// `(0 : 0)` lifts to nothing; `(X : 0)` to the identity.
+    #[test]
+    fn kummer_lift_rejects_zero_zero() {
+        let e = EcCurve::<P>::from_a(&Fp2::from_small(6)).unwrap();
+        assert!(lift_kummer(&e, &Fp2::zero(), &Fp2::zero()).is_none());
+        let id = lift_kummer(&e, &Fp2::one(), &Fp2::zero()).unwrap();
+        assert!(bool::from(id.z.ct_is_zero()) && !bool::from(id.x.ct_is_zero()));
+        assert!(lift_kummer(&e, &Fp2::from_small(3), &Fp2::one()).is_some());
+    }
+
+    /// A Jacobian triple `(0, y, 0)`, the all-zero one among them, has
+    /// Kummer coordinates `(0 : 0)`: no product coordinates, on either
+    /// component, and no image under the gluing.
+    #[test]
+    fn product_coordinates_reject_zero_zero() {
+        let f = |x: u64| Fp2::<P>::from_small(x);
+        let good = JacPoint::<P>::new(f(5), f(7), f(3));
+        let id = JacPoint::<P>::identity();
+        assert!(tuple_product_xz(&TuplePoint::new(good.clone(), id.clone())).is_some());
+        for bad in [
+            JacPoint::<P>::new(f(0), f(1), f(0)),
+            JacPoint::<P>::new(f(0), f(0), f(0)),
+        ] {
+            assert!(tuple_product_xz(&TuplePoint::new(bad.clone(), good.clone())).is_none());
+            assert!(tuple_product_xz(&TuplePoint::new(good.clone(), bad.clone())).is_none());
+            assert!(tuple_product_xz(&TuplePoint::new(bad.clone(), bad.clone())).is_none());
+            let g = gluing_with(v([1, 1, 1, 1]));
+            assert!(g
+                .eval(&TuplePoint::new(bad.clone(), good.clone()))
+                .is_none());
+            assert!(g.eval(&TuplePoint::new(good.clone(), bad)).is_none());
+        }
+    }
+
+    /// The folded base change has no inverse in its form when a coordinate
+    /// of `zero12` is zero: `None`, and the dense path decides.
+    #[test]
+    fn folded_inverse_rejects_a_zero_of_zero12() {
+        let n: [[Fp2<P>; 4]; 4] = core::array::from_fn(|i| {
+            core::array::from_fn(|j| if i == j { Fp2::one() } else { Fp2::zero() })
+        });
+        let ok = FoldedBaseChangeDim2::<P>::new(&v([1, 1, 1, 1]), &n).unwrap();
+        assert!(ok.apply_inverse_scaled(&v([1, 1, 1, 1])).is_some());
+        for zero12 in [[1, 0, 1, 1], [0, 0, 0, 0]] {
+            let f = FoldedBaseChangeDim2::<P>::new(&v(zero12), &n).unwrap();
+            assert!(f.apply_inverse_scaled(&v([1, 1, 1, 1])).is_none());
+        }
     }
 
     #[test]
