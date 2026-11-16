@@ -88,7 +88,14 @@ SQIsignHD verifies a dimension-4 isogeny where SQIsign verifies a dimension-2 on
     $p^{1/3+o(1)}$~\cite{Wes26}. The round-3 submission of September 2026
     answered by replacing the round-2 primes with larger ones, $3 \cdot 2^{324}
     - 1$, $27 \cdot 2^{500} - 1$ and $17 \cdot 2^{664} - 1$ at levels I, III
-    and V~\cite{AAA+26}.
+    and V~\cite{AAA+26}. The larger primes raised the level-I signature from
+    148 to 200 bytes~\cite{AAA+25,AAA+26}. Some carriers have a fixed byte
+    budget for the signature and the signed data together: a comment on the
+    reference implementation's issue tracker reports that barcodes on
+    physical credentials, such as driver's licenses, can be limited to 250
+    to 300 bytes for the signature and all the other information, and that
+    verification overhead in the millisecond range is acceptable for these
+    uses~\cite{SQI26i19}.
 
     \paragraph{Our contributions.}
     We revisit SQIsignHD's dimension-4 response at these primes. Our research
