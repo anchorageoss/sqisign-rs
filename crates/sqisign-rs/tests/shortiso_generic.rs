@@ -216,7 +216,7 @@ fn smooth_numbers() -> Vec<BigUint> {
     out
 }
 
-/// Primes `D m^2 - 1` with `m` composite: for each `D` of class number one
+/// Primes `D m^2 - 1` with `m` not a power of 2: for each `D` of class number one
 /// in the list, the least 11-smooth `m` with an odd prime factor in each of
 /// four size bands for which `D m^2 - 1` is prime.
 #[test]
