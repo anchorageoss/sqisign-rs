@@ -8,7 +8,7 @@ not in this repository. Findings: `REPORT.md`.
 
     sh paper-shortiso/run.sh
 
-It builds four test binaries of `sqisign-rs` in release mode, runs them,
+It builds five test binaries of `sqisign-rs` in release mode, runs them,
 writes one log per item to `results/` and exits non-zero if any assertion
 fails. Measured on a 32-core x86-64 machine on 2026-11-27: 56 s for the
 cold release build, then 15 to 50 s for the run (about 2 minutes of CPU
@@ -28,13 +28,17 @@ those records instead.
 | 4: the norm equations, integers only | `shortiso_equations.rs` | `results/item4.log` |
 | 5: what stays with Sage | none | `results/item5.log` |
 | 6: the (D, m, h(-D)) table, class polynomials | `shortiso_table.rs` | `results/item6.log`, `SOURCES.md` |
+| 7: minimality by exact enumeration in the ideal classes | `shortiso_minimum.rs`, `shortiso_common/quat.rs` | `results/item7.log` |
 
 `shortiso_common/` is test-only: `field.rs` (F_p and F_{p^2} over any
 prime p = 3 mod 4, on num-bigint), `curve.rs` (Jacobian points, iota and
 Frobenius on points, Velu isogenies of degree 2 and of odd prime degree,
 discrete logarithms in smooth cyclic groups), `classpoly.rs` (reduced
 forms, class numbers, class polynomials by fixed-point q-expansions),
-`mod.rs` (the kernel of Corollary A, the chain walk, the records).
+`quat.rs` (the quaternion algebra in exact integers: lattices in Hermite
+normal form, the norm form of a left ideal of O0, the exact minimum of a
+quaternary form), `mod.rs` (the kernel of Corollary A, the chain walk, the
+records).
 
 ## Records
 
@@ -49,6 +53,8 @@ forms, class numbers, class polynomials by fixed-point q-expansions),
   endomorphism ring of the endpoint of the chain.
 - `SOURCES.md`: file and section references for the claims about SQIsign
   and MIKE.
+- `notes/iso_isogeny_2chain_from-doc.patch`: a one-line fix to a doc
+  comment of the library, for a separate pull request; not applied here.
 
 Nothing here uses SageMath or Python. The paper's Sage scripts were not
 available when this was written; `REPORT.md` says which claims that leaves

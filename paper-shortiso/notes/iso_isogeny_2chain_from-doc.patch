@@ -1,0 +1,33 @@
+Doc comment of iso_isogeny_2chain_from (crates/verify/src/ec/isogeny.rs).
+
+For a PR to main; not applied on agent/shortiso. Apply with
+  git apply paper-shortiso/notes/iso_isogeny_2chain_from-doc.patch
+
+The comment says the function returns the codomain of the 2^length-isogeny
+with kernel <kernel>. It walks length - 2 steps of degree 2: the isogeny has
+kernel <[4] kernel>, and the image of the kernel generator, a point of order
+4 by then, only fixes the Montgomery model of the curve reached. The crate's
+callers already pass a kernel with two bits of extra torsion, so no behaviour
+changes. Found while walking the chain of Corollary A three ways
+(crates/sqisign-rs/tests/shortiso_sqisign.rs, walk (c)): fed with the
+generator of G and length e the function ends at step e - 2 of the chain of
+2-isogenies; fed with a point two doublings above it and length e + 2 it ends
+at step e.
+
+The next paragraph of the same comment ("The last 4-isogeny is not computed
+explicitly ... yields the codomain directly") rests on the same reading and
+may want rewording in the same PR; this patch leaves it alone.
+
+diff --git a/crates/verify/src/ec/isogeny.rs b/crates/verify/src/ec/isogeny.rs
+index 388a83c..04b35fc 100644
+--- a/crates/verify/src/ec/isogeny.rs
++++ b/crates/verify/src/ec/isogeny.rs
+@@ -51,7 +51,7 @@ pub fn iso_xeval_4<L: FpBackend>(q: &EcPoint<L>, kps: &EcKps4<L>) -> EcPoint<L>
+ const STACK: usize = 16;
+ 
+ /// `TwoIsogenyChain`: the codomain, in canonical Montgomery form, of the
+-/// `2^length`-isogeny with kernel `<kernel>` on `curve` (`length` even).
++/// `2^(length - 2)`-isogeny with kernel `<[4] kernel>` on `curve` (`length` even).
+ /// Returns `None` if the kernel does not have the claimed order, lies above
+ /// `(0, 0)`, or the final normalisation fails.
+ ///
