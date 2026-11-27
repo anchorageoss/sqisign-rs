@@ -1,0 +1,6 @@
+# H_-68(X), class polynomial of the order of discriminant -68; degree 4; coefficients of X^0, X^1, ... one per line
+-2089297506304000000000000
+-318507038720000000000
+-75843692160000000
+-178211040000
+1
