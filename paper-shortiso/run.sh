@@ -16,12 +16,15 @@ status=0
 
 cargo test --release -p sqisign-rs --no-run \
     --test shortiso_sqisign --test shortiso_generic \
-    --test shortiso_equations --test shortiso_table >/dev/null 2>&1
+    --test shortiso_equations --test shortiso_table \
+    --test shortiso_minimum >/dev/null 2>&1
 
-# run one test binary; keep its output from "running N tests" on
+# run one test binary (further arguments go to the test harness); keep its
+# output from "running N tests" on
 run() {
     name=$1
-    if ! cargo test --release -p sqisign-rs --test "$name" -- --nocapture \
+    shift
+    if ! cargo test --release -p sqisign-rs --test "$name" -- --nocapture "$@" \
         >"$tmp/$name.raw" 2>&1; then
         status=1
     fi
@@ -38,6 +41,7 @@ run shortiso_sqisign
 run shortiso_generic
 run shortiso_equations
 run shortiso_table
+run shortiso_minimum --test-threads=1
 
 {
     header "item 1: the three SQIsign primes on the crate's field, curve, basis and stored action" crates/sqisign-rs/tests/shortiso_sqisign.rs
@@ -76,6 +80,11 @@ run shortiso_table
     echo "Source references for the claims about SQIsign and MIKE: paper-shortiso/SOURCES.md"
 } >"$out/item6.log"
 
+{
+    header "item 7: the minimality of Corollary A by exact enumeration in the ideal classes" crates/sqisign-rs/tests/shortiso_minimum.rs
+    cat "$tmp/shortiso_minimum.log"
+} >"$out/item7.log"
+
 # the table of primes
 {
     printf 'group\tprime\tbits\tD\tm\tsteps\tendpoint\tchain\tresult\n'
@@ -88,7 +97,7 @@ run shortiso_table
         sort -t "$(printf '\t')" -k1,1 -k3,3n
 } >"$out/primes.tsv"
 
-for name in shortiso_sqisign shortiso_generic shortiso_equations shortiso_table; do
+for name in shortiso_sqisign shortiso_generic shortiso_equations shortiso_table shortiso_minimum; do
     if ! grep -q '^test result: ok' "$tmp/$name.log"; then
         status=1
         echo "FAILED: $name (see $out)" >&2

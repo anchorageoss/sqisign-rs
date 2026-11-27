@@ -9,6 +9,7 @@
 pub mod classpoly;
 pub mod curve;
 pub mod field;
+pub mod quat;
 
 use curve::{dlog_smooth, frobenius, has_exact_order, iota, Curve, Isogeny, Pt};
 use field::{Field, F2};
