@@ -1,5 +1,5 @@
 # paper-shortiso, item 4: the norm equations, integers only
-# 336a303 2026-11-27T07:00Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# 839fe24 2026-11-27T22:12Z rustc 1.100.0 (0ef1bc386 2026-11-09)
 # produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_equations.rs
 running 2 tests
 BELOW|D=28|p=47|admissible quadruple at delta=3 < 5, c^2+e^2 in [4] (a failure unless this is the D = 28 control)
@@ -16,5 +16,5 @@ ROW|item4|D=28|the same, optimal embeddings of the order of discriminant -28 onl
 INFO|item4|D=28|control, expected to fail: with 28 delta^2 - p and 28 delta^2 - 8p as the two conditions, 51364 admissible quadruples lie below the minimum, at 19290 of 54260 primes; smallest case p = 47
 test two_conditions ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.45s
 
