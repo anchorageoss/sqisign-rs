@@ -1,0 +1,13 @@
+# Right order O_R(I) of I = O0*theta + O0*m, theta = (t*m + i + j)/2, at p = 3*2^324 - 1.
+# It is the endomorphism ring of the endpoint E0/G of Corollary A (D = 3, m = 2^162, t = 1).
+# Basis: four elements (c0 + c1*i + c2*j + c3*k)/denom of B = (-1, -p), i^2 = -1, j^2 = -p, k = i*j;
+# i is iota: (x, y) -> (-x, i*y), j is the p-power Frobenius of E0: y^2 = x^3 + x.
+# omega = theta/m = (1*m + i + j)/(2*m) lies in it: trace 1, norm 1, discriminant -3; Z[omega] is
+# optimally embedded (orders checked and found absent: none exists).
+# Produced by crates/sqisign-rs/tests/shortiso_sqisign.rs (Hermite normal form over (1, i, j, k)).
+denom = 11692013098647223345629478661730264157247460343808
+b0 = [11692013098647223345629478661730264157247460343808, 0, 0, 0]
+b1 = [0, 68351585149469122636640694597425667667286544715412888638305331450311031224980497600734786781970432, 0, 0]
+b2 = [5846006549323611672814739330865132078623730171904, 1, 1, 0]
+b3 = [5846006549323611672814739330865132078623730171904, 34175792574734561318320347298712833833643272357706444319152665725155515612490248800367393390985216, 0, 5846006549323611672814739330865132078623730171904]
+j_endpoint = 0x0
