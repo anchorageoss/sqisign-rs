@@ -53,7 +53,7 @@ impl Field {
         self.int(&BigInt::from(v))
     }
 
-    pub fn from_parts(&self, re: &BigUint, im: &BigUint) -> F2 {
+    pub fn elem(&self, re: &BigUint, im: &BigUint) -> F2 {
         F2 {
             re: re % &self.p,
             im: im % &self.p,

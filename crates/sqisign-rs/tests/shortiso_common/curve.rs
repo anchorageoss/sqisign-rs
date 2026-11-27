@@ -287,7 +287,7 @@ pub fn torsion_basis(
     let mut next = |want: &dyn Fn(&Pt) -> bool| loop {
         k += 1;
         assert!(k < 5000, "no torsion point found");
-        let x = f.from_parts(&BigUint::from(k), &BigUint::from(2u32));
+        let x = f.elem(&BigUint::from(k), &BigUint::from(2u32));
         let Some(r) = e.lift_x(f, &x) else { continue };
         let t = e.mul(f, &cof, &r);
         if want(&t) {

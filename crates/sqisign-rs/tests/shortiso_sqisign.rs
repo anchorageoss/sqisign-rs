@@ -238,10 +238,10 @@ fn curve_side<L: FpBackend + PrimePrecomp, const N: usize>(
     let row = if mat.0[0][gen_col].is_odd() { 0 } else { 1 };
     let inv = mat.0[row][gen_col].invmod(&m).expect("odd entry");
     let lambda = mat.0[row][1 - gen_col].mul(&inv).modulo(&m);
-    for r in 0..2 {
+    for row_entries in &mat.0 {
         assert_eq!(
-            mat.0[r][gen_col].mul(&lambda).modulo(&m),
-            mat.0[r][1 - gen_col],
+            row_entries[gen_col].mul(&lambda).modulo(&m),
+            row_entries[1 - gen_col],
             "{name}: the second column is lambda times the first"
         );
     }
