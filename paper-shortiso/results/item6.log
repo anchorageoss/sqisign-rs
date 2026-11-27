@@ -1,0 +1,21 @@
+# paper-shortiso, item 6: the (D, m, h(-D)) table and the claims about other schemes
+# 336a303 2026-11-27T07:00Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_table.rs
+running 2 tests
+ROW|table|SQIsign I|3*2^324-1|326 bits|D=3|m=2^162|h(-3)=1|conductor 1|PASS
+INFO|class polynomial code agrees with the 13 class-number-one j-invariants and with H_-15, H_-20, H_-23
+test class_polynomials_known_values ... ok
+ROW|table|SQIsign III|27*2^500-1|505 bits|D=27|m=2^250|h(-27)=1|conductor 3|PASS
+ROW|table|SQIsign V|17*2^664-1|669 bits|D=68|m=2^331|h(-68)=4|conductor 1|PASS
+ROW|table|MIKE conservative I|117*2^374-1|381 bits|D=468|m=2^186|h(-468)=8|conductor 3|PASS
+ROW|table|MIKE conservative III|77*2^566-1|573 bits|D=308|m=2^282|h(-308)=8|conductor 1|PASS
+ROW|table|MIKE conservative V|41*2^758-1|764 bits|D=164|m=2^378|h(-164)=8|conductor 1|PASS
+ROW|table|MIKE fast I|633*2^308-1|318 bits|D=2532|m=2^153|h(-2532)=20|conductor 1|PASS
+ROW|table|MIKE fast III|593*2^474-1|484 bits|D=2372|m=2^236|h(-2372)=24|conductor 1|PASS
+ROW|table|MIKE fast V|317*2^628-1|637 bits|D=1268|m=2^313|h(-1268)=10|conductor 1|PASS
+test d_m_h_table ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+
+Source references for the claims about SQIsign and MIKE: paper-shortiso/SOURCES.md

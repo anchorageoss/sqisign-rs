@@ -1,0 +1,10 @@
+# paper-shortiso, item 2: the quaternion side at the three SQIsign primes
+# 336a303 2026-11-27T07:00Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_sqisign.rs
+ROW|item2|level I|I = O0 theta + O0 m: norm m, not in 2 O0|right order maximal, contains theta/m of discriminant -3, primitive|KernelToIdeal(G) = I|smallest equivalent ideal has norm m|ideal_to_isogeny_qlapoty on I: 0 of 8 attempts returned a curve|on I ∩ L: E0/(I ∩ L) = E_L/phi_L(G) (attempt 2)|endpoints/level1.txt|PASS
+test level_1 ... ok
+ROW|item2|level III|I = O0 theta + O0 m: norm m, not in 2 O0|right order maximal, contains theta/m of discriminant -27, primitive|KernelToIdeal(G) = I|smallest equivalent ideal has norm m|ideal_to_isogeny_qlapoty on I: 0 of 8 attempts returned a curve|on I ∩ L: E0/(I ∩ L) = E_L/phi_L(G) (attempt 0)|endpoints/level3.txt|PASS
+test level_3 ... ok
+ROW|item2|level V|I = O0 theta + O0 m: norm m, not in 2 O0|right order maximal, contains theta/m of discriminant -68, primitive|KernelToIdeal(G) = I|smallest equivalent ideal has norm m|ideal_to_isogeny_qlapoty on I: 0 of 8 attempts returned a curve|on I ∩ L: E0/(I ∩ L) = E_L/phi_L(G) (attempt 0)|endpoints/level5.txt|PASS
+test level_5 ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s

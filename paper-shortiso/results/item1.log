@@ -1,0 +1,13 @@
+# paper-shortiso, item 1: the three SQIsign primes on the crate's field, curve, basis and stored action
+# 336a303 2026-11-27T07:00Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_sqisign.rs
+ROW|item1|level I|3*2^324-1|D=3|m=2^162|kernel: ACTION_GEN3 - (m/2) on E0[m], generator the image of P, cyclic of order m|j = 0 after 162 steps; j = 54000 at step 161|all j in F_p, none repeats|2-steps = 4-steps = strategy chain|chain digest 898f54c74507e4c6|PASS
+ROW|item1|level III|27*2^500-1|D=27|m=2^250|kernel: ACTION_GEN3 - (m/2) on E0[m], generator the image of P, cyclic of order m|j = -12288000 after 250 steps|all j in F_p, none repeats|2-steps = 4-steps = strategy chain|chain digest d197988dc7f5a559|PASS
+ROW|item1|level V|17*2^664-1|D=68|m=2^331|kernel: ACTION_GEN3 on E0[m], generator the image of P, cyclic of order m|root of H_-68 after 331 steps|all j in F_p, none repeats|2-steps = 4-steps = strategy chain|chain digest 247ca83dd6d9f566|PASS
+ROW|item3-cross|level I|generic module: same kernel points as the stored matrix, same 163 j-invariants|PASS
+test level_1 ... ok
+ROW|item3-cross|level III|generic module: same kernel points as the stored matrix, same 251 j-invariants|PASS
+test level_3 ... ok
+ROW|item3-cross|level V|generic module: same kernel points as the stored matrix, same 332 j-invariants|PASS
+test level_5 ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s
