@@ -1,5 +1,5 @@
 # paper-shortiso, item 2: the quaternion side at the three SQIsign primes
-# 839fe24 2026-11-27T22:12Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# 136b11b 2026-11-28T01:06Z rustc 1.100.0 (0ef1bc386 2026-11-09)
 # produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_sqisign.rs
 ROW|item2|level I|I = O0 theta + O0 m: norm m, not in 2 O0|right order maximal, contains theta/m of discriminant -3, primitive|KernelToIdeal(G) = I|smallest equivalent ideal has norm m|ideal_to_isogeny_qlapoty on I: 0 of 8 attempts returned a curve|on I ∩ L: E0/(I ∩ L) = E_L/phi_L(G) (attempt 2)|endpoints/level1.txt|PASS
 test level_1 ... ok

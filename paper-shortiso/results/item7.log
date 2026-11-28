@@ -1,5 +1,5 @@
 # paper-shortiso, item 7: the minimality of Corollary A by exact enumeration in the ideal classes
-# 839fe24 2026-11-27T22:12Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# 136b11b 2026-11-28T01:06Z rustc 1.100.0 (0ef1bc386 2026-11-09)
 # produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_minimum.rs
 running 3 tests
 test mike_primes_exact_minimum ... CLASS|117*2^374-1|order of discriminant -468|form (1, 0, 117)|least degree = 1.000000 m = 98079714615416886934934209737619787751599303819750539264|minimal vectors 4|box half sides [1, 1, 0, 0]|vectors evaluated 4

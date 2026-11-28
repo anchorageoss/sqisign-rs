@@ -1,5 +1,5 @@
 # paper-shortiso, item 6: the (D, m, h(-D)) table and the claims about other schemes
-# 839fe24 2026-11-27T22:12Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# 136b11b 2026-11-28T01:06Z rustc 1.100.0 (0ef1bc386 2026-11-09)
 # produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_table.rs
 running 2 tests
 ROW|table|SQIsign I|3*2^324-1|326 bits|D=3|m=2^162|h(-3)=1|conductor 1|PASS

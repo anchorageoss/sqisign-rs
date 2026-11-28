@@ -1,5 +1,5 @@
 # paper-shortiso, item 1: the three SQIsign primes on the crate's field, curve, basis and stored action
-# 839fe24 2026-11-27T22:12Z rustc 1.100.0 (0ef1bc386 2026-11-09)
+# 136b11b 2026-11-28T01:06Z rustc 1.100.0 (0ef1bc386 2026-11-09)
 # produced by paper-shortiso/run.sh from crates/sqisign-rs/tests/shortiso_sqisign.rs
 ROW|item1|level I|3*2^324-1|D=3|m=2^162|kernel: ACTION_GEN3 - (m/2) on E0[m], generator the image of P, cyclic of order m|j = 0 after 162 steps; j = 54000 at step 161|all j in F_p, none repeats|2-steps = 4-steps = strategy chain|chain digest 898f54c74507e4c6|PASS
 ROW|item1|level III|27*2^500-1|D=27|m=2^250|kernel: ACTION_GEN3 - (m/2) on E0[m], generator the image of P, cyclic of order m|j = -12288000 after 250 steps|all j in F_p, none repeats|2-steps = 4-steps = strategy chain|chain digest d197988dc7f5a559|PASS
