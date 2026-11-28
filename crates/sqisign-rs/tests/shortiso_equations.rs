@@ -10,13 +10,17 @@
 //!
 //!   `D delta^2 = X^2 + p (c^2 + e^2)`, `X = c mod 2`, `e = t delta mod 2`.
 //!
-//! For `D` in `{3, 8, 11, 12, 27}` and every prime `p = 3 mod 4` below
-//! `3 * 10^6` inert in `Q(sqrt(-D))`, the least `delta` with
+//! For `D` in `{3, 8, 11, 12, 27}` and every prime `p = 3 mod 4` with
+//! `3 < p < 3 * 10^6` inert in `Q(sqrt(-D))`, the least `delta` with
 //! `D delta^2 - p` a perfect square is computed (`c^2 + e^2 = 1`) and every
 //! `delta` below it is searched exhaustively for an admissible quadruple
 //! with any `c^2 + e^2`: none may exist. For `D` in `{7, 28}` a second
 //! value of `c^2 + e^2` competes and the minimum is taken over the two
 //! conditions stated at `two_conditions`.
+//!
+//! The paper assumes `p > 3` throughout, so `p = 3` is left out. It is
+//! inert in `Q(sqrt(-7))` only among these fields (it divides 3, 12 and 27
+//! and splits for 8 and 11), so it would count for `D = 7` and `D = 28`.
 
 use std::collections::BTreeMap;
 
@@ -188,7 +192,7 @@ fn run(d: u64, conditions: &[(u64, u64)], optimal_only: bool) -> Tally {
         n_at_min: BTreeMap::new(),
     };
     for p in primes_below(LIMIT) {
-        if p % 4 != 3 || d % p == 0 || legendre(-(d as i64), p) != -1 {
+        if p <= 3 || p % 4 != 3 || d % p == 0 || legendre(-(d as i64), p) != -1 {
             continue;
         }
         tally.primes += 1;
@@ -237,7 +241,7 @@ fn run(d: u64, conditions: &[(u64, u64)], optimal_only: bool) -> Tally {
 
 fn report(d: u64, what: &str, t: &Tally) {
     println!(
-        "ROW|item4|D={d}|{what}|primes p = 3 mod 4 below {LIMIT} inert in Q(sqrt(-{d})): {}|largest least delta {} (p = {})|{} values of delta below the minimum searched, {} pairs (c, e) tried|admissible quadruples below the minimum: {} (at {} primes)|c^2+e^2 at the minimum, by number of primes: {:?}|of which p = D m^2 - 1: {} (least delta = m)|{}",
+        "ROW|item4|D={d}|{what}|primes p = 3 mod 4, 3 < p < {LIMIT}, inert in Q(sqrt(-{d})): {}|largest least delta {} (p = {})|{} values of delta below the minimum searched, {} pairs (c, e) tried|admissible quadruples below the minimum: {} (at {} primes)|c^2+e^2 at the minimum, by number of primes: {:?}|of which p = D m^2 - 1: {} (least delta = m)|{}",
         t.primes,
         t.max_delta,
         t.max_delta_p,
